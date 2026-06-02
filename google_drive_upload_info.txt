@@ -1,0 +1,57 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║       🎮 将棋 - Shogi Board - Google Drive アップロード情報                ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📦 アップロード対象ファイル:
+
+1️⃣  APK ファイル (テスト・デバイス直接インストール用)
+   📱 ファイル名: 将棋ShogiBoard-v1.0.0-release.apk
+   📊 サイズ: 55.8MB
+   📍 ローカルパス: C:\Users\Administrator\OneDrive\subwork\smartphone\smart-claude-code\shogi_app\将棋ShogiBoard-v1.0.0-release.apk
+   🔗 Google Drive ID: 1HXMCexq4XwJM3OOPoYx-lRGFTHpVLZGp
+   🌐 表示URL: https://drive.google.com/file/d/1HXMCexq4XwJM3OOPoYx-lRGFTHpVLZGp/view
+
+2️⃣  AAB ファイル (Google Play Store 提出用 - 推奨)
+   📦 ファイル名: 将棋ShogiBoard-v1.0.0-release.aab
+   📊 サイズ: 46.7MB
+   📍 ローカルパス: C:\Users\Administrator\OneDrive\subwork\smartphone\smart-claude-code\shogi_app\将棋ShogiBoard-v1.0.0-release.aab
+   🔗 Google Drive ID: 1BEjHeIXU5FzdG-Pjd2XUqH8Tc7IllHDa
+   🌐 表示URL: https://drive.google.com/file/d/1BEjHeIXU5FzdG-Pjd2XUqH8Tc7IllHDa/view
+
+─────────────────────────────────────────────────────────────────────────────
+
+📁 Google Drive フォルダ:
+   フォルダID: 1-LE3-eruUIYzijyyro0CLrm_J-nxnvH0
+   (わくわく迷路APKと同じフォルダ)
+
+─────────────────────────────────────────────────────────────────────────────
+
+🔐 アプリ情報:
+  パッケージ名: com.petitStudio.shogiApp
+  バージョン:   1.0.0 (build 1)
+  ビルド日:     2026-05-23
+  署名:         デバッグ署名（リリース前に本番署名が必要）
+
+─────────────────────────────────────────────────────────────────────────────
+
+📤 実ファイルを Google Drive に上書きアップロードする手順:
+
+【方法A】ブラウザから直接:
+  1. https://drive.google.com にアクセス
+  2. 上記フォルダを開く
+  3. 既存エントリを右クリック → 「バージョンを管理」→ 「新しいバージョンをアップロード」
+  4. ローカルパスのファイルを選択
+
+【方法B】Google Drive デスクトップアプリ:
+  1. Google Drive デスクトップアプリでフォルダを開く
+  2. ファイルをドラッグ&ドロップ
+  3. 自動同期を待つ
+
+─────────────────────────────────────────────────────────────────────────────
+
+⚠️  リリース前の必須作業:
+  □ Android リリース署名鍵の作成 (GOOGLE_PLAY_CHECKLIST.md 参照)
+  □ Firebase 本番設定 (firebase_options.dart の更新)
+  □ AdMob 本番 App ID の設定 (AndroidManifest.xml)
+  □ プライバシーポリシー URL のホスティング
+  □ Google Play Console で IAP 製品の登録

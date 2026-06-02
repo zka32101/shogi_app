@@ -1,0 +1,10 @@
+{
+  "android": null,
+  "ios": null,
+  "project_info": {
+    "app_type": "game",
+    "has_firebase": false,
+    "has_sentry": true,
+    "has_ads": false
+  }
+}
