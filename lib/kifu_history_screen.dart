@@ -1,0 +1,907 @@
+// lib/kifu_history_screen.dart — 棋譜一覧・KIF エクスポート/インポート
+// ignore_for_file: avoid_web_libraries_in_flutter
+
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'piece.dart';
+import 'kifu_replay_screen.dart';
+import 'kif_utils.dart';
+import 'kansousen_screen.dart';
+import 'game_screen.dart' show initShogiBoard, PieceTheme;
+
+class KifuHistoryScreen extends StatefulWidget {
+  /// タブに埋め込む場合は false（戻るボタンを非表示）
+  final bool showBackButton;
+  const KifuHistoryScreen({super.key, this.showBackButton = true});
+  @override
+  State<KifuHistoryScreen> createState() => _KifuHistoryScreenState();
+}
+
+enum _SortMode { dateDesc, dateAsc, movesDesc, movesAsc }
+enum _FilterResult { all, p1Win, p2Win, draw, favorite }
+
+class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
+  List<Map<String, dynamic>> _records = [];
+  bool _loading = true;
+
+  // ── フィルター・ソート ──
+  _SortMode _sortMode = _SortMode.dateDesc;
+  _FilterResult _filterResult = _FilterResult.all;
+  String _searchQuery = '';
+  bool _showFilter = false;
+  final TextEditingController _searchCtrl = TextEditingController();
+
+  List<Map<String, dynamic>> get _filtered {
+    var list = List<Map<String, dynamic>>.from(_records);
+    // 結果フィルター
+    if (_filterResult != _FilterResult.all) {
+      list = list.where((r) {
+        final res = r['result'] as String? ?? '';
+        switch (_filterResult) {
+          case _FilterResult.p1Win:    return res.contains('先手');
+          case _FilterResult.p2Win:    return res.contains('後手');
+          case _FilterResult.draw:     return res.contains('引き分け');
+          case _FilterResult.favorite: return r['favorite'] == true;
+          default: return true;
+        }
+      }).toList();
+    }
+    // 検索
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((r) {
+        final result = (r['result'] as String? ?? '').toLowerCase();
+        final mode   = (r['mode']   as String? ?? '').toLowerCase();
+        final date   = (r['date']   as String? ?? '').toLowerCase();
+        final comment = (r['comment'] as String? ?? '').toLowerCase();
+        return result.contains(q) || mode.contains(q) ||
+               date.contains(q)   || comment.contains(q);
+      }).toList();
+    }
+    // ソート
+    list.sort((a, b) {
+      switch (_sortMode) {
+        case _SortMode.dateDesc:
+          return (b['date'] as String? ?? '').compareTo(a['date'] as String? ?? '');
+        case _SortMode.dateAsc:
+          return (a['date'] as String? ?? '').compareTo(b['date'] as String? ?? '');
+        case _SortMode.movesDesc:
+          return ((b['moveCount'] as int? ?? 0)).compareTo(a['moveCount'] as int? ?? 0);
+        case _SortMode.movesAsc:
+          return ((a['moveCount'] as int? ?? 0)).compareTo(b['moveCount'] as int? ?? 0);
+      }
+    });
+    return list;
+  }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('kifu_records') ?? '[]';
+      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      setState(() { _records = list; _loading = false; });
+      final beforeLen = _records.length;
+      _autoCleanRecords();
+      if (_records.length != beforeLen) {
+        final prefs2 = await SharedPreferences.getInstance();
+        await prefs2.setString('kifu_records', jsonEncode(_records));
+      }
+    } catch (_) {
+      setState(() => _loading = false);
+    }
+  }
+
+  void _autoCleanRecords() {
+    if (_records.length <= 100) return;
+    final cutoff = DateTime.now().subtract(const Duration(days: 30));
+    _records.removeWhere((r) {
+      if (r['favorite'] == true) return false;
+      final dateStr = r['date'] as String? ?? '';
+      try {
+        final date = DateTime.parse(
+            dateStr.replaceAll('/', '-').replaceFirst(' ', 'T'));
+        return date.isBefore(cutoff);
+      } catch (_) {
+        return false;
+      }
+    });
+  }
+
+  Future<void> _delete(int index) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('削除', style: TextStyle(color: Colors.white)),
+        content: const Text('この棋譜を削除しますか？',
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('削除', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      setState(() => _records.removeAt(index));
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('kifu_records', jsonEncode(_records));
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('削除しました')));
+      }
+    }
+  }
+
+  // ── お気に入りトグル ──────────────────────────────
+  Future<void> _toggleFavorite(int index) async {
+    final current = _records[index]['favorite'] as bool? ?? false;
+    setState(() => _records[index]['favorite'] = !current);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('kifu_records', jsonEncode(_records));
+  }
+
+  // ── コメント編集 ──────────────────────────────
+  Future<void> _editComment(int index) async {
+    final current = _records[index]['comment'] as String? ?? '';
+    final ctrl = TextEditingController(text: current);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('メモを編集', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 4,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'この棋譜へのメモを入力...',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: const Color(0xFF0F1A30),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.blue.shade700),
+            onPressed: () => Navigator.pop(context, ctrl.text),
+            child: const Text('保存', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result == null) return;
+    setState(() => _records[index]['comment'] = result);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('kifu_records', jsonEncode(_records));
+    if (mounted) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('メモを保存しました')));
+    }
+  }
+
+  // ── KIF エクスポート ──────────────────────────────
+  void _exportKif(Map<String, dynamic> r) {
+    try {
+      final rawMoves = (r['moves'] as List).cast<Map<String, dynamic>>();
+      final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
+      final date = r['date'] as String? ?? '';
+      final result = r['result'] as String? ?? '';
+      final handicap = r['handicap'] as String? ?? '平手';
+      final kif = KifEncoder.encode(moves,
+          date: date, result: result, handicap: handicap);
+      final filename = 'kifu_${date.replaceAll('/', '-').replaceAll(' ', '_')}.kif';
+      downloadKifFile(kif, filename);
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('$filename をダウンロードしました')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('エクスポート失敗: $e')));
+      }
+    }
+  }
+
+  // ── シェア（base64urlエンコード） ────────────────────
+  void _shareKifu(Map<String, dynamic> r) {
+    try {
+      final data = <String, dynamic>{
+        'date':      r['date'],
+        'result':    r['result'],
+        'moveCount': r['moveCount'],
+        'moves':     r['moves'],
+      };
+      final jsonStr = jsonEncode(data);
+      final encoded = base64Url.encode(utf8.encode(jsonStr));
+      final shareText =
+          '将棋棋譜 (${r['date']}, ${r['moveCount']}手, ${r['result']})\n'
+          '棋譜データ: $encoded';
+      Clipboard.setData(ClipboardData(text: shareText));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('シェア用テキストをコピーしました'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('シェア失敗: $e')));
+      }
+    }
+  }
+
+  // ── コードから復元 ────────────────────────────────
+  Future<void> _importFromCode() async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('コードから棋譜を復元',
+            style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'シェア用テキストまたは棋譜データ部分を貼り付けてください',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: ctrl,
+              maxLines: 5,
+              autofocus: true,
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              decoration: InputDecoration(
+                hintText: '棋譜データ: <base64文字列>',
+                hintStyle: const TextStyle(color: Colors.white38, fontSize: 11),
+                filled: true,
+                fillColor: const Color(0xFF0F1A30),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple.shade700),
+            onPressed: () => Navigator.pop(context, ctrl.text.trim()),
+            child: const Text('復元', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    if (result == null || result.isEmpty) return;
+
+    try {
+      // 「棋譜データ: <base64>」形式と生のbase64両方に対応
+      final encoded = result.contains('棋譜データ: ')
+          ? result.split('棋譜データ: ').last.trim()
+          : result;
+      final jsonStr = utf8.decode(base64Url.decode(base64Url.normalize(encoded)));
+      final data = jsonDecode(jsonStr) as Map<String, dynamic>;
+
+      final record = <String, dynamic>{
+        'date':      data['date'] ?? '',
+        'result':    data['result'] ?? 'インポート',
+        'mode':      'コードから復元',
+        'handicap':  data['handicap'] ?? '平手',
+        'moveCount': data['moveCount'] ?? 0,
+        'moves':     data['moves'] ?? [],
+        'comment':   '',
+      };
+
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString('kifu_records') ?? '[]';
+      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      list.insert(0, record);
+      await prefs.setString('kifu_records', jsonEncode(list));
+      setState(() => _records = list);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('棋譜を復元しました')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('復元失敗: コードが正しくありません ($e)')));
+      }
+    }
+  }
+
+  Future<void> _copyKif(Map<String, dynamic> r) async {
+    try {
+      final rawMoves = r['moves'] as List<dynamic>? ?? [];
+      final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
+      final date = r['date'] as String? ?? '';
+      final result = r['result'] as String? ?? '';
+      final kif = KifEncoder.encode(
+        moves,
+        date: date,
+        result: result,
+        handicap: r['handicap'] as String?,
+      );
+      await Clipboard.setData(ClipboardData(text: kif));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('KIFをクリップボードにコピーしました'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('コピーに失敗しました: $e')),
+        );
+      }
+    }
+  }
+
+  // ── KIF インポート ──────────────────────────────
+  void _importKif() {
+    pickKifFile((content, filename) async {
+      final moves = KifDecoder.decode(content);
+      if (moves == null || moves.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('KIFの読み込みに失敗しました')));
+        }
+        return;
+      }
+
+      // 棋譜レコードとして保存
+      final handicap = KifEncoder.extractHandicap(content) ?? '平手';
+      final now = DateTime.now();
+      final date =
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} '
+          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final record = <String, dynamic>{
+        'date': date,
+        'result': 'インポート',
+        'mode': 'インポート',
+        'handicap': handicap,
+        'moveCount': moves.length,
+        'moves': moves.map((m) => m.toJson()).toList(),
+      };
+
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        final raw = prefs.getString('kifu_records') ?? '[]';
+        final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+        list.insert(0, record);
+        await prefs.setString('kifu_records', jsonEncode(list));
+        setState(() => _records = list);
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('棋譜を読み込みました')));
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(const SnackBar(content: Text('KIFの読み込みに失敗しました')));
+        }
+      }
+    });
+  }
+
+  // ── 棋譜再生 ──────────────────────────────
+  void _openReplay(Map<String, dynamic> record) {
+    try {
+      final rawMoves = (record['moves'] as List).cast<Map<String, dynamic>>();
+      final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
+      final title = '棋譜 (${record['date'] ?? ''})';
+      final handicap = record['handicap'] as String? ?? '平手';
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => KifuReplayScreen(
+            moves: moves,
+            title: title,
+            handicap: handicap,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('再生できませんでした: $e')));
+    }
+  }
+
+  // ── 感想戦 ──────────────────────────────
+  void _openKansousen(Map<String, dynamic> record) {
+    final result = record['result'] as String? ?? '';
+    if (result.isEmpty || result == '不明' || result.contains('未完')) {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: const Color(0xFF1A1A2E),
+          title: const Text('感想戦', style: TextStyle(color: Colors.white)),
+          content: const Text('勝敗が確定した棋譜のみ感想戦を利用できます。',
+              style: TextStyle(color: Colors.white70)),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
+    try {
+      final rawMoves = (record['moves'] as List).cast<Map<String, dynamic>>();
+      final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
+      final title = '感想戦 (${record['date'] ?? ''})';
+      // テーマ復元
+      final themeStr = record['theme'] as String? ?? 'standard';
+      final theme = PieceTheme.values.firstWhere(
+          (t) => t.name == themeStr, orElse: () => PieceTheme.standard);
+      // 先手が人間の場合は flipped=true（先手が下＝通常の将棋盤）
+      // 棋譜の isP1Human が保存されていれば使用、なければ true をデフォルトに
+      final isP1Human = record['isP1Human'] as bool? ?? true;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => KansousenScreen(
+            moves: moves,
+            initialBoard: initShogiBoard(),
+            title: title,
+            flipped: isP1Human,
+            pieceTheme: theme,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('感想戦エラー: $e')));
+    }
+  }
+
+  // ── AI対局再開 ──────────────────────────────
+  void _resumeAIGame(Map<String, dynamic> r) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        title: const Text('棋譜再開', style: TextStyle(color: Colors.white)),
+        content: const Text('棋譜再開機能は近日実装予定です。',
+            style: TextStyle(color: Colors.white70)),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('OK')),
+        ],
+      ),
+    );
+  }
+
+  // ── UI ──────────────────────────────
+  @override
+  Widget build(BuildContext context) {
+    final displayed = _filtered;
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('保存した棋譜',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        centerTitle: true,
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              )
+            : null,
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.filter_list,
+              color: (_filterResult != _FilterResult.all || _searchQuery.isNotEmpty)
+                  ? Colors.amber
+                  : Colors.white70,
+            ),
+            tooltip: 'フィルター・ソート',
+            onPressed: () => setState(() => _showFilter = !_showFilter),
+          ),
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner_outlined, color: Colors.white70),
+            tooltip: 'コードから棋譜を復元',
+            onPressed: _importFromCode,
+          ),
+          IconButton(
+            icon: const Icon(Icons.file_upload_outlined, color: Colors.white70),
+            tooltip: 'KIFファイルを読み込む',
+            onPressed: _importKif,
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: Colors.white54))
+          : Column(children: [
+              // ── フィルターパネル ──
+              if (_showFilter) _filterPanel(),
+              // ── リスト ──
+              Expanded(
+                child: displayed.isEmpty
+                    ? (_records.isEmpty ? _emptyState() : _noResultState())
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: displayed.length,
+                        itemBuilder: (_, i) {
+                          final orig = _records.indexOf(displayed[i]);
+                          return _recordCard(displayed[i], orig);
+                        },
+                      ),
+              ),
+            ]),
+    );
+  }
+
+  Widget _filterPanel() {
+    return Container(
+      color: const Color(0xFF0F1A30),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // 検索
+        TextField(
+          controller: _searchCtrl,
+          style: const TextStyle(color: Colors.white, fontSize: 13),
+          decoration: InputDecoration(
+            hintText: '日付・結果・メモで検索...',
+            hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+            prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, color: Colors.white38, size: 16),
+                    onPressed: () => setState(() {
+                      _searchQuery = '';
+                      _searchCtrl.clear();
+                    }),
+                  )
+                : null,
+            filled: true,
+            fillColor: const Color(0xFF16213E),
+            contentPadding: const EdgeInsets.symmetric(vertical: 6),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: BorderSide.none,
+            ),
+          ),
+          onChanged: (v) => setState(() => _searchQuery = v),
+        ),
+        const SizedBox(height: 8),
+        // 結果フィルター
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            const Text('絞り込み: ', style: TextStyle(color: Colors.white54, fontSize: 11)),
+            ..._FilterResult.values.map((f) {
+              final labels = ['すべて', '先手勝', '後手勝', '引分', '★お気に入り'];
+              final sel = _filterResult == f;
+              return GestureDetector(
+                onTap: () => setState(() => _filterResult = f),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sel ? Colors.amber.withAlpha(60) : Colors.transparent,
+                    border: Border.all(
+                      color: sel ? Colors.amber : Colors.white24, width: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    labels[f.index],
+                    style: TextStyle(
+                      color: sel ? Colors.amber : Colors.white54,
+                      fontSize: 11, fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ]),
+        ),
+        const SizedBox(height: 6),
+        // ソート
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            const Text('ソート: ', style: TextStyle(color: Colors.white54, fontSize: 11)),
+            ...{
+              _SortMode.dateDesc: '日付↓',
+              _SortMode.dateAsc:  '日付↑',
+              _SortMode.movesDesc:'手数↓',
+              _SortMode.movesAsc: '手数↑',
+            }.entries.map((e) {
+              final sel = _sortMode == e.key;
+              return GestureDetector(
+                onTap: () => setState(() => _sortMode = e.key),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sel ? Colors.lightBlue.withAlpha(40) : Colors.transparent,
+                    border: Border.all(
+                      color: sel ? Colors.lightBlue : Colors.white24, width: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    e.value,
+                    style: TextStyle(
+                      color: sel ? Colors.lightBlue : Colors.white54,
+                      fontSize: 11, fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _noResultState() => const Center(
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(Icons.search_off, size: 48, color: Colors.white24),
+      SizedBox(height: 12),
+      Text('条件に一致する棋譜がありません',
+          style: TextStyle(color: Colors.white38, fontSize: 14)),
+    ]),
+  );
+
+  Widget _emptyState() => Center(
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Icon(Icons.history, size: 64, color: Colors.white24),
+        const SizedBox(height: 16),
+        const Text('棋譜が保存されていません',
+            style: TextStyle(color: Colors.white38, fontSize: 15)),
+        const SizedBox(height: 8),
+        const Text('対局後に棋譜保存ボタンを押してください',
+            style: TextStyle(color: Colors.white24, fontSize: 12)),
+        const SizedBox(height: 24),
+        OutlinedButton.icon(
+          style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.white70,
+              side: const BorderSide(color: Colors.white24)),
+          icon: const Icon(Icons.file_upload_outlined),
+          label: const Text('KIFファイルを読み込む'),
+          onPressed: _importKif,
+        ),
+      ],
+    ),
+  );
+
+  // ── 勝敗バッジ ──────────────────────────────
+  Widget _resultBadge(String result) {
+    if (result.contains('先手')) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.arrow_upward, color: Colors.blue.shade300, size: 18),
+          Text('先勝',
+              style: TextStyle(
+                  color: Colors.blue.shade300,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold)),
+        ],
+      );
+    }
+    if (result.contains('後手')) {
+      return Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.arrow_downward, color: Colors.red.shade300, size: 18),
+          Text('後勝',
+              style: TextStyle(
+                  color: Colors.red.shade300,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold)),
+        ],
+      );
+    }
+    if (result.contains('引き分け') || result.contains('引分')) {
+      return const Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.remove, color: Colors.grey, size: 18),
+          Text('引分',
+              style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold)),
+        ],
+      );
+    }
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.hourglass_empty, color: Colors.white38, size: 18),
+        Text('未完',
+            style: TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+                fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  Widget _recordCard(Map<String, dynamic> r, int index) {
+    final date = r['date'] as String? ?? '';
+    final result = r['result'] as String? ?? '';
+    final mode = r['mode'] as String? ?? '';
+    final handicap = r['handicap'] as String? ?? '平手';
+    final moveCount = r['moveCount'] as int? ?? 0;
+    final comment = r['comment'] as String? ?? '';
+    final isFavorite = r['favorite'] as bool? ?? false;
+
+    Color resultColor = Colors.white54;
+    if (result.contains('先手')) resultColor = Colors.blue.shade300;
+    if (result.contains('後手')) resultColor = Colors.red.shade300;
+    if (result.contains('引き分け')) resultColor = Colors.grey;
+
+    return Card(
+      color: const Color(0xFF16213E),
+      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            leading: Container(
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: Colors.brown.shade700,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(child: _resultBadge(result)),
+            ),
+            title: Text(
+              result,
+              style: TextStyle(
+                  color: resultColor, fontSize: 14, fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: 2),
+                Text('$mode  /$moveCount手  $handicap',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12)),
+                Text(date,
+                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
+            ),
+            onTap: () => _openReplay(r),
+          ),
+          // ── コメント表示 ──
+          if (comment.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.notes, size: 12, color: Colors.teal.shade300),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      comment,
+                      style: TextStyle(color: Colors.teal.shade200, fontSize: 11),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          // ── アクションボタン行 ──
+          Padding(
+            padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+            child: Wrap(
+              alignment: WrapAlignment.end,
+              spacing: 4,
+              runSpacing: 4,
+              children: [
+                _actionBtn(Icons.play_arrow_outlined, '再生',
+                    Colors.green.shade400, () => _openReplay(r)),
+                if (mode == 'AI対局')
+                  _actionBtn(Icons.play_circle_outline, '再開',
+                      Colors.green.shade600, () => _resumeAIGame(r)),
+                _actionBtn(Icons.analytics_outlined, '感想戦',
+                    Colors.blue.shade300, () => _openKansousen(r)),
+                _actionBtn(Icons.notes_outlined, 'メモ',
+                    Colors.teal.shade300, () => _editComment(index)),
+                _actionBtn(Icons.download_outlined, 'KIF',
+                    Colors.amber.shade300, () => _exportKif(r)),
+                _actionBtn(Icons.copy_outlined, 'コピー',
+                    Colors.purple.shade300, () => _copyKif(r)),
+                _actionBtn(Icons.share_outlined, 'シェア',
+                    Colors.orange.shade300, () => _shareKifu(r)),
+                _actionBtn(
+                  isFavorite ? Icons.star : Icons.star_border,
+                  'お気に入り',
+                  isFavorite ? Colors.amber : Colors.white24,
+                  () => _toggleFavorite(index),
+                ),
+                _actionBtn(Icons.delete_outline, '削除',
+                    Colors.red.shade400, () => _delete(index)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionBtn(
+      IconData icon, String label, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          border: Border.all(color: color.withAlpha(100)),
+          borderRadius: BorderRadius.circular(6),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: color),
+            const SizedBox(width: 3),
+            Text(label, style: TextStyle(color: color, fontSize: 11)),
+          ],
+        ),
+      ),
+    );
+  }
+}

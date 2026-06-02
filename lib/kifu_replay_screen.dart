@@ -1,0 +1,578 @@
+// lib/kifu_replay_screen.dart — 棋譜再生画面
+
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'piece.dart';
+
+// ===== 初期盤面生成 =====
+List<List<Piece?>> _buildInitBoard() {
+  final b = List<List<Piece?>>.generate(
+    9,
+    (_) => List<Piece?>.filled(9, null, growable: false),
+  );
+  void s(int r, int c, PieceType t, bool p1) => b[r][c] = Piece(t, p1);
+
+  // 後手（P2）上部
+  s(0, 0, PieceType.lance, false);
+  s(0, 1, PieceType.knight, false);
+  s(0, 2, PieceType.silver, false);
+  s(0, 3, PieceType.gold, false);
+  s(0, 4, PieceType.king, false);
+  s(0, 5, PieceType.gold, false);
+  s(0, 6, PieceType.silver, false);
+  s(0, 7, PieceType.knight, false);
+  s(0, 8, PieceType.lance, false);
+  s(1, 1, PieceType.rook, false);
+  s(1, 7, PieceType.bishop, false);
+  for (int c = 0; c < 9; c++) {
+    s(2, c, PieceType.pawn, false);
+  }
+
+  // 先手（P1）下部
+  s(8, 0, PieceType.lance, true);
+  s(8, 1, PieceType.knight, true);
+  s(8, 2, PieceType.silver, true);
+  s(8, 3, PieceType.gold, true);
+  s(8, 4, PieceType.king, true);
+  s(8, 5, PieceType.gold, true);
+  s(8, 6, PieceType.silver, true);
+  s(8, 7, PieceType.knight, true);
+  s(8, 8, PieceType.lance, true);
+  s(7, 7, PieceType.rook, true);
+  s(7, 1, PieceType.bishop, true);
+  for (int c = 0; c < 9; c++) {
+    s(6, c, PieceType.pawn, true);
+  }
+
+  return b;
+}
+
+// ===== KifuReplayScreen =====
+class KifuReplayScreen extends StatefulWidget {
+  final List<KifuMove> moves;
+  final String title;
+  final String handicap;
+
+  const KifuReplayScreen({
+    super.key,
+    required this.moves,
+    required this.title,
+    this.handicap = '平手',
+  });
+
+  @override
+  State<KifuReplayScreen> createState() => _KifuReplayScreenState();
+}
+
+class _KifuReplayScreenState extends State<KifuReplayScreen> {
+  late List<List<Piece?>> board;
+  Map<PieceType, int> p1Hand = {};
+  Map<PieceType, int> p2Hand = {};
+
+  /// 現在の手数（0 = 初期盤面、n = n手目まで適用済み）
+  int _step = 0;
+
+  /// 直前の移動先（ハイライト用）
+  int? _lastTR, _lastTC;
+
+  /// 再生制御用フィールド
+  Timer? _playTimer;
+  bool _isPlaying = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _resetToStep(0);
+  }
+
+  @override
+  void dispose() {
+    _playTimer?.cancel();
+    super.dispose();
+  }
+
+  // ===== 盤面を step 手目まで再構築 =====
+  void _resetToStep(int step) {
+    final b = _buildInitBoard();
+    final Map<PieceType, int> h1 = {};
+    final Map<PieceType, int> h2 = {};
+    int? ltr, ltc;
+
+    for (int i = 0; i < step && i < widget.moves.length; i++) {
+      final m = widget.moves[i];
+      _applyMove(m, board: b, p1Hand: h1, p2Hand: h2);
+      if (m.tr >= 0) {
+        ltr = m.tr;
+        ltc = m.tc;
+      }
+    }
+
+    setState(() {
+      board = b;
+      p1Hand = h1;
+      p2Hand = h2;
+      _step = step;
+      _lastTR = ltr;
+      _lastTC = ltc;
+    });
+  }
+
+  // ===== 1手適用 =====
+  void _applyMove(
+    KifuMove m, {
+    required List<List<Piece?>> board,
+    required Map<PieceType, int> p1Hand,
+    required Map<PieceType, int> p2Hand,
+  }) {
+    final isP1 = m.p1;
+    if (m.drop != null) {
+      // 打ち
+      board[m.tr][m.tc] = Piece(m.drop!, isP1);
+      final h = isP1 ? p1Hand : p2Hand;
+      h[m.drop!] = (h[m.drop!] ?? 1) - 1;
+      if ((h[m.drop!] ?? 0) <= 0) h.remove(m.drop!);
+    } else {
+      if (m.fr < 0 || m.fc < 0) return; // 不正データガード
+      final piece = board[m.fr][m.fc];
+      if (piece == null) return;
+      final cap = board[m.tr][m.tc];
+      if (cap != null) {
+        // 取った駒は成りを解除して持ち駒へ
+        final h = isP1 ? p1Hand : p2Hand;
+        final bt = cap.baseType;
+        h[bt] = (h[bt] ?? 0) + 1;
+      }
+      board[m.tr][m.tc] =
+          m.promote ? Piece(piece.promotedType, piece.isPlayer1) : piece;
+      board[m.fr][m.fc] = null;
+    }
+  }
+
+  // ===== ナビゲーション =====
+  void _goFirst() {
+    _stopReplay();
+    _resetToStep(0);
+  }
+
+  void _goPrev() {
+    _stopReplay();
+    if (_step > 0) _resetToStep(_step - 1);
+  }
+
+  void _goNext() {
+    _stopReplay();
+    if (_step < widget.moves.length) _resetToStep(_step + 1);
+  }
+
+  void _goLast() {
+    _stopReplay();
+    _resetToStep(widget.moves.length);
+  }
+
+  // ===== 再生制御 =====
+  void _startReplay() {
+    if (_isPlaying) return;
+    if (_step >= widget.moves.length) {
+      _resetToStep(0); // 終了時は最初から再生
+    }
+    setState(() {
+      _isPlaying = true;
+    });
+    _playNextMove();
+  }
+
+  void _playNextMove() {
+    if (!_isPlaying || _step >= widget.moves.length) {
+      _stopReplay();
+      return;
+    }
+
+    // 終盤判定：最後の10手か
+    int movesRemaining = widget.moves.length - _step;
+    bool isEndgame = movesRemaining <= 10;
+    int delayMs = isEndgame ? 2000 : 1500; // 終盤は2秒、通常は1.5秒
+
+    _playTimer = Timer(Duration(milliseconds: delayMs), () {
+      if (_isPlaying && mounted) {
+        setState(() {
+          _step++;
+        });
+        if (_step < widget.moves.length) {
+          _applyCurrentMoveForReplay();
+          _playNextMove();
+        } else {
+          _stopReplay();
+        }
+      }
+    });
+  }
+
+  void _applyCurrentMoveForReplay() {
+    if (_step > 0 && _step <= widget.moves.length) {
+      final m = widget.moves[_step - 1];
+      if (m.tr >= 0) {
+        setState(() {
+          _lastTR = m.tr;
+          _lastTC = m.tc;
+        });
+      }
+    }
+  }
+
+  void _pauseReplay() {
+    _playTimer?.cancel();
+    setState(() {
+      _isPlaying = false;
+    });
+  }
+
+  void _stopReplay() {
+    _playTimer?.cancel();
+    setState(() {
+      _isPlaying = false;
+    });
+  }
+
+  // ===== BUILD =====
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1A1A2E),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16213E),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              widget.title,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 15,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              widget.handicap,
+              style: const TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
+        ),
+      ),
+      body: SafeArea(
+        child: Column(
+          children: [
+            // 後手持ち駒
+            _handArea(isP1: false),
+            // 盤面
+            Expanded(
+              flex: 5,
+              child: Center(child: _boardWidget()),
+            ),
+            // 先手持ち駒
+            _handArea(isP1: true),
+            // コントロール
+            _controls(),
+            // 棋譜リスト
+            Expanded(
+              flex: 3,
+              child: _kifuList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ===== 持ち駒エリア =====
+  Widget _handArea({required bool isP1}) {
+    final hand = isP1 ? p1Hand : p2Hand;
+    final label = isP1 ? '▲先手' : '△後手';
+    return Container(
+      height: 40,
+      color: const Color(0xFF0F2A40),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      child: Row(
+        children: [
+          Text(
+            '$label 持駒: ',
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+          Expanded(
+            child: hand.isEmpty
+                ? const Text('なし', style: TextStyle(color: Colors.white24, fontSize: 11))
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: hand.entries.map((e) {
+                        return Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 3),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.brown.shade100,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            '${pieceLabel(e.key)}${e.value > 1 ? " ×${e.value}" : ""}',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: isP1 ? Colors.black87 : Colors.red.shade800,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ===== 将棋盤 =====
+  Widget _boardWidget() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.maxWidth < constraints.maxHeight
+            ? constraints.maxWidth
+            : constraints.maxHeight;
+        final cellSize = size / 9;
+
+        return SizedBox(
+          width: size,
+          height: size,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.brown.shade100,
+              border: Border.all(color: Colors.black54, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: List.generate(9, (row) {
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(9, (col) {
+                    final piece = board[row][col];
+                    final isHighlight = _lastTR == row && _lastTC == col;
+
+                    return Container(
+                      width: cellSize,
+                      height: cellSize,
+                      decoration: BoxDecoration(
+                        color: isHighlight
+                            ? Colors.yellow.withAlpha(80)
+                            : Colors.transparent,
+                        border: const Border(
+                          right: BorderSide(color: Colors.black54, width: 0.5),
+                          bottom: BorderSide(color: Colors.black54, width: 0.5),
+                        ),
+                      ),
+                      child: piece == null
+                          ? null
+                          : Center(
+                              child: RotatedBox(
+                                quarterTurns: piece.isPlayer1 ? 0 : 2,
+                                child: Text(
+                                  piece.label,
+                                  style: TextStyle(
+                                    fontSize: cellSize * 0.62,
+                                    fontWeight: FontWeight.bold,
+                                    color: piece.isPlayer1
+                                        ? Colors.black87
+                                        : Colors.red.shade800,
+                                    height: 1.0,
+                                  ),
+                                ),
+                              ),
+                            ),
+                    );
+                  }),
+                );
+              }),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ===== コントロール =====
+  Widget _controls() {
+    final total = widget.moves.length;
+    final stepLabel = _step == 0
+        ? '開始局面'
+        : _step == total
+            ? '終局（$total手）'
+            : '$_step手目 / $total手';
+
+    return Container(
+      color: const Color(0xFF16213E),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ボタン行（再生制御）
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _navBtn('|◀', !_isPlaying && _step > 0 ? _goFirst : null),
+              _navBtn('◀', !_isPlaying && _step > 0 ? _goPrev : null),
+              // 再生/一時停止ボタン
+              SizedBox(
+                width: 48,
+                height: 40,
+                child: TextButton(
+                  onPressed: _isPlaying
+                      ? _pauseReplay
+                      : (_step < total ? _startReplay : null),
+                  style: TextButton.styleFrom(
+                    foregroundColor: _isPlaying || _step < total
+                        ? Colors.white
+                        : Colors.white24,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: Text(
+                    _isPlaying ? '⏸' : '▶',
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              // 停止ボタン
+              SizedBox(
+                width: 48,
+                height: 40,
+                child: TextButton(
+                  onPressed: _isPlaying ? _stopReplay : null,
+                  style: TextButton.styleFrom(
+                    foregroundColor: _isPlaying ? Colors.white : Colors.white24,
+                    padding: EdgeInsets.zero,
+                  ),
+                  child: const Text(
+                    '⏹',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: Center(
+                  child: Text(
+                    stepLabel,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              _navBtn('▶', !_isPlaying && _step < total ? _goNext : null),
+              _navBtn('▶|', !_isPlaying && _step < total ? _goLast : null),
+            ],
+          ),
+          // スライダー
+          Slider(
+            value: _step.toDouble(),
+            min: 0,
+            max: total.toDouble(),
+            divisions: total > 0 ? total : 1,
+            activeColor: Colors.lightBlueAccent,
+            inactiveColor: Colors.white24,
+            onChanged: !_isPlaying && total > 0
+                ? (v) => _resetToStep(v.round())
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _navBtn(String label, VoidCallback? onPressed) {
+    return SizedBox(
+      width: 48,
+      height: 40,
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          foregroundColor: onPressed != null ? Colors.white : Colors.white24,
+          padding: EdgeInsets.zero,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+        ),
+      ),
+    );
+  }
+
+  // ===== 棋譜リスト =====
+  Widget _kifuList() {
+    if (widget.moves.isEmpty) {
+      return const Center(
+        child: Text('棋譜がありません', style: TextStyle(color: Colors.white38)),
+      );
+    }
+
+    return Container(
+      color: const Color(0xFF16213E),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: Text(
+              '棋譜',
+              style: TextStyle(
+                color: Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Divider(color: Colors.white12, height: 1),
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              itemCount: widget.moves.length,
+              itemBuilder: (context, i) {
+                final m = widget.moves[i];
+                final isCurrent = i + 1 == _step;
+                return GestureDetector(
+                  onTap: () => _resetToStep(i + 1),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isCurrent
+                          ? Colors.lightBlue.withAlpha(60)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text(
+                      m.text,
+                      style: TextStyle(
+                        color: isCurrent
+                            ? Colors.lightBlueAccent
+                            : m.p1
+                                ? Colors.white70
+                                : Colors.lightBlue.shade200,
+                        fontSize: 13,
+                        fontWeight:
+                            isCurrent ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
