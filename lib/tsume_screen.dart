@@ -1,5 +1,6 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
@@ -1023,6 +1024,19 @@ class _TsumeScreenState extends State<TsumeScreen>
 
   List<bool> _cleared = [];
 
+  // ── デイリー＆ストリーク ──
+  int _streak = 0;
+  bool _dailySolved = false;
+  int get _dailyIdx {
+    final now = DateTime.now();
+    final seed = now.year * 10000 + now.month * 100 + now.day;
+    return seed % _problems.length;
+  }
+  String get _todayKey {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+  }
+
   @override
   void initState() {
     super.initState();
@@ -1031,35 +1045,71 @@ class _TsumeScreenState extends State<TsumeScreen>
       if (_tabController.indexIsChanging) return;
       setState(() {
         switch (_tabController.index) {
-          case 0:
-            _filterMoves = 0;
-            break;
-          case 1:
-            _filterMoves = 1;
-            break;
-          case 2:
-            _filterMoves = 3;
-            break;
-          case 3:
-            _filterMoves = 5;
-            break;
-          case 4:
-            _filterMoves = 7;
-            break;
-          case 5:
-            _filterMoves = 9;
-            break;
+          case 0: _filterMoves = 0; break;
+          case 1: _filterMoves = 1; break;
+          case 2: _filterMoves = 3; break;
+          case 3: _filterMoves = 5; break;
+          case 4: _filterMoves = 7; break;
+          case 5: _filterMoves = 9; break;
         }
       });
     });
     _cleared = List.filled(_problems.length, false);
     _loadCleared();
+    _loadStreak();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // ── ストリーク読み込み ──
+  Future<void> _loadStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastDate = prefs.getString('tsume_last_solve_date') ?? '';
+    final streak = prefs.getInt('tsume_streak') ?? 0;
+    final dailySolvedToday = prefs.getString('tsume_daily_solved') == _todayKey;
+    if (mounted) setState(() {
+      _streak = streak;
+      _dailySolved = dailySolvedToday;
+    });
+  }
+
+  // ── 正解時のストリーク更新 ──
+  Future<void> _recordSolve({required bool isDaily}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = _todayKey;
+    final lastDate = prefs.getString('tsume_last_solve_date') ?? '';
+
+    // ストリーク更新
+    int newStreak = _streak;
+    if (lastDate == today) {
+      // 今日すでに解いていた → 変わらず
+    } else {
+      // 昨日解いたか判定
+      final yesterday = DateTime.now().subtract(const Duration(days: 1));
+      final yesterdayKey =
+          '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+      if (lastDate == yesterdayKey) {
+        newStreak = _streak + 1;
+      } else {
+        newStreak = 1; // リセット
+      }
+      await prefs.setString('tsume_last_solve_date', today);
+      await prefs.setInt('tsume_streak', newStreak);
+    }
+
+    // デイリー問題の完了記録
+    if (isDaily) {
+      await prefs.setString('tsume_daily_solved', today);
+    }
+
+    if (mounted) setState(() {
+      _streak = newStreak;
+      if (isDaily) _dailySolved = true;
+    });
   }
 
   Future<void> _loadCleared() async {
@@ -1076,6 +1126,108 @@ class _TsumeScreenState extends State<TsumeScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('tsume_clear_$idx', true);
     setState(() => _cleared[idx] = true);
+  }
+
+  // ── デイリー問題カード ──
+  Widget _dailyCard() {
+    final idx = _dailyIdx;
+    final prob = _problems[idx];
+    final now = DateTime.now();
+    final dateStr = '${now.month}月${now.day}日';
+
+    return GestureDetector(
+      onTap: () async {
+        final result = await Navigator.push<dynamic>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => _SolvePage(prob: prob, index: idx),
+          ),
+        );
+        if (result == true) {
+          await _saveCleared(idx);
+          await _recordSolve(isDaily: true);
+        }
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: _dailySolved
+                ? [Colors.green.shade900, Colors.green.shade800]
+                : [const Color(0xFF2D1B69), const Color(0xFF1A1054)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _dailySolved ? Colors.green.shade400 : Colors.deepPurpleAccent.withAlpha(180),
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: (_dailySolved ? Colors.green : Colors.deepPurple).withAlpha(60),
+              blurRadius: 12,
+            ),
+          ],
+        ),
+        child: Row(children: [
+          Container(
+            width: 50,
+            height: 50,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: _dailySolved ? Colors.green.shade700 : Colors.deepPurple.shade700,
+            ),
+            child: Center(
+              child: _dailySolved
+                  ? const Icon(Icons.check_circle, color: Colors.white, size: 28)
+                  : const Icon(Icons.calendar_today, color: Colors.white, size: 24),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '📅 デイリー問題 $dateStr',
+                  style: TextStyle(
+                    color: _dailySolved ? Colors.green.shade300 : Colors.amber.shade200,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  prob.title,
+                  style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _dailySolved ? '✓ クリア済み' : '${prob.moves}手詰め  タップして挑戦！',
+                  style: TextStyle(
+                    color: _dailySolved ? Colors.green.shade300 : Colors.white60,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_streak > 0)
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('🔥', style: TextStyle(fontSize: 22)),
+                Text(
+                  '$_streak日',
+                  style: const TextStyle(color: Colors.orange, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+        ]),
+      ),
+    );
   }
 
   String _clearCountLabel(int moves) {
@@ -1104,6 +1256,33 @@ class _TsumeScreenState extends State<TsumeScreen>
         backgroundColor: _card,
         title: const Text('詰将棋', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          // ストリークバッジ
+          if (_streak > 0)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade800.withAlpha(200),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.orange.shade400, width: 1),
+                ),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Text('🔥', style: TextStyle(fontSize: 14)),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$_streak日連続',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ]),
+              ),
+            ),
+        ],
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.amber,
@@ -1144,9 +1323,14 @@ class _TsumeScreenState extends State<TsumeScreen>
             )
           : ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: filtered.length,
+        itemCount: filtered.length + (_filterMoves == 0 ? 1 : 0), // +1 for daily card
         itemBuilder: (context, listIdx) {
-          final (origIdx, prob) = filtered[listIdx];
+          // デイリー問題カード（全てタブのみ・先頭）
+          if (_filterMoves == 0 && listIdx == 0) {
+            return _dailyCard();
+          }
+          final realIdx = _filterMoves == 0 ? listIdx - 1 : listIdx;
+          final (origIdx, prob) = filtered[realIdx];
           final cleared = origIdx < _cleared.length && _cleared[origIdx];
           return Card(
             color: _card,
@@ -1192,7 +1376,10 @@ class _TsumeScreenState extends State<TsumeScreen>
                     builder: (_) => _SolvePage(prob: prob, index: origIdx),
                   ),
                 );
-                if (result == true) await _saveCleared(origIdx);
+                if (result == true) {
+                  await _saveCleared(origIdx);
+                  await _recordSolve(isDaily: origIdx == _dailyIdx);
+                }
                 // 'skip' が返った場合は問題に誤りがあるため何もしない
               },
             ),
@@ -1234,12 +1421,51 @@ class _SolvePageState extends State<_SolvePage> {
   (int, int)? _lastTo;
   PieceType? _selectedHandPiece;
 
+  // ── タイマー ──
+  final _stopwatch = Stopwatch();
+  Timer? _ticker;
+  int _elapsedSec = 0;
+  int? _bestTimeSec;
+
   bool get _p1Turn => _solutionIdx % 2 == 0; // 偶数=先手番
 
   @override
   void initState() {
     super.initState();
     _resetState();
+    _loadBestTime();
+    // 1秒ごとに画面更新
+    _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_solved && mounted) {
+        setState(() => _elapsedSec = _stopwatch.elapsed.inSeconds);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _ticker?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadBestTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final best = prefs.getInt('tsume_best_time_${widget.index}');
+    if (mounted) setState(() => _bestTimeSec = best);
+  }
+
+  Future<void> _saveBestTime(int sec) async {
+    final prefs = await SharedPreferences.getInstance();
+    final current = prefs.getInt('tsume_best_time_${widget.index}');
+    if (current == null || sec < current) {
+      await prefs.setInt('tsume_best_time_${widget.index}', sec);
+      if (mounted) setState(() => _bestTimeSec = sec);
+    }
+  }
+
+  String _fmtTime(int sec) {
+    if (sec < 60) return '${sec}秒';
+    return '${sec ~/ 60}分${sec % 60}秒';
   }
 
   void _resetState() {
@@ -1255,6 +1481,9 @@ class _SolvePageState extends State<_SolvePage> {
     _lastFrom = null;
     _lastTo = null;
     _selectedHandPiece = null;
+    _stopwatch.reset();
+    _stopwatch.start();
+    _elapsedSec = 0;
     // 安全チェック: 開始局面で後手玉がすでに王手されていないか確認
     _startInCheck = GL.inCheck(_board, false);
   }
@@ -1422,7 +1651,13 @@ class _SolvePageState extends State<_SolvePage> {
   }
 
   void _onSolved() {
-    setState(() => _solved = true);
+    _stopwatch.stop();
+    final elapsed = _stopwatch.elapsed.inSeconds;
+    _saveBestTime(elapsed);
+    setState(() {
+      _solved = true;
+      _elapsedSec = elapsed;
+    });
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1437,6 +1672,27 @@ class _SolvePageState extends State<_SolvePage> {
           children: [
             const Text('正解です！おめでとうございます。',
                 style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 8),
+            Row(children: [
+              const Icon(Icons.timer_outlined, color: Colors.cyan, size: 16),
+              const SizedBox(width: 6),
+              Text(
+                '解答時間: ${_fmtTime(elapsed)}',
+                style: const TextStyle(color: Colors.cyan, fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              if (_bestTimeSec != null && elapsed <= _bestTimeSec!) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withAlpha(40),
+                    border: Border.all(color: Colors.amber),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text('🏆 自己ベスト！', style: TextStyle(color: Colors.amber, fontSize: 11)),
+                ),
+              ],
+            ]),
             if (widget.prob.explanation.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -1560,6 +1816,26 @@ class _SolvePageState extends State<_SolvePage> {
             style: const TextStyle(color: Colors.white, fontSize: 16)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          // タイマー表示
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: Colors.cyan.withAlpha(30),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.cyan.withAlpha(100)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const Icon(Icons.timer_outlined, color: Colors.cyan, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  _solved ? _fmtTime(_elapsedSec) : _fmtTime(_elapsedSec),
+                  style: const TextStyle(color: Colors.cyan, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ]),
+            ),
+          ),
           TextButton.icon(
             onPressed: () => setState(() => _resetState()),
             icon: const Icon(Icons.refresh, color: Colors.white54, size: 18),

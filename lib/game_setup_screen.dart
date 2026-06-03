@@ -31,6 +31,9 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   String _castleGuideName = 'mino';
   int _castleGuideMaxPly = 30;
 
+  // コーチモード
+  bool _coachMode = false;
+
   // 持ち時間の選択肢
   static const _timeOptions = <int?>[null, 180, 300, 600, 900, 1800];
   static const _timeLabels = ['なし', '3分', '5分', '10分', '15分', '30分'];
@@ -49,6 +52,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       castleGuideEnabled: _castleGuideEnabled,
       castleGuideName: _castleGuideName,
       castleGuideMaxPly: _castleGuideMaxPly,
+      coachMode: _coachMode,
     );
     Navigator.pushReplacement(
       context,
@@ -116,6 +120,12 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   _sectionHeader(Icons.castle, '囲いガイドモード'),
                   const SizedBox(height: 10),
                   _castleGuideSection(),
+                  const SizedBox(height: 20),
+
+                  // ── コーチモード ──────────────────
+                  _sectionHeader(Icons.psychology, 'コーチモード（AI指導対局）'),
+                  const SizedBox(height: 10),
+                  _coachModeSection(),
                   const SizedBox(height: 20),
                 ],
 
@@ -717,6 +727,51 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             Text(
               '対局開始後 ${_castleGuideMaxPly}手まで、盤面に囲いへの誘導矢印を表示します。',
               style: const TextStyle(color: Colors.white38, fontSize: 11),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ── コーチモード ──────────────────────────────────────
+  Widget _coachModeSection() {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16213E),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: _coachMode ? Colors.deepPurpleAccent.withAlpha(150) : Colors.white12,
+          width: _coachMode ? 1.5 : 1,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Switch(
+              value: _coachMode,
+              onChanged: (v) => setState(() => _coachMode = v),
+              activeColor: Colors.deepPurpleAccent,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'コーチモード',
+              style: TextStyle(
+                color: _coachMode ? Colors.deepPurpleAccent.shade100 : Colors.white70,
+                fontSize: 14,
+                fontWeight: _coachMode ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+          ]),
+          if (_coachMode) ...[
+            const SizedBox(height: 8),
+            const Text(
+              '• 指した手の良し悪しをリアルタイムで表示\n'
+              '• 「待った」でやり直し＋正着ヒント\n'
+              '• 対局後に AI 1局講評レポートを表示',
+              style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.7),
             ),
           ],
         ],

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'rank_badge_widget.dart';
 
 // ── 段級位テーブル ────────────────────────────────────────
 class RatingRank {
@@ -14,18 +15,65 @@ class RatingRank {
 }
 
 const rankTable = [
-  RatingRank(1800, '四段以上', Colors.deepOrangeAccent),
-  RatingRank(1600, '三段',    Colors.amber),
-  RatingRank(1400, '二段',    Colors.amber),
-  RatingRank(1200, '初段',    Colors.amberAccent),
-  RatingRank(1100, '1級',     Colors.lightBlue),
-  RatingRank(1000, '3級',     Colors.lightBlue),
-  RatingRank(900,  '5級',     Colors.lightBlueAccent),
-  RatingRank(800,  '7級',     Colors.white70),
-  RatingRank(700,  '10級',    Colors.white54),
-  RatingRank(600,  '12級',    Colors.white38),
-  RatingRank(0,    '15級',    Colors.white24),
+  RatingRank(2400, '九段',  Color(0xFFFF6B35)),
+  RatingRank(2200, '八段',  Color(0xFFFF8C42)),
+  RatingRank(2050, '七段',  Color(0xFFFFAA00)),
+  RatingRank(1900, '六段',  Color(0xFFFFD700)),
+  RatingRank(1750, '五段',  Color(0xFFFFE55C)),
+  RatingRank(1600, '四段',  Color(0xFFFFD700)),
+  RatingRank(1450, '三段',  Color(0xFFFFAB40)),
+  RatingRank(1300, '二段',  Color(0xFFFF9800)),
+  RatingRank(1150, '初段',  Color(0xFFFFC107)),
+  RatingRank(1050, '1級',   Color(0xFF81D4FA)),
+  RatingRank(950,  '2級',   Color(0xFF64B5F6)),
+  RatingRank(880,  '3級',   Color(0xFF4FC3F7)),
+  RatingRank(820,  '4級',   Color(0xFF4DD0E1)),
+  RatingRank(760,  '5級',   Color(0xFF80CBC4)),
+  RatingRank(700,  '6級',   Color(0xFFA5D6A7)),
+  RatingRank(650,  '7級',   Color(0xFFC5E1A5)),
+  RatingRank(600,  '8級',   Color(0xFFCFD8DC)),
+  RatingRank(550,  '9級',   Color(0xFFB0BEC5)),
+  RatingRank(500,  '10級',  Color(0xFF90A4AE)),
+  RatingRank(450,  '11級',  Color(0xFF78909C)),
+  RatingRank(400,  '12級',  Color(0xFF607D8B)),
+  RatingRank(350,  '13級',  Color(0xFF546E7A)),
+  RatingRank(200,  '14級',  Color(0xFF455A64)),
+  RatingRank(0,    '15級',  Color(0xFF37474F)),
 ];
+
+/// 段位の「格」を数値で返す（高いほど上位）
+int rankOrder(String rank) {
+  final idx = rankTable.indexWhere((r) => r.rank == rank);
+  return idx >= 0 ? rankTable.length - idx : 0;
+}
+
+/// 次の段位と必要ELO差を返す（null=最高位）
+(String, int)? nextRankInfo(int rating) {
+  for (int i = rankTable.length - 1; i >= 0; i--) {
+    if (rating < rankTable[i].minRating) {
+      // rankTable[i] が次の段位
+      final prev = i + 1 < rankTable.length ? rankTable[i + 1].minRating : 0;
+      final needed = rankTable[i].minRating - rating;
+      final range = rankTable[i].minRating - prev;
+      return (rankTable[i].rank, needed);
+    }
+  }
+  return null; // 九段
+}
+
+/// 現在段位の進捗 0.0〜1.0
+double rankProgress(int rating) {
+  for (int i = rankTable.length - 1; i >= 0; i--) {
+    if (rating >= rankTable[i].minRating) {
+      // 現在はこのランク
+      if (i == 0) return 1.0; // 最高位
+      final next = rankTable[i - 1].minRating;
+      final curr = rankTable[i].minRating;
+      return ((rating - curr) / (next - curr)).clamp(0.0, 1.0);
+    }
+  }
+  return 0.0;
+}
 
 String ratingToRank(int r) {
   for (final e in rankTable) if (r >= e.minRating) return e.rank;
@@ -34,8 +82,12 @@ String ratingToRank(int r) {
 
 Color ratingToColor(int r) {
   for (final e in rankTable) if (r >= e.minRating) return e.color;
-  return Colors.white24;
+  return const Color(0xFF37474F);
 }
+
+/// 段/級 どちらか
+bool isKyuu(String rank) => rank.contains('級');
+bool isDan(String rank) => rank.contains('段') || rank.contains('初段');
 
 // ── 対局モード ─────────────────────────────────────────────
 enum _GameModeFilter { all, ai, pvp, net }
@@ -398,6 +450,9 @@ class _RatingCard extends StatelessWidget {
                 style: TextStyle(color: Colors.orange.shade300, fontSize: 12, fontWeight: FontWeight.bold)),
           ),
         ],
+        const SizedBox(height: 12),
+        // 段位進捗バー
+        RankProgressBar(rating: rating),
       ]),
     );
   }
