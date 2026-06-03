@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
+import 'tsume_engine.dart';
 
 // ===== 問題データ =====
 
@@ -1427,7 +1428,14 @@ class _SolvePageState extends State<_SolvePage> {
   int _elapsedSec = 0;
   int? _bestTimeSec;
 
+  // ── 詰み探索エンジン ──
+  final _engine = TsumeEngine();
+  bool _verifying = false; // 検証中フラグ
+
   bool get _p1Turn => _solutionIdx % 2 == 0; // 偶数=先手番
+
+  // 残り手数（この手番から詰みまで）
+  int get _remainingMoves => widget.prob.moves - _solutionIdx;
 
   @override
   void initState() {
@@ -1496,10 +1504,10 @@ class _SolvePageState extends State<_SolvePage> {
   // ===== 盤面タップ =====
 
   void _onBoardTap(int row, int col) {
-    if (_solved || !_p1Turn) return;
+    if (_solved || !_p1Turn || _verifying) return;
 
     if (_selectedHandPiece != null) {
-      _tryDrop(row, col);
+      _tryDrop(row, col); // async - fire and forget OK
       return;
     }
 
@@ -1539,59 +1547,94 @@ class _SolvePageState extends State<_SolvePage> {
     }
   }
 
-  void _tryMove(int fr, int fc, int tr, int tc) {
-    final sol = _currentSol;
-    if (sol == null) return;
+  // ── 動的詰み検証 ──────────────────────────────────────
+  // 固定手順との一致ではなく「詰みに向かう有効手か」を判定する。
 
+  Future<void> _tryMove(int fr, int fc, int tr, int tc) async {
+    if (_verifying) return;
     final piece = _board[fr][fc];
     if (piece == null) return;
 
-    // 成り: 正解手の promote フラグに従う(または必須成りの場合自動)
-    bool promote = sol.promote;
-    if (!promote && piece.canPromote && piece.mustPromote(tr)) {
-      promote = true;
-    }
+    setState(() {
+      _selected = null;
+      _legalDots = {};
+    });
 
-    final correct = sol.drop == null &&
-        sol.fr == fr &&
-        sol.fc == fc &&
-        sol.tr == tr &&
-        sol.tc == tc;
+    // 成り判定: 詰み探索で成りと不成りを両方試す（自動で良い方を選ぶ）
+    // 必須成り
+    bool forcedPromote = piece.canPromote && piece.mustPromote(tr);
 
-    if (correct) {
-      _execMove(fr, fc, tr, tc, promote);
-      _advanceSolution();
+    // 成り・不成りの候補を構築
+    final candidates = <AMove>[];
+    if (forcedPromote) {
+      candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: true));
+    } else if (piece.canPromote) {
+      // 成りゾーンなら両方試す（詰みに繋がる方を優先）
+      bool inZ(int row) => piece.isPlayer1 ? row <= 2 : row >= 6;
+      if (inZ(fr) || inZ(tr)) {
+        candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: true));
+        candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: false));
+      } else {
+        candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: false));
+      }
     } else {
-      _showWrong();
-      setState(() {
-        _selected = null;
-        _legalDots = {};
-      });
+      candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: false));
     }
+
+    await _verifyAndApplyMove(candidates);
   }
 
-  void _tryDrop(int tr, int tc) {
-    final type = _selectedHandPiece!;
-    final sol = _currentSol;
-
-    final correct = sol != null &&
-        sol.drop == type &&
-        sol.fr == -1 &&
-        sol.tr == tr &&
-        sol.tc == tc;
-
-    if (correct) {
-      _execDrop(type, tr, tc, isP1: true);
-      _advanceSolution();
-    } else {
-      _showWrong();
-    }
+  Future<void> _tryDrop(int tr, int tc) async {
+    if (_verifying) return;
+    final type = _selectedHandPiece;
+    if (type == null) return;
 
     setState(() {
       _selectedHandPiece = null;
       _selected = null;
       _legalDots = {};
     });
+
+    final mv = AMove(fr: -1, fc: -1, tr: tr, tc: tc, drop: type);
+    await _verifyAndApplyMove([mv]);
+  }
+
+  /// 候補手を順番に検証し、詰み手なら適用する
+  Future<void> _verifyAndApplyMove(List<AMove> candidates) async {
+    setState(() => _verifying = true);
+
+    AMove? validMove;
+
+    for (final mv in candidates) {
+      final result = await _engine.validateMove(
+        board: _board,
+        p1Hand: _p1Hand,
+        p2Hand: _p2Hand,
+        attackerIsP1: _p1Turn,
+        mv: mv,
+        totalRemainingMoves: _remainingMoves,
+      );
+      if (result.isMate) {
+        validMove = mv;
+        break;
+      }
+    }
+
+    if (!mounted) return;
+    setState(() => _verifying = false);
+
+    if (validMove == null) {
+      _showWrong();
+      return;
+    }
+
+    // 正解手を適用
+    if (validMove.drop != null) {
+      _execDrop(validMove.drop!, validMove.tr, validMove.tc, isP1: true);
+    } else {
+      _execMove(validMove.fr, validMove.fc, validMove.tr, validMove.tc, validMove.promote);
+    }
+    _advanceSolution();
   }
 
   void _execMove(int fr, int fc, int tr, int tc, bool promote) {
@@ -1632,16 +1675,30 @@ class _SolvePageState extends State<_SolvePage> {
       return;
     }
 
-    // 後手応手(奇数インデックス)は自動で実行
+    // 後手応手(奇数インデックス)はAI最善防御で自動実行
     if (_solutionIdx % 2 == 1) {
-      Future.delayed(const Duration(milliseconds: 600), () {
+      Future.delayed(const Duration(milliseconds: 500), () async {
         if (!mounted) return;
-        final mv = sol[_solutionIdx];
+
+        // AI最善防御手を計算
+        AMove? defMove = await Future(() => AI.bestMove(
+          _board, _p1Hand, _p2Hand,
+          false, // 後手
+          2,     // 深さ2（十分高速・高品質）
+        ));
+
+        // フォールバック: AI が手を見つけられない場合はスクリプト手
+        if (defMove == null && _solutionIdx < sol.length) {
+          defMove = sol[_solutionIdx];
+        }
+
+        if (!mounted || defMove == null) return;
+
         setState(() {
-          if (mv.drop != null) {
-            _execDrop(mv.drop!, mv.tr, mv.tc, isP1: false);
+          if (defMove!.drop != null) {
+            _execDrop(defMove.drop!, defMove.tr, defMove.tc, isP1: false);
           } else {
-            _execMove(mv.fr, mv.fc, mv.tr, mv.tc, mv.promote);
+            _execMove(defMove.fr, defMove.fc, defMove.tr, defMove.tc, defMove.promote);
           }
           _solutionIdx++;
         });
@@ -1805,7 +1862,9 @@ class _SolvePageState extends State<_SolvePage> {
         _showHint && sol != null && sol.fr >= 0 ? (sol.fr, sol.fc) : null;
     final hintTo = _showHint && sol != null ? (sol.tr, sol.tc) : null;
 
-    final turnText = _p1Turn ? '▲先手番' : '△後手番(自動応手中...)';
+    final turnText = _verifying
+        ? '検証中...'
+        : _p1Turn ? '▲先手番' : '△後手番(自動応手中...)';
     final moveNum = (_solutionIdx ~/ 2) + 1;
 
     return Scaffold(
@@ -1889,11 +1948,24 @@ class _SolvePageState extends State<_SolvePage> {
                         style: const TextStyle(
                             color: Colors.white54, fontSize: 13)),
                     const SizedBox(width: 16),
+                    if (_verifying) ...[
+                      const SizedBox(
+                        width: 12,
+                        height: 12,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.cyan,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
                     Text('第$moveNum手  $turnText',
                         style: TextStyle(
-                            color: _p1Turn
-                                ? Colors.lightBlue.shade300
-                                : Colors.orange.shade300,
+                            color: _verifying
+                                ? Colors.cyan
+                                : _p1Turn
+                                    ? Colors.lightBlue.shade300
+                                    : Colors.orange.shade300,
                             fontSize: 13,
                             fontWeight: FontWeight.bold)),
                   ],
