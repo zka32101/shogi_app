@@ -1504,7 +1504,7 @@ class _SolvePageState extends State<_SolvePage> {
   // ===== 盤面タップ =====
 
   void _onBoardTap(int row, int col) {
-    if (_solved || !_p1Turn || _verifying) return;
+    if (_solved || !_p1Turn || _verifying || _startInCheck) return;
 
     if (_selectedHandPiece != null) {
       _tryDrop(row, col); // async - fire and forget OK
@@ -1941,13 +1941,14 @@ class _SolvePageState extends State<_SolvePage> {
                     ),
                   ),
                 // 状態表示
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 12,
+                  runSpacing: 4,
                   children: [
                     Text('${prob.moves}手詰め',
                         style: const TextStyle(
                             color: Colors.white54, fontSize: 13)),
-                    const SizedBox(width: 16),
                     if (_verifying) ...[
                       const SizedBox(
                         width: 12,
@@ -1957,7 +1958,6 @@ class _SolvePageState extends State<_SolvePage> {
                           color: Colors.cyan,
                         ),
                       ),
-                      const SizedBox(width: 6),
                     ],
                     Text('第$moveNum手  $turnText',
                         style: TextStyle(

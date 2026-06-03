@@ -13,6 +13,7 @@ class MiniBoardWidget extends StatelessWidget {
   final bool showLabels;                  // Show rank/file labels
   final double? size;                     // Board size override
   final bool? currentIsP1;               // null=none, true=p1 is current turn, false=p2 is current turn
+  final bool boardFlipped; // ボード反転時の駒向き調整
 
   const MiniBoardWidget({
     super.key,
@@ -26,14 +27,21 @@ class MiniBoardWidget extends StatelessWidget {
     this.showLabels = true,
     this.size,
     this.currentIsP1,
+    this.boardFlipped = false,
   });
 
   // Colors matching game_screen.dart
   static const _cellColor = Color(0xFFE8C87A);
   static const _cellBorder = Color(0xFF7A4E2B);
 
-  Color _pieceColor(Piece p) =>
-      p.isPromoted ? Colors.red.shade700 : Colors.black87;
+  Color _pieceColor(Piece p) {
+    final effectiveP1 = boardFlipped ? !p.isPlayer1 : p.isPlayer1;
+    if (effectiveP1) {
+      return p.isPromoted ? const Color(0xFF1565C0) : Colors.black87;
+    } else {
+      return p.isPromoted ? Colors.red.shade700 : Colors.red.shade800;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -102,7 +110,7 @@ class MiniBoardWidget extends StatelessWidget {
                     if (piece != null)
                       Center(
                         child: RotatedBox(
-                          quarterTurns: piece.isPlayer1 ? 0 : 2,
+                          quarterTurns: (boardFlipped ? !piece.isPlayer1 : piece.isPlayer1) ? 0 : 2,
                           child: Text(
                             piece.label,
                             style: TextStyle(
