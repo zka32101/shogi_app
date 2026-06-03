@@ -9,6 +9,37 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'sound_service.dart';
+import 'coach_report_screen.dart';
+import 'stats_screen.dart' show ratingToRank, ratingToColor;
+import 'rank_badge_widget.dart' show showRankUpDialog;
+
+// ── コーチモード補助関数 ──────────────────────────────
+int _pEvalChange(int before, int after, bool wasP1Turn) =>
+    wasP1Turn ? after - before : before - after;
+
+String _coachLabel(int change) {
+  if (change >= 150) return '★ 好手！';
+  if (change >= 30)  return '✓ 良手';
+  if (change >= -80) return '';
+  if (change >= -200) return '? 疑問手';
+  return '✗ 悪手！';
+}
+
+Color _coachColor(int change) {
+  if (change >= 150) return const Color(0xFF5C9DFF);
+  if (change >= 30)  return const Color(0xFF64B5F6);
+  if (change >= -80) return Colors.white38;
+  if (change >= -200) return const Color(0xFFFF9800);
+  return const Color(0xFFEF5350);
+}
+
+IconData _coachIcon(int change) {
+  if (change >= 150) return Icons.star;
+  if (change >= 30)  return Icons.check_circle_outline;
+  if (change >= -80) return Icons.remove;
+  if (change >= -200) return Icons.warning_amber_outlined;
+  return Icons.cancel_outlined;
+}
 
 // ===== 盤面ペインター（グリッド＋星＋質感効果） =====
 class _BoardPainter extends CustomPainter {
@@ -244,6 +275,7 @@ class GameSettings {
   final int castleGuideMaxPly;
   final bool networkIsHost; // ネットワーク対局でホストか
   final bool networkRated; // ネットワーク対局でレーティング戦か
+  final bool coachMode;   // コーチモード（指導対局）
 
   const GameSettings({
     this.mode = GameMode.pvp,
@@ -260,6 +292,7 @@ class GameSettings {
     this.castleGuideMaxPly = 30,
     this.networkIsHost = false,
     this.networkRated = true,
+    this.coachMode = false,
   });
 
   int get aiDepth {
@@ -334,6 +367,17 @@ class _GameScreenState extends State<GameScreen>
   // --- 評価値バー ---
   int _evalScore = 0; // 正=先手有利 負=後手有利
 
+  // --- コーチモード ---
+  final List<List<List<Piece?>>> _boardSnaps = [];
+  final List<Map<PieceType, int>> _p1HandSnaps = [];
+  final List<Map<PieceType, int>> _p2HandSnaps = [];
+  final List<bool> _p1TurnSnaps = [];
+  List<List<Piece?>>? _coachInitialBoard; // 対局開始時盤面（講評用）
+  String? _coachBadgeText;
+  Color _coachBadgeColor = Colors.white38;
+  IconData _coachBadgeIcon = Icons.remove;
+  Timer? _coachBadgeTimer;
+
   // --- サブスクリプション ---
   bool _hasSubscription = false;
 
@@ -369,6 +413,10 @@ class _GameScreenState extends State<GameScreen>
       _startTimer();
     }
     _updateAtkMap();
+    // コーチモード: 初期盤面を保存
+    if (s.coachMode) {
+      _coachInitialBoard = GL.copy(board);
+    }
     // サブスクリプション状態を読み込み
     _loadSubscriptionStatus();
     // AI が先手の場合は最初の手番を AI に渡す
@@ -381,7 +429,81 @@ class _GameScreenState extends State<GameScreen>
   void dispose() {
     _anim.dispose();
     _timer?.cancel();
+    _coachBadgeTimer?.cancel();
     super.dispose();
+  }
+
+  // ===== コーチモード: スナップショット保存 =====
+  void _saveSnap() {
+    _boardSnaps.add(GL.copy(board));
+    _p1HandSnaps.add(Map.from(p1Hand));
+    _p2HandSnaps.add(Map.from(p2Hand));
+    _p1TurnSnaps.add(p1Turn);
+  }
+
+  // ===== コーチモード: 待った =====
+  Future<void> _takata() async {
+    if (!s.coachMode) return;
+    final undoCount = vsAI ? 2 : 1;
+    if (kifu.length < undoCount || _boardSnaps.length < undoCount) return;
+
+    final targetIdx = kifu.length - undoCount;
+
+    setState(() {
+      board = GL.copy(_boardSnaps[targetIdx]);
+      p1Hand = Map.from(_p1HandSnaps[targetIdx]);
+      p2Hand = Map.from(_p2HandSnaps[targetIdx]);
+      p1Turn = _p1TurnSnaps[targetIdx];
+
+      kifu = List.from(kifu.sublist(0, targetIdx));
+      _boardSnaps.removeRange(targetIdx, _boardSnaps.length);
+      _p1HandSnaps.removeRange(targetIdx, _p1HandSnaps.length);
+      _p2HandSnaps.removeRange(targetIdx, _p2HandSnaps.length);
+      _p1TurnSnaps.removeRange(targetIdx, _p1TurnSnaps.length);
+
+      lastFR = null; lastFC = null; lastTR = null; lastTC = null;
+      _coachBadgeText = null;
+      _hintMove = null;
+      result = null;
+      _clearSel();
+      _evalScore = AI.eval(board, p1Hand, p2Hand);
+      _updateAtkMap();
+    });
+
+    // ベスト手をヒントとして表示
+    final mv = await Future(() => AI.bestMove(board, p1Hand, p2Hand, p1Turn, 2));
+    if (mounted) setState(() => _hintMove = mv);
+  }
+
+  // ===== コーチモード: バッジ表示 =====
+  void _showCoachBadge(int evalChange) {
+    final label = _coachLabel(evalChange);
+    if (label.isEmpty) return;
+    _coachBadgeTimer?.cancel();
+    setState(() {
+      _coachBadgeText = label;
+      _coachBadgeColor = _coachColor(evalChange);
+      _coachBadgeIcon = _coachIcon(evalChange);
+    });
+    _coachBadgeTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _coachBadgeText = null);
+    });
+  }
+
+  // ===== コーチモード: 1局講評画面へ =====
+  void _openCoachReport() {
+    if (_coachInitialBoard == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CoachReportScreen(
+          kifu: List.from(kifu),
+          initialBoard: _coachInitialBoard!,
+          result: result ?? '未終了',
+          playerIsP1: !s.aiIsP2, // AI が後手なら player は先手
+        ),
+      ),
+    );
   }
 
   // ===== 効きマップ更新（setState 内から呼ぶ）=====
@@ -514,8 +636,20 @@ class _GameScreenState extends State<GameScreen>
       // 王手音
       SoundService.playCheck();
     }
+    // コーチバッジ（p1Turn 切替前、AI判定が正確）
+    if (s.coachMode && kifu.isNotEmpty && result == null) {
+      final humanJustMoved = !vsAI || !isAITurn;
+      final newEval = AI.eval(board, p1Hand, p2Hand);
+      if (humanJustMoved) {
+        final change = _pEvalChange(_evalScore, newEval, kifu.last.p1);
+        _showCoachBadge(change);
+      }
+      _evalScore = newEval;
+    } else {
+      _evalScore = AI.eval(board, p1Hand, p2Hand);
+    }
+
     p1Turn = next;
-    _evalScore = AI.eval(board, p1Hand, p2Hand);
     _updateAtkMap();
     if (_analysisMode && result == null && !isAITurn) _computeHint();
     if (result == null && isAITurn) {
@@ -552,6 +686,27 @@ class _GameScreenState extends State<GameScreen>
               ),
             ),
             const SizedBox(height: 20),
+            // コーチモード: AI講評ボタン
+            if (s.coachMode && kifu.isNotEmpty) ...[
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.psychology, size: 20),
+                  label: const Text('AI講評を見る', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.deepPurple.shade700,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    _openCoachReport();
+                  },
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -567,6 +722,11 @@ class _GameScreenState extends State<GameScreen>
                       p1Turn = true;
                       result = null;
                       kifu = [];
+                      _coachInitialBoard = s.coachMode ? GL.copy(board) : null;
+                      _boardSnaps.clear();
+                      _p1HandSnaps.clear();
+                      _p2HandSnaps.clear();
+                      _p1TurnSnaps.clear();
                       _clearSel();
                       lastFR = null;
                       lastFC = null;
@@ -618,6 +778,7 @@ class _GameScreenState extends State<GameScreen>
   }
 
   void _applyAIMove(AMove mv) {
+    if (s.coachMode) _saveSnap(); // スナップショット保存（AI指手前）
     final aiP1 = !s.aiIsP2;
     final note = mv.drop != null
         ? '${_sq(mv.tr, mv.tc)}${pieceLabel(mv.drop!)}打'
@@ -793,11 +954,45 @@ class _GameScreenState extends State<GameScreen>
       await prefs.setInt('stats_total', total);
       await prefs.setInt('stats_moves_sum',
           (prefs.getInt('stats_moves_sum') ?? 0) + kifu.length);
+
+      // 勝敗判定
+      bool? playerWon;
       if (result != null) {
+        if (vsAI) {
+          final playerIsP1 = !s.aiIsP2;
+          if (result!.contains('先手') && playerIsP1) playerWon = true;
+          if (result!.contains('後手') && !playerIsP1) playerWon = true;
+          if (result!.contains('先手') && !playerIsP1) playerWon = false;
+          if (result!.contains('後手') && playerIsP1) playerWon = false;
+        }
         if (result!.contains('先手')) {
           await prefs.setInt('stats_p1_wins', (prefs.getInt('stats_p1_wins') ?? 0) + 1);
         } else if (result!.contains('後手')) {
           await prefs.setInt('stats_p2_wins', (prefs.getInt('stats_p2_wins') ?? 0) + 1);
+        }
+      }
+
+      // レーティング更新（AI対局・レーティング戦のみ）
+      if (vsAI && s.aiRated && playerWon != null) {
+        final prevRating = prefs.getInt('rating_current') ?? 700;
+        final prevRankStr = ratingToRank(prevRating);
+
+        // Elo 変動量（難度別）
+        final delta = playerWon
+            ? [5, 10, 20, 35][s.aiLevel.index]
+            : [-3, -7, -15, -20][s.aiLevel.index];
+        final newRating = (prevRating + delta).clamp(0, 9999);
+
+        await prefs.setInt('rating_current', newRating);
+        await prefs.setInt('rating_ai_current', newRating);
+
+        // 昇段チェック
+        final newRankStr = ratingToRank(newRating);
+        if (newRankStr != prevRankStr && delta > 0 && mounted) {
+          await Future.delayed(const Duration(milliseconds: 800));
+          if (mounted) {
+            await showRankUpDialog(context, newRankStr, ratingToColor(newRating));
+          }
         }
       }
     } catch (_) {}
@@ -814,6 +1009,7 @@ class _GameScreenState extends State<GameScreen>
         final type = selHand!;
         final note = '${_sq(row, col)}${pieceLabel(type)}打';
         SoundService.playDrop();
+        if (s.coachMode) _saveSnap(); // スナップショット保存
         setState(() {
           board[row][col] = Piece(type, p1Turn);
           _curH[type] = (_curH[type] ?? 1) - 1;
@@ -885,6 +1081,7 @@ class _GameScreenState extends State<GameScreen>
       }
     }
 
+    if (s.coachMode) _saveSnap(); // スナップショット保存（移動前）
     final cap = board[row][col];
     final note =
         '${_sq(row, col)}${moving.label}${promote ? "成" : ""}${cap != null ? "(取)" : ""}';
@@ -1042,6 +1239,20 @@ class _GameScreenState extends State<GameScreen>
               tooltip: '投了',
               onPressed: _resign,
             ),
+          // コーチモード: 待ったボタン
+          if (s.coachMode && result == null && kifu.length >= (vsAI ? 2 : 1))
+            IconButton(
+              icon: const Icon(Icons.undo, color: Colors.cyan),
+              tooltip: '待った（やり直し）',
+              onPressed: _takata,
+            ),
+          // コーチモード: 講評ボタン（対局中も見られる）
+          if (s.coachMode && kifu.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.psychology_outlined, color: Colors.deepPurpleAccent),
+              tooltip: 'AI講評',
+              onPressed: _openCoachReport,
+            ),
           // 局面分析（ヒント）
           IconButton(
             icon: Icon(
@@ -1143,12 +1354,44 @@ class _GameScreenState extends State<GameScreen>
           _playerBar(!_userIsP2), // 相手は上
           _handBar(!_userIsP2),
           _evalBar(), // 評価値バー
+          // コーチバッジ
+          if (s.coachMode && _coachBadgeText != null) _coachBadgeWidget(),
           Expanded(child: Center(child: _boardWidget())),
           _handBar(_userIsP2), // ユーザーは下
           _playerBar(_userIsP2),
-          if (_analysisMode) _hintBar(),
+          if (_analysisMode || (s.coachMode && _hintMove != null)) _hintBar(),
           // ゲーム終了時に広告を表示
           if (result != null) _adWidget(),
+        ],
+      ),
+    );
+  }
+
+  // ===== コーチバッジ =====
+  Widget _coachBadgeWidget() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      decoration: BoxDecoration(
+        color: _coachBadgeColor.withAlpha(40),
+        border: Border.all(color: _coachBadgeColor, width: 1.5),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(_coachBadgeIcon, color: _coachBadgeColor, size: 16),
+          const SizedBox(width: 6),
+          Text(
+            _coachBadgeText!,
+            style: TextStyle(
+              color: _coachBadgeColor,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
