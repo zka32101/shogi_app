@@ -178,7 +178,7 @@ class _ProverbCard extends StatelessWidget {
               child: MiniBoardWidget(
                 board: data.board,
                 highlightSquares: data.highlightSquares,
-                size: 200,
+                size: 180,
                 showLabels: false,
               ),
             ),

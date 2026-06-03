@@ -1175,17 +1175,17 @@ class _GameScreenState extends State<GameScreen>
     return null;
   }
   Color pieceTextColor(Piece p) {
-    // ユーザーの駒は青、相手の駒は黒
+    // ユーザーの駒は青、相手の駒は赤系
     final isUserPiece = _userIsP2 ? !p.isPlayer1 : p.isPlayer1;
 
     if (isUserPiece) {
       // ユーザーの駒は青
       return p.isPromoted ? Colors.blue.shade200 : Colors.blue.shade600;
     } else {
-      // 相手の駒は黒
+      // 相手の駒は赤系
       if (s.theme == PieceTheme.dark)
-        return Colors.white;
-      return Colors.black87;
+        return p.isPromoted ? Colors.red.shade200 : Colors.red.shade300;
+      return p.isPromoted ? Colors.red.shade600 : Colors.red.shade800;
     }
   }
 
@@ -1912,12 +1912,12 @@ class _GameScreenState extends State<GameScreen>
                                     decoration: BoxDecoration(
                                       color: bg,
                                       border: isTadaDori
-                                        ? Border.all(color: Colors.yellow.shade400, width: 3.0)
+                                        ? Border.all(color: Colors.red.shade600, width: 3.0)
                                         : canCapture
-                                          ? Border.all(color: Colors.red.shade400, width: 2.0)
+                                          ? Border.all(color: Colors.orange.shade400, width: 1.5)
                                           : Border.all(color: _cellBorder, width: 0.5),
                                       boxShadow: isTadaDori
-                                        ? [BoxShadow(color: Colors.yellow.shade400.withAlpha(120), blurRadius: 4, spreadRadius: 1)]
+                                        ? [BoxShadow(color: Colors.red.shade600.withAlpha(160), blurRadius: 6, spreadRadius: 1)]
                                         : null,
                                     ),
                                     child: Stack(
@@ -1925,13 +1925,16 @@ class _GameScreenState extends State<GameScreen>
                                         // 駒または移動可能マーク
                                         if (piece != null)
                                           Center(
-                                            child: Text(
-                                              piece.label,
-                                              style: TextStyle(
-                                                fontSize: cellSize * .62,
-                                                fontWeight: FontWeight.bold,
-                                                color: pieceTextColor(piece),
-                                                height: 1.0,
+                                            child: RotatedBox(
+                                              quarterTurns: piece.isPlayer1 ? 0 : 2,
+                                              child: Text(
+                                                piece.label,
+                                                style: TextStyle(
+                                                  fontSize: cellSize * .62,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: pieceTextColor(piece),
+                                                  height: 1.0,
+                                                ),
                                               ),
                                             ),
                                           )

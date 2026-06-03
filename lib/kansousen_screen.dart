@@ -490,6 +490,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
                                 showLabels: true,
                                 size: cs.maxWidth,
                                 highlightSquares: _studyMode ? _studyHL : const {},
+                                boardFlipped: widget.flipped,
                               ),
                               if (!_studyMode && needsBest && topMoves.isNotEmpty)
                                 Positioned(
