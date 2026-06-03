@@ -3,8 +3,8 @@
 ## 概要
 - **製品名**: 効棋 (Kouki) — AI対局・定跡学習・棋譜管理アプリ
 - **屋号**: Petit Studio
-- **バージョン**: v1.0.10+10
-- **最終更新**: 2026-06-02
+- **バージョン**: v1.1.0+11
+- **最終更新**: 2026-06-03
 - **プラットフォーム**: Flutter (Android / iOS / Web)
 
 ## ⚠️ 重要：開発パス（2026-06-02 移行）
@@ -49,6 +49,25 @@
 - VSCODE_SETUP_GUIDE.md（IDE設定）
 - HANDOVER_SUMMARY.md（総合ガイド）
 
+## ✅ v1.1.0 で実装済み（2026-06-03）
+
+### TOP1: AI指導対局＋1局講評
+- `lib/coach_report_screen.dart` — 新規。精度スコア・グレード・重要局面・AI アドバイス
+- `lib/game_screen.dart` — coachMode フラグ追加、リアルタイムバッジ、待った機能、講評ボタン
+- `lib/game_setup_screen.dart` — コーチモードトグル追加
+
+### TOP2: 詰将棋デイリー＋ストリーク
+- `lib/tsume_screen.dart` — デイリー問題カード、ストリーク（🔥）、タイマー・自己ベスト
+
+### TOP3: 段位認定付きオンライン
+- `lib/rank_badge_widget.dart` — 新規。RankBadge, RankProgressBar, showRankUpDialog
+- `lib/stats_screen.dart` — 段級位テーブルを 15級〜九段（24段階）に拡張、進捗バー追加
+- `lib/game_screen.dart` — AI対局後レーティング自動更新、昇段ダイアログ
+
+### ビルド設定
+- `android/gradle.properties` に `android.overridePathCheck=true` + `kotlin.incremental=false` 追加
+- APK: `G:\マイドライブ\apk\効棋-Kouki-v1.1.0-debug.apk`
+
 ## 📌 次のアクション：「将棋アプリ1位」戦略（2026-06-02 提案）
 
 ### 差別化戦略
@@ -73,7 +92,7 @@
 - 無料（対局・基本詰将棋・広告）/ プレミアム ¥480/月（AI講評し放題・全レッスン・広告なし・詰将棋全問）/ 単発課金（テーマ・駒）
 - 主軸＝「AI講評し放題」の月額（ウォーズの"棋神"成功モデルの発展）
 
-**→ 次セッション: 上記TOP3のどれから着手するか決定 → 設計・実装。最有力は「AI指導対局」（既存資産を活かせる）**
+**→ TOP1〜3 すべて v1.1.0 で実装済み。次セッション: 詰将棋問題数増加（現在21問→50問以上）、プロ棋譜閲覧、多言語対応（海外展開）、Google Play リリース準備のどれかを検討**
 
 ## 既知の課題・注意点
 - リリースビルド（`flutter build apk --release`）で DartWorker メモリエラー発生実績
