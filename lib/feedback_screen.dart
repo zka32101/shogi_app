@@ -272,7 +272,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             ),
             const SizedBox(height: 8),
             SelectableText(
-              'zkaz83@gmail.com',
+              'funvestment1@gmail.com',
               style: TextStyle(color: Colors.lightBlue.shade300, fontWeight: FontWeight.bold),
             ),
           ],
