@@ -10,6 +10,7 @@ import 'piece.dart';
 import 'logic.dart';
 import 'sound_service.dart';
 import 'coach_report_screen.dart';
+import 'feedback_screen.dart';
 import 'stats_screen.dart' show ratingToRank, ratingToColor;
 import 'rank_badge_widget.dart' show showRankUpDialog;
 
@@ -946,6 +947,26 @@ class _GameScreenState extends State<GameScreen>
     } catch (_) {}
   }
 
+  // ===== この局面をフィードバック報告 =====
+  void _reportPosition() {
+    // 直近20手の棋譜テキストを作成
+    final recent = kifu.length > 20
+        ? kifu.sublist(kifu.length - 20)
+        : kifu;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FeedbackScreen(
+          board:      board,
+          p1Hand:     Map.from(p1Hand),
+          p2Hand:     Map.from(p2Hand),
+          recentKifu: recent.map((m) => m.text).toList(),
+          moveCount:  kifu.length,
+        ),
+      ),
+    );
+  }
+
   // ===== 対局統計を更新 =====
   Future<void> _updateStats() async {
     try {
@@ -1312,6 +1333,12 @@ class _GameScreenState extends State<GameScreen>
             icon: const Icon(Icons.save, color: Colors.white70),
             tooltip: '棋譜保存',
             onPressed: kifu.isEmpty ? null : _saveKifu,
+          ),
+          // この局面を報告
+          IconButton(
+            icon: const Icon(Icons.bug_report_outlined, color: Colors.white38),
+            tooltip: 'バグ報告・改善要望',
+            onPressed: _reportPosition,
           ),
           // 新局
           IconButton(
