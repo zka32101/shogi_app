@@ -30,6 +30,7 @@ import 'badge_screen.dart';
 import 'cloud_sync_service.dart';
 import 'ai_data_service.dart';
 import 'weekly_review_screen.dart';
+import 'feedback_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 
@@ -809,6 +810,39 @@ class _SettingsTab extends StatelessWidget {
                 ]),
               ),
             ]),
+            const SizedBox(height: 20),
+
+            // ── フィードバック ──
+            _sectionLabel('フィードバック'),
+            const SizedBox(height: 8),
+            _settingCard([
+              _feedbackTile(
+                context,
+                icon: Icons.bug_report_outlined,
+                color: Colors.redAccent,
+                title: 'バグを報告する',
+                subtitle: '不具合・おかしな動作を教えてください',
+                type: FeedbackType.bug,
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _feedbackTile(
+                context,
+                icon: Icons.lightbulb_outline,
+                color: Colors.amber,
+                title: '改善要望を送る',
+                subtitle: 'こんな機能が欲しい！をお聞かせください',
+                type: FeedbackType.request,
+              ),
+              const Divider(color: Colors.white12, height: 16),
+              _feedbackTile(
+                context,
+                icon: Icons.chat_bubble_outline,
+                color: Colors.blueAccent,
+                title: 'その他のご意見',
+                subtitle: 'ご感想・お問い合わせ',
+                type: FeedbackType.other,
+              ),
+            ]),
             const SizedBox(height: 24),
           ],
         ),
@@ -887,6 +921,54 @@ Widget _settingRow(String label, Widget control) => Padding(
     ],
   ),
 );
+
+Widget _feedbackTile(
+  BuildContext context, {
+  required IconData icon,
+  required Color color,
+  required String title,
+  required String subtitle,
+  required FeedbackType type,
+}) {
+  return InkWell(
+    onTap: () => Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FeedbackScreen(initialType: type),
+      ),
+    ),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withAlpha(30),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: color.withAlpha(80)),
+            ),
+            child: Icon(icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
+                Text(subtitle,
+                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              ],
+            ),
+          ),
+          const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
+        ],
+      ),
+    ),
+  );
+}
 
 // ===== テーマプレビュー CustomPainter =====
 class _ThemePreviewPainter extends CustomPainter {
