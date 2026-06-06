@@ -29,12 +29,58 @@ class TsumeResult {
 }
 
 // ───────────────────────────────────────────────────────
+// 詰め探索専用置換表
+// ───────────────────────────────────────────────────────
+enum _TsumeTTVal { mate, noMate }
+
+class _TsumeTT {
+  final Map<String, (int, _TsumeTTVal)> _table = {}; // hash → (depth, val)
+  static const _maxSize = 200000;
+
+  _TsumeTTVal? lookup(String hash, int depth) {
+    final e = _table[hash];
+    if (e == null || e.$1 < depth) return null;
+    return e.$2;
+  }
+
+  void store(String hash, int depth, _TsumeTTVal val) {
+    if (_table.length < _maxSize) _table[hash] = (depth, val);
+  }
+
+  void clear() => _table.clear();
+
+  /// 局面ハッシュ（手番付き）
+  static String hash(List<List<Piece?>> b, Map<PieceType, int> p1h,
+      Map<PieceType, int> p2h, bool attackerTurn) {
+    final buf = StringBuffer();
+    buf.writeCharCode(attackerTurn ? 49 : 48);
+    for (int r = 0; r < 9; r++)
+      for (int c = 0; c < 9; c++) {
+        final p = b[r][c];
+        if (p == null) {
+          buf.writeCharCode(46);
+        } else {
+          buf.writeCharCode(p.isPlayer1 ? 65 : 97);
+          buf.writeCharCode(p.type.index + 65);
+        }
+      }
+    for (final e in p1h.entries)
+      if (e.value > 0) { buf.writeCharCode(e.key.index + 48); buf.write(e.value); }
+    buf.writeCharCode(124);
+    for (final e in p2h.entries)
+      if (e.value > 0) { buf.writeCharCode(e.key.index + 48); buf.write(e.value); }
+    return buf.toString();
+  }
+}
+
+// ───────────────────────────────────────────────────────
 // TsumeEngine
 // ───────────────────────────────────────────────────────
 class TsumeEngine {
-  // 探索打ち切り上限（1局面あたり）
-  static const _nodeLimit = 80000;
+  // 探索打ち切り上限（反復深化全体での累計）
+  static const _nodeLimit = 300000;
   int _nodes = 0;
+  final _tt = _TsumeTT();
 
   // ── 公開 API ──────────────────────────────────────────
 
@@ -61,7 +107,7 @@ class TsumeEngine {
     ));
   }
 
-  /// 詰み手を探索する（ヒント・問題検証用）
+  /// 詰み手を探索する — 反復深化版（1→3→5→depth と深める）
   ///
   /// 返値: [TsumeResult] — isMate=true なら詰みあり
   Future<TsumeResult> findMate({
@@ -72,14 +118,21 @@ class TsumeEngine {
     required int depth, // 奇数: 1, 3, 5, 7, ...
   }) async {
     _nodes = 0;
-    return await Future(() => _attackerSearch(
-      board, p1Hand, p2Hand, attackerIsP1, depth,
-    ));
+    _tt.clear();
+    return await Future(() {
+      // 反復深化: 1手→3手→…→depth手 と段階的に探索
+      for (int d = 1; d <= depth; d += 2) {
+        if (_nodes >= _nodeLimit) break;
+        final result = _attackerSearch(board, p1Hand, p2Hand, attackerIsP1, d);
+        if (result.isMate) return result;
+      }
+      return TsumeResult.no;
+    });
   }
 
   // ── 内部探索 ──────────────────────────────────────────
 
-  /// 攻め方の番: 詰み手を探す
+  /// 攻め方の番: 詰み手を探す（置換表付き）
   TsumeResult _attackerSearch(
     List<List<Piece?>> b,
     Map<PieceType, int> p1h,
@@ -88,17 +141,32 @@ class TsumeEngine {
     int depth,
   ) {
     if (depth <= 0) return TsumeResult.no;
+    if (_nodes >= _nodeLimit) return TsumeResult.no;
+
+    // 置換表チェック（攻め方ノード）
+    final hash = _TsumeTT.hash(b, p1h, p2h, attackerIsP1);
+    final cached = _tt.lookup(hash, depth);
+    if (cached == _TsumeTTVal.noMate) return TsumeResult.no;
 
     final moves = AI.allMoves(b, attackerIsP1, p1h, p2h);
 
-    // 成り/不成り両候補があるとき、成りを先に試す（詰将棋では成りが有力なことが多い）
-    moves.sort((a, b) => (b.promote ? 1 : 0) - (a.promote ? 1 : 0));
+    // 成り・取る手を優先
+    moves.sort((a, bm) {
+      int sa = (bm.promote ? 2 : 0) + (b[bm.tr][bm.tc] != null ? 1 : 0);
+      int sb = (a.promote ? 2 : 0) + (b[a.tr][a.tc] != null ? 1 : 0);
+      return sa - sb;
+    });
 
     for (final mv in moves) {
-      if (_nodes++ > _nodeLimit) return TsumeResult.no;
+      _nodes++;
+      if (_nodes >= _nodeLimit) return TsumeResult.no;
       final result = _checkMove(b, p1h, p2h, attackerIsP1, mv, depth);
-      if (result.isMate) return result;
+      if (result.isMate) {
+        _tt.store(hash, depth, _TsumeTTVal.mate);
+        return result;
+      }
     }
+    _tt.store(hash, depth, _TsumeTTVal.noMate);
     return TsumeResult.no;
   }
 
@@ -114,7 +182,7 @@ class TsumeEngine {
     final defenderIsP1 = !attackerIsP1;
     final next = AI.apply(b, p1h, p2h, mv, attackerIsP1);
 
-    // 詰将棋ルール: 攻め方の手は必ず王手でなければならない
+    // 詰将棋ルール: 攻め方の手は必ず王手
     if (!GL.inCheck(next.b, defenderIsP1)) return TsumeResult.no;
 
     final defHand = defenderIsP1 ? next.p1h : next.p2h;
@@ -138,8 +206,7 @@ class TsumeEngine {
     );
   }
 
-  /// 受け方の番: 全応手を試す
-  /// 1手でも詰みを逃れる応手があれば false を返す
+  /// 受け方の番: 全応手を試す。1手でも逃れがあれば false
   TsumeResult _defenderSearch(
     List<List<Piece?>> b,
     Map<PieceType, int> p1h,
@@ -149,29 +216,41 @@ class TsumeEngine {
   ) {
     final defenderIsP1 = !attackerIsP1;
     final defHand = defenderIsP1 ? p1h : p2h;
+
+    // 置換表チェック（受け方ノード）
+    final hash = _TsumeTT.hash(b, p1h, p2h, defenderIsP1);
+    final cached = _tt.lookup(hash, depth);
+    if (cached == _TsumeTTVal.noMate) return TsumeResult.no;
+    if (cached == _TsumeTTVal.mate)   return const TsumeResult(isMate: true);
+
     final defenses = GL.hasLegalMove(b, defenderIsP1, defHand)
         ? AI.allMoves(b, defenderIsP1, p1h, p2h)
         : <AMove>[];
 
     if (defenses.isEmpty) {
-      // 後手に手がない = 詰み
+      _tt.store(hash, depth, _TsumeTTVal.mate);
       return const TsumeResult(isMate: true);
     }
 
-    // 後手の「最善（最も逃げやすい）」応手を記録
     AMove? bestDef;
 
     for (final mv in defenses) {
-      if (_nodes++ > _nodeLimit) return TsumeResult.no; // 打ち切り
+      _nodes++;
+      if (_nodes >= _nodeLimit) {
+        _tt.store(hash, depth, _TsumeTTVal.noMate);
+        return TsumeResult.no;
+      }
       final next = AI.apply(b, p1h, p2h, mv, defenderIsP1);
-      final attackResult = _attackerSearch(next.b, next.p1h, next.p2h, attackerIsP1, depth - 1);
+      final attackResult =
+          _attackerSearch(next.b, next.p1h, next.p2h, attackerIsP1, depth - 1);
       if (!attackResult.isMate) {
-        // この応手で詰みを逃れる → 詰みではない
+        _tt.store(hash, depth, _TsumeTTVal.noMate);
         return TsumeResult.no;
       }
       bestDef ??= mv;
     }
 
+    _tt.store(hash, depth, _TsumeTTVal.mate);
     return TsumeResult(isMate: true, bestDefense: bestDef);
   }
 }
