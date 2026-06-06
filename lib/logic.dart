@@ -335,6 +335,16 @@ class GL {
 
 // ===== AI =====
 
+// ── 置換表（Transposition Table）──────────────────────────────
+enum _TTFlag { exact, alpha, beta }
+
+class _TTEntry {
+  final int score;
+  final int depth;
+  final _TTFlag flag;
+  const _TTEntry(this.score, this.depth, this.flag);
+}
+
 // 駒の評価値（B: より正確なシステム値に改善）
 const _val = {
   PieceType.pawn:             100,
@@ -437,6 +447,49 @@ class NyugyokuChecker {
 class AI {
   static final _rand = Random();
 
+  // ── 置換表・キラー手・ヒストリーテーブル ──────────────────────
+  static final Map<String, _TTEntry> _tt = {};
+  static const _ttMaxSize = 600000;
+  static final List<List<AMove?>> _killers =
+      List.generate(24, (_) => [null, null]);
+  static final Map<String, int> _history = {};
+
+  /// サーチ前にキラー・ヒストリーをリセット（TT は再利用）
+  static void _clearSearchState() {
+    for (final k in _killers) { k[0] = null; k[1] = null; }
+    if (_history.length > 100000) _history.clear();
+  }
+
+  /// 局面ハッシュ（置換表キー用）
+  static String _hash(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool turn,
+  ) {
+    final buf = StringBuffer();
+    buf.writeCharCode(turn ? 49 : 48);
+    for (int r = 0; r < 9; r++)
+      for (int c = 0; c < 9; c++) {
+        final p = b[r][c];
+        if (p == null) {
+          buf.writeCharCode(46);
+        } else {
+          buf.writeCharCode(p.isPlayer1 ? 65 : 97);
+          buf.writeCharCode(p.type.index + 65);
+        }
+      }
+    for (final e in p1h.entries)
+      if (e.value > 0) { buf.writeCharCode(e.key.index + 48); buf.write(e.value); }
+    buf.writeCharCode(124);
+    for (final e in p2h.entries)
+      if (e.value > 0) { buf.writeCharCode(e.key.index + 48); buf.write(e.value); }
+    return buf.toString();
+  }
+
+  /// ヒストリーキー
+  static String _hkey(AMove m) => '${m.fr}${m.fc}${m.tr}${m.tc}${m.drop?.index ?? -1}';
+
   // ===== A. ムーブオーダリング =====
   // MVV-LVA: 取る手 > 成り > 打ち駒 > 静かな手 の順で探索
   static int _moveOrderScore(List<List<Piece?>> b, AMove mv) {
@@ -456,10 +509,33 @@ class AI {
     return 0;                   // 静かな手（最後に探索）
   }
 
-  // 手をムーブオーダリングスコアでソート
-  static List<AMove> _sortMoves(List<List<Piece?>> b, List<AMove> moves) {
+  // 手をムーブオーダリングスコアでソート（キラー手・ヒストリー込み）
+  static List<AMove> _sortMoves(List<List<Piece?>> b, List<AMove> moves) =>
+      _sortMovesEx(b, moves, -1);
+
+  static List<AMove> _sortMovesEx(
+    List<List<Piece?>> b,
+    List<AMove> moves,
+    int depth,
+  ) {
     if (moves.length <= 1) return moves;
-    final scored = moves.map((m) => (m, _moveOrderScore(b, m))).toList();
+    final k1 = (depth >= 0 && depth < 24) ? _killers[depth][0] : null;
+    final k2 = (depth >= 0 && depth < 24) ? _killers[depth][1] : null;
+
+    bool isKiller(AMove m, AMove? k) =>
+        k != null && m.fr == k.fr && m.fc == k.fc &&
+        m.tr == k.tr && m.tc == k.tc && m.drop == k.drop;
+
+    final scored = moves.map((m) {
+      int s = _moveOrderScore(b, m);
+      if (s == 0) {
+        // 静かな手: キラー > ヒストリー
+        if (isKiller(m, k1)) s = 950;
+        else if (isKiller(m, k2)) s = 900;
+        else s = min(850, _history[_hkey(m)] ?? 0);
+      }
+      return (m, s);
+    }).toList();
     scored.sort((a, z) => z.$2.compareTo(a.$2));
     return scored.map((e) => e.$1).toList();
   }
@@ -491,7 +567,7 @@ class AI {
     }
   }
 
-  // 玉の安全度（周囲の味方駒数 × 12点）
+  // 玉の盾：周囲8マスの味方駒数 × 12点
   static int _kingShield(List<List<Piece?>> b, bool p1) {
     for (int r = 0; r < 9; r++) {
       for (int c = 0; c < 9; c++) {
@@ -511,10 +587,60 @@ class AI {
         return shield * 12;
       }
     }
-    return -5000; // 玉がいない（詰み状態）
+    return -5000;
   }
 
-  // 強化版盤面評価（先手視点、正=先手有利）
+  /// 玉の危険度：近接する敵駒を駒種・距離で重み付け（先手玉への脅威を返す）
+  static int _kingDanger(List<List<Piece?>> b, bool p1) {
+    final k = GL.kingPos(b, p1);
+    if (k == null) return 5000; // 玉なし=危険MAX
+    final kr = k.$1, kc = k.$2;
+    int danger = 0;
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        final p = b[r][c];
+        if (p == null || p.isPlayer1 == p1) continue;
+        final dist = (r - kr).abs() + (c - kc).abs();
+        if (dist > 5) continue;
+        final w = switch (p.type) {
+          PieceType.rook || PieceType.promotedRook       => 36,
+          PieceType.bishop || PieceType.promotedBishop   => 30,
+          PieceType.promotedSilver || PieceType.promotedKnight ||
+          PieceType.promotedLance || PieceType.promotedPawn => 22,
+          PieceType.gold || PieceType.silver              => 18,
+          PieceType.knight || PieceType.lance             => 12,
+          PieceType.pawn                                  => 5,
+          _                                               => 8,
+        };
+        // 近いほど危険（dist=1: 4/2=2倍、dist=2: 4/3≈1.3倍、dist=3: 4/4=等倍）
+        danger += (w * 4) ~/ (dist + 1);
+      }
+    }
+    return danger;
+  }
+
+  /// 飛車オープンファイルボーナス（飛車の筋に自陣の歩がなければ+30）
+  static int _rookOpenBonus(List<List<Piece?>> b, bool p1) {
+    int bonus = 0;
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        final p = b[r][c];
+        if (p == null || p.isPlayer1 != p1) continue;
+        if (p.type != PieceType.rook && p.type != PieceType.promotedRook) continue;
+        bool hasPawn = false;
+        for (int rr = 0; rr < 9; rr++) {
+          final pp = b[rr][c];
+          if (pp != null && pp.isPlayer1 == p1 && pp.type == PieceType.pawn) {
+            hasPawn = true; break;
+          }
+        }
+        if (!hasPawn) bonus += 30;
+      }
+    }
+    return bonus;
+  }
+
+  // ===== 強化版盤面評価（先手視点、正=先手有利） =====
   static int eval(
     List<List<Piece?>> b,
     Map<PieceType, int> p1h,
@@ -522,7 +648,7 @@ class AI {
   ) {
     int score = 0;
 
-    // 駒の価値 + 位置ボーナス
+    // ① 駒の価値 + 位置ボーナス
     for (int r = 0; r < 9; r++) {
       for (int c = 0; c < 9; c++) {
         final p = b[r][c];
@@ -533,15 +659,23 @@ class AI {
       }
     }
 
-    // 持ち駒の価値（盤上の85%）
+    // ② 持ち駒の価値（盤上の85%）
     for (final e in p1h.entries)
       score += e.value * ((_val[e.key] ?? 0) * 0.85).round();
     for (final e in p2h.entries)
       score -= e.value * ((_val[e.key] ?? 0) * 0.85).round();
 
-    // 玉の安全度（高速: O(1)で計算）
+    // ③ 玉の盾（隣接味方駒）
     score += _kingShield(b, true);
     score -= _kingShield(b, false);
+
+    // ④ 玉の危険度（新規: 近接敵駒のペナルティ）
+    score -= _kingDanger(b, true);   // 先手玉が危険 → 先手のスコアを下げる
+    score += _kingDanger(b, false);  // 後手玉が危険 → 先手のスコアを上げる
+
+    // ⑤ 飛車オープンファイルボーナス（新規）
+    score += _rookOpenBonus(b, true);
+    score -= _rookOpenBonus(b, false);
 
     return score;
   }
@@ -687,6 +821,8 @@ class AI {
       return moves.first;
     }
 
+    _clearSearchState(); // キラー手・ヒストリーリセット
+
     // A: ムーブオーダリング適用（取る手・成り手を優先探索）
     final sortedMoves = _sortMoves(b, moves);
 
@@ -727,6 +863,7 @@ class AI {
       moves.shuffle(_rand);
       return moves.take(n).map((m) => (m, 0)).toList();
     }
+    _clearSearchState();
     final scored      = <(AMove, int)>[];
     final sortedMoves = _sortMoves(b, moves); // A: ムーブオーダリング
     for (final mv in sortedMoves) {
@@ -739,7 +876,7 @@ class AI {
     return scored.take(n).toList();
   }
 
-  // A + D: ムーブオーダリング + クワイエッサンス統合ミニマックス
+  // ===== A+D+TT+Killer: 置換表・キラー手・ヒストリー統合ミニマックス =====
   static int _mm(
     List<List<Piece?>> b,
     Map<PieceType, int> p1h,
@@ -750,22 +887,37 @@ class AI {
     bool maximizing,
     bool aiIsP1,
   ) {
-    if (depth == 0) {
-      // D: クワイエッサンス探索（最大2手で速度改善・品質はほぼ維持）
-      return _qSearch(b, p1h, p2h, alpha, beta, maximizing, aiIsP1, 2);
+    final currP1    = maximizing == aiIsP1 ? aiIsP1 : !aiIsP1;
+    final origAlpha = alpha;
+
+    // ── 置換表ルックアップ ──
+    final hash    = _hash(b, p1h, p2h, currP1);
+    final ttEntry = _tt[hash];
+    if (ttEntry != null && ttEntry.depth >= depth) {
+      final s = ttEntry.score;
+      if (ttEntry.flag == _TTFlag.exact) return s;
+      if (ttEntry.flag == _TTFlag.alpha) alpha = max(alpha, s);
+      if (ttEntry.flag == _TTFlag.beta)  beta  = min(beta,  s);
+      if (alpha >= beta) return s;
     }
 
-    final currP1 = maximizing == aiIsP1 ? aiIsP1 : !aiIsP1;
-    final moves  = allMoves(b, currP1, p1h, p2h);
+    // ── 葉ノード ──
+    if (depth == 0) {
+      final s = _qSearch(b, p1h, p2h, alpha, beta, maximizing, aiIsP1, 4);
+      _tt[hash] = _TTEntry(s, 0, _TTFlag.exact);
+      return s;
+    }
+
+    final moves = allMoves(b, currP1, p1h, p2h);
     if (moves.isEmpty) {
       return GL.inCheck(b, currP1) ? (maximizing ? -99999 : 99999) : 0;
     }
 
-    // A: ムーブオーダリング（枝刈り効率を2〜4倍向上）
-    final sortedMoves = _sortMoves(b, moves);
+    // ── ムーブオーダリング（キラー手・ヒストリー込み）──
+    final sorted = _sortMovesEx(b, moves, depth);
 
     int val = maximizing ? -999999 : 999999;
-    for (final mv in sortedMoves) {
+    for (final mv in sorted) {
       final next  = apply(b, p1h, p2h, mv, currP1);
       final child = _mm(
         next.b, next.p1h, next.p2h,
@@ -777,9 +929,27 @@ class AI {
         alpha = max(alpha, val);
       } else {
         val  = min(val, child);
-        beta = min(beta,  val);
+        beta = min(beta, val);
       }
-      if (beta <= alpha) break; // α-β枝刈り
+      if (beta <= alpha) {
+        // ── β枝刈り: キラー手・ヒストリーを更新 ──
+        if (mv.drop == null && _moveOrderScore(b, mv) == 0) {
+          final di = depth < 24 ? depth : 23;
+          _killers[di][1] = _killers[di][0];
+          _killers[di][0] = mv;
+          final hk = _hkey(mv);
+          _history[hk] = (_history[hk] ?? 0) + depth * depth;
+        }
+        break;
+      }
+    }
+
+    // ── 置換表に保存 ──
+    if (_tt.length < _ttMaxSize) {
+      final flag = val <= origAlpha ? _TTFlag.alpha
+          : val >= beta    ? _TTFlag.beta
+          : _TTFlag.exact;
+      _tt[hash] = _TTEntry(val, depth, flag);
     }
     return val;
   }

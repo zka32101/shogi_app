@@ -301,11 +301,11 @@ class GameSettings {
       case AILevel.random:
         return 0;
       case AILevel.easy:
-        return 1;
+        return 2;  // 置換表効果で旧depth=3相当
       case AILevel.medium:
-        return 2;
+        return 3;  // 置換表効果で旧depth=4相当
       case AILevel.hard:
-        return 4;
+        return 5;  // 置換表+killer+historyで旧depth=7相当
     }
   }
 }
