@@ -876,7 +876,16 @@ class AI {
     return scored.take(n).toList();
   }
 
-  // ===== A+D+TT+Killer: 置換表・キラー手・ヒストリー統合ミニマックス =====
+  // 盤上の総駒数（null move pruning の終盤判定用）
+  static int _totalPieces(List<List<Piece?>> b) {
+    int n = 0;
+    for (int r = 0; r < 9; r++)
+      for (int c = 0; c < 9; c++)
+        if (b[r][c] != null) n++;
+    return n;
+  }
+
+  // ===== A+D+TT+Killer+NMP: 全最適化統合ミニマックス =====
   static int _mm(
     List<List<Piece?>> b,
     Map<PieceType, int> p1h,
@@ -885,8 +894,9 @@ class AI {
     int alpha,
     int beta,
     bool maximizing,
-    bool aiIsP1,
-  ) {
+    bool aiIsP1, {
+    bool nullAllowed = true, // Null move pruning フラグ
+  }) {
     final currP1    = maximizing == aiIsP1 ? aiIsP1 : !aiIsP1;
     final origAlpha = alpha;
 
@@ -906,6 +916,18 @@ class AI {
       final s = _qSearch(b, p1h, p2h, alpha, beta, maximizing, aiIsP1, 4);
       _tt[hash] = _TTEntry(s, 0, _TTFlag.exact);
       return s;
+    }
+
+    // ── Null Move Pruning（手番パスで β 超えなら枝刈り）──
+    // 条件: depth≥3 / 王手でない / 終盤でない(総駒数>10) / 連続null禁止
+    if (nullAllowed && depth >= 3 && !GL.inCheck(b, currP1) && _totalPieces(b) > 10) {
+      const R = 2; // 削減幅（depth - R - 1 = depth - 3）
+      final nullVal = _mm(
+        b, p1h, p2h, depth - R - 1, alpha, beta,
+        !maximizing, aiIsP1, nullAllowed: false,
+      );
+      if (maximizing && nullVal >= beta) return beta;
+      if (!maximizing && nullVal <= alpha) return alpha;
     }
 
     final moves = allMoves(b, currP1, p1h, p2h);

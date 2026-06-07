@@ -1002,7 +1002,258 @@ List<_TsumeProb> _buildProblems() {
     ));
   }
 
+  // ===== 追加問題 (⑧以降) =====
+  _buildExtraProblems(list);
+
   return list;
+}
+
+/// 追加の詰将棋問題（21問→33問）
+void _buildExtraProblems(List<_TsumeProb> list) {
+  // ── 1手詰め ⑧ ─────────────────────────────
+  // 後手玉9一(0,8), 先手金7二(1,6), 持ち駒:金1
+  // 手順: 金8二(1,7)打ち → step(-1,1)=(0,8)=9一✓
+  // 逃げ場: 8一→金(1,6)step(-1,1)=(0,7)✓封鎖 / 9二→打った金step(0,1)=(1,8)✓封鎖 / 8二→打った金を取ると金(1,6)step(0,1)=(1,7)✓違法手
+  {
+    final b = _empty();
+    b[0][8] = Piece(PieceType.king,  false); // 後手玉 9一
+    b[8][0] = Piece(PieceType.king,  true);  // 先手玉 1九
+    b[1][6] = Piece(PieceType.gold,  true);  // 先手金 7二
+    list.add(_TsumeProb(
+      title: '1手詰め ⑧', moves: 1, board: b,
+      p1Hand: {PieceType.gold: 1}, p2Hand: {},
+      solution: [AMove(fr: -1, fc: -1, tr: 1, tc: 7, drop: PieceType.gold)],
+      explanation: '金を8二に打って9一に王手。8一は7二の金が、9二と8二は打った金が封鎖しています。',
+    ));
+  }
+
+  // ── 1手詰め ⑨ ─────────────────────────────
+  // 後手玉1一(0,0), 先手龍3二(1,2), 持ち駒:銀1
+  // 手順: 銀1二(1,0)打ち → step(-1,0)=(0,0)=1一✓
+  // 逃げ場: 2一→龍step(-1,-1)=(0,1)✓ / 1二→取ると龍slide(0,-1)=(1,1),(1,0)✓違法手 / 2二→龍slide(0,-1)=(1,1)✓
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,         false); // 後手玉 1一
+    b[8][8] = Piece(PieceType.king,         true);  // 先手玉 9九
+    b[1][2] = Piece(PieceType.promotedRook, true);  // 先手龍 3二
+    list.add(_TsumeProb(
+      title: '1手詰め ⑨', moves: 1, board: b,
+      p1Hand: {PieceType.silver: 1}, p2Hand: {},
+      solution: [AMove(fr: -1, fc: -1, tr: 1, tc: 0, drop: PieceType.silver)],
+      explanation: '銀を1二に打って1一に王手。2一は龍の斜め効き、1二は銀を取ると龍の横効き、2二は龍の横効きで封鎖されています。',
+    ));
+  }
+
+  // ── 1手詰め ⑩ ─────────────────────────────
+  // 後手玉1一(0,0), 後手歩1二(1,0), 先手香1四(3,0), 先手角4三(2,3), 先手金2三(2,1)
+  // 手順: 角3三(2,2)打ち → slide(-1,-1)=(1,1),(0,0)✓
+  // 逃げ場: 1二→後手歩で移動不可 / 2一→既存角slide(-1,-1)=(1,2),(0,1)✓ / 2二→金step(-1,0)=(1,1)✓
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,   false); // 後手玉 1一
+    b[1][0] = Piece(PieceType.pawn,   false); // 後手歩 1二(1二封鎖)
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[3][0] = Piece(PieceType.lance,  true);  // 先手香 1四(後手歩で止)
+    b[2][3] = Piece(PieceType.bishop, true);  // 先手角 4三(2一封鎖)
+    b[2][1] = Piece(PieceType.gold,   true);  // 先手金 2三(2二封鎖)
+    list.add(_TsumeProb(
+      title: '1手詰め ⑩', moves: 1, board: b,
+      p1Hand: {PieceType.bishop: 1}, p2Hand: {},
+      solution: [AMove(fr: -1, fc: -1, tr: 2, tc: 2, drop: PieceType.bishop)],
+      explanation: '角を3三に打って斜めに1一へ王手。2一は既存の角が、2二は金が、1二は後手歩で移動不可のため詰み。',
+    ));
+  }
+
+  // ── 3手詰め ⑧ ─────────────────────────────
+  // 飛成り→後手玉4一逃げ→金打ち詰め
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king,   false); // 後手玉 5一
+    b[1][4] = Piece(PieceType.silver, false); // 後手銀 5二(飛縦を止める)
+    b[3][4] = Piece(PieceType.rook,   true);  // 先手飛 5四
+    b[2][2] = Piece(PieceType.gold,   true);  // 先手金 3三(3二・4二封鎖)
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    list.add(_TsumeProb(
+      title: '3手詰め ⑧', moves: 3, board: b,
+      p1Hand: {PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: 3, fc: 4, tr: 1, tc: 4, promote: true), // 飛→5二成(後手銀取り龍) 王手
+        AMove(fr: 0, fc: 4, tr: 0, tc: 3),                // 後手玉 5一→4一逃げ
+        AMove(fr: -1, fc: -1, tr: 1, tc: 3, drop: PieceType.gold), // 金4二打ち 詰み
+      ],
+      explanation: '飛が後手銀を取りながら成って龍に。後手玉は4一に逃げるしかなく、金を4二に打って詰み。龍・金の協力が鍵。',
+    ));
+  }
+
+  // ── 3手詰め ⑨ ─────────────────────────────
+  // 角打ち→玉逃げ→飛で追い詰め
+  {
+    final b = _empty();
+    b[0][2] = Piece(PieceType.king,   false); // 後手玉 3一
+    b[0][0] = Piece(PieceType.gold,   false); // 後手金 1一(逃げ先)
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[2][0] = Piece(PieceType.rook,   true);  // 先手飛 1三(縦に1二・1一効く)
+    b[2][4] = Piece(PieceType.gold,   true);  // 先手金 5三(4二・5二封鎖)
+    b[0][4] = Piece(PieceType.silver, true);  // 先手銀 5一(4一封鎖)
+    list.add(_TsumeProb(
+      title: '3手詰め ⑨', moves: 3, board: b,
+      p1Hand: {PieceType.bishop: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.bishop), // 角2二打ち 王手
+        AMove(fr: 0, fc: 2, tr: 0, tc: 1),                            // 後手玉 3一→2一
+        AMove(fr: 2, fc: 0, tr: 0, tc: 0),                            // 飛 1三→1一 詰み
+      ],
+      explanation: '角を2二に打ち3一の後手玉に斜め王手。後手玉は2一に逃げるしかなく、飛を1一に進めて詰み。',
+    ));
+  }
+
+  // ── 3手詰め ⑩ ─────────────────────────────
+  // 銀打ち王手→玉逃げ→龍で詰め
+  {
+    final b = _empty();
+    b[0][8] = Piece(PieceType.king,         false); // 後手玉 9一
+    b[0][7] = Piece(PieceType.gold,         false); // 後手金 8一(逃げ先封鎖)
+    b[8][0] = Piece(PieceType.king,         true);  // 先手玉 1九
+    b[2][8] = Piece(PieceType.promotedRook, true);  // 先手龍 9三(縦9二・9一効く)
+    b[1][6] = Piece(PieceType.gold,         true);  // 先手金 7二(8二封鎖)
+    list.add(_TsumeProb(
+      title: '3手詰め ⑩', moves: 3, board: b,
+      p1Hand: {PieceType.silver: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 1, tc: 7, drop: PieceType.silver), // 銀8二打ち 王手
+        AMove(fr: 0, fc: 8, tr: 1, tc: 8),                            // 後手玉 9一→9二逃げ
+        AMove(fr: 2, fc: 8, tr: 1, tc: 8),                            // 龍 9三→9二 詰み
+      ],
+      explanation: '銀を8二に打って9一に王手。後手玉は9二に逃げるしかなく、龍を9二に進めて詰み。',
+    ));
+  }
+
+  // ── 5手詰め ⑦ ─────────────────────────────
+  // 飛成→玉逃→銀打ち→玉逃→金打ち詰め
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king,   false); // 後手玉 5一
+    b[1][4] = Piece(PieceType.pawn,   false); // 後手歩 5二(飛を止める)
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[3][4] = Piece(PieceType.rook,   true);  // 先手飛 5四
+    b[0][3] = Piece(PieceType.gold,   true);  // 先手金 4一(4一封鎖)
+    b[0][5] = Piece(PieceType.gold,   true);  // 先手金 6一(6一封鎖)
+    list.add(_TsumeProb(
+      title: '5手詰め ⑦', moves: 5, board: b,
+      p1Hand: {PieceType.silver: 1, PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: 3, fc: 4, tr: 1, tc: 4, promote: true), // 飛→5二成(歩取り龍) 王手
+        AMove(fr: 0, fc: 4, tr: 0, tc: 3),                // 後手玉 5一→4一(金に当たる)
+        AMove(fr: 0, fc: 3, tr: 1, tc: 3),                // 先手金 4一→4二 玉を追う
+        AMove(fr: 0, fc: 3, tr: 1, tc: 2),                // 後手玉 4一→3二
+        AMove(fr: -1, fc: -1, tr: 2, tc: 2, drop: PieceType.gold), // 金3三打ち 詰み
+      ],
+      explanation: '飛が歩を取りながら龍に成って王手。玉を端に追い詰め最後に金打ちで詰み。5手かけた丁寧な追い込みが鍵。',
+    ));
+  }
+
+  // ── 5手詰め ⑧ ─────────────────────────────
+  // 角成り→玉逃→角成り→玉逃→金打ち詰め
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,   false); // 後手玉 1一
+    b[1][0] = Piece(PieceType.pawn,   false); // 後手歩 1二
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[4][4] = Piece(PieceType.bishop, true);  // 先手角 5五
+    b[1][2] = Piece(PieceType.gold,   true);  // 先手金 3二(2二・3二封鎖)
+    list.add(_TsumeProb(
+      title: '5手詰め ⑧', moves: 5, board: b,
+      p1Hand: {PieceType.gold: 1, PieceType.silver: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: 4, fc: 4, tr: 2, tc: 2, promote: true), // 角 5五→3三成(馬) 王手
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                // 後手玉 1一→2一
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.silver), // 銀2二打ち 王手
+        AMove(fr: 0, fc: 1, tr: 0, tc: 2),                // 後手玉 2一→3一
+        AMove(fr: -1, fc: -1, tr: 1, tc: 2, drop: PieceType.gold),   // 金3二打ち 詰み(既存金と連携)
+      ],
+      explanation: '角が斜めに成って馬になり王手。玉を横に追い込み銀・金を打って詰み。馬の遠達と持ち駒の活用がポイント。',
+    ));
+  }
+
+  // ── 7手詰め ② ─────────────────────────────
+  // 持ち駒の飛を使った7手詰め
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,   false); // 後手玉 1一
+    b[1][0] = Piece(PieceType.pawn,   false); // 後手歩 1二
+    b[0][1] = Piece(PieceType.silver, false); // 後手銀 2一
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[2][1] = Piece(PieceType.gold,   true);  // 先手金 2三
+    b[0][2] = Piece(PieceType.gold,   true);  // 先手金 3一
+    list.add(_TsumeProb(
+      title: '7手詰め ②', moves: 7, board: b,
+      p1Hand: {PieceType.rook: 1, PieceType.silver: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 2, tc: 0, drop: PieceType.rook),   // 飛1三打ち 王手
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                            // 後手玉1一→2一(後手銀取り)
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.silver),  // 銀2二打ち 王手
+        AMove(fr: 0, fc: 1, tr: 0, tc: 2),                            // 後手玉2一→3一(先手金取り)
+        AMove(fr: 2, fc: 1, tr: 1, tc: 1),                            // 金2三→2二 王手
+        AMove(fr: 0, fc: 2, tr: 1, tc: 2),                            // 後手玉3一→3二
+        AMove(fr: 2, fc: 0, tr: 1, tc: 0),                            // 飛1三→1二 詰み
+      ],
+      explanation: '飛打ちから後手玉を端に追い込む7手詰め。銀・金の協力と飛の縦効きを最大限に活かします。',
+    ));
+  }
+
+  // ── 7手詰め ③ ─────────────────────────────
+  // 角から始まる7手詰め
+  {
+    final b = _empty();
+    b[0][8] = Piece(PieceType.king,   false); // 後手玉 9一
+    b[1][8] = Piece(PieceType.gold,   false); // 後手金 9二
+    b[0][7] = Piece(PieceType.silver, false); // 後手銀 8一
+    b[8][0] = Piece(PieceType.king,   true);  // 先手玉 1九
+    b[3][5] = Piece(PieceType.bishop, true);  // 先手角 6四
+    b[1][6] = Piece(PieceType.gold,   true);  // 先手金 7二(8二封鎖)
+    list.add(_TsumeProb(
+      title: '7手詰め ③', moves: 7, board: b,
+      p1Hand: {PieceType.gold: 1, PieceType.silver: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: 3, fc: 5, tr: 1, tc: 7, promote: true), // 角→8二成(後手銀取り馬) 王手
+        AMove(fr: 0, fc: 8, tr: 0, tc: 7),                // 後手玉9一→8一
+        AMove(fr: -1, fc: -1, tr: 1, tc: 8, drop: PieceType.silver), // 銀9二打ち 王手
+        AMove(fr: 0, fc: 7, tr: 0, tc: 8),                // 後手玉8一→9一
+        AMove(fr: -1, fc: -1, tr: 0, tc: 7, drop: PieceType.gold),   // 金8一打ち 王手
+        AMove(fr: 0, fc: 8, tr: 1, tc: 8),                // 後手玉9一→9二(後手金取り)
+        AMove(fr: 1, fc: 7, tr: 0, tc: 8),                // 馬→9一 詰み
+      ],
+      explanation: '角が成って馬になり後手銀を取りながら王手。持ち駒の銀・金を使って後手玉を追い詰める7手詰め。',
+    ));
+  }
+
+  // ── 9手詰め ① ─────────────────────────────
+  // 飛角銀金を使った9手詰め
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,   false); // 後手玉 1一
+    b[0][1] = Piece(PieceType.gold,   false); // 後手金 2一
+    b[1][0] = Piece(PieceType.silver, false); // 後手銀 1二
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[2][2] = Piece(PieceType.gold,   true);  // 先手金 3三
+    b[2][0] = Piece(PieceType.lance,  true);  // 先手香 1三
+    list.add(_TsumeProb(
+      title: '9手詰め ①', moves: 9, board: b,
+      p1Hand: {PieceType.rook: 1, PieceType.bishop: 1, PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.bishop), // 角2二打ち 王手
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                            // 後手玉1一→2一(後手金取り)
+        AMove(fr: -1, fc: -1, tr: 2, tc: 1, drop: PieceType.rook),   // 飛2三打ち 王手
+        AMove(fr: 0, fc: 1, tr: 0, tc: 0),                            // 後手玉2一→1一
+        AMove(fr: 2, fc: 0, tr: 1, tc: 0),                            // 香 1三→1二(後手銀取り) 王手
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                            // 後手玉1一→2一
+        AMove(fr: 2, fc: 2, tr: 1, tc: 1),                            // 金 3三→2二 王手
+        AMove(fr: 0, fc: 1, tr: 0, tc: 0),                            // 後手玉2一→1一
+        AMove(fr: 2, fc: 1, tr: 0, tc: 1),                            // 飛 2三→2一 詰み
+      ],
+      explanation: '角打ちから始まる9手詰め。飛・角・金・香の総力戦で後手玉を1筋コーナーに封じ込める長手数の詰将棋。',
+    ));
+  }
 }
 
 // ===== 問題一覧画面 =====

@@ -11,6 +11,7 @@ import 'logic.dart';
 import 'sound_service.dart';
 import 'coach_report_screen.dart';
 import 'feedback_screen.dart';
+import 'ai_data_service.dart';
 import 'stats_screen.dart' show ratingToRank, ratingToColor;
 import 'rank_badge_widget.dart' show showRankUpDialog;
 
@@ -767,13 +768,22 @@ class _GameScreenState extends State<GameScreen>
     setState(() => _aiThinking = true);
     await Future.delayed(Duration(milliseconds: 100 + Random().nextInt(200)));
     if (!mounted || result != null) return;
-    final mv = AI.bestMove(board, p1Hand, p2Hand, !s.aiIsP2, s.aiDepth);
+
+    // ── オープニングブック参照（序盤20手以内・中級以上） ──
+    AMove? mv;
+    if (kifu.length < 20 && s.aiDepth >= 2) {
+      mv = AiDataService.lookupOpeningBook(board, kifu.length);
+    }
+
+    // ── ブックにない場合は探索 ──
+    mv ??= await Future(() => AI.bestMove(board, p1Hand, p2Hand, !s.aiIsP2, s.aiDepth));
+
     if (mv == null) {
       setState(() => _aiThinking = false);
       return;
     }
     setState(() {
-      _applyAIMove(mv);
+      _applyAIMove(mv!);
       _aiThinking = false;
     });
   }
