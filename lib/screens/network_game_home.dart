@@ -3,6 +3,8 @@
 
 import 'package:flutter/material.dart';
 import '../services/network_service.dart';
+import '../services/matching_service.dart';
+import 'match_screen.dart';
 
 class NetworkGameHome extends StatefulWidget {
   const NetworkGameHome({super.key});
@@ -13,7 +15,9 @@ class NetworkGameHome extends StatefulWidget {
 
 class _NetworkGameHomeState extends State<NetworkGameHome> {
   final NetworkService _networkService = NetworkService();
+  final MatchingService _matchingService = MatchingService();
   bool _isLoading = false;
+  String? _queueId;
 
   @override
   Widget build(BuildContext context) {
@@ -137,36 +141,116 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
       }
 
       // ② ユーザー情報を取得
-      final userProfile = await _networkService.getUserProfile(currentUser.uid);
+      final userProfile =
+          await _networkService.getUserProfile(currentUser.uid);
       if (userProfile == null) {
         throw Exception('ユーザー情報が見つかりません');
       }
 
-      // ③ マッチング処理開始
-      // TODO: マッチング実装
-      // 実装例：
-      // 1. 同時にマッチング待機中のユーザーを検索
-      // 2. レーティング近いユーザーとマッチング
-      // 3. Match ドキュメント作成 → MatchScreen へ遷移
+      // ③ マッチング待機キューに参加
+      final queueId = await _matchingService.joinMatchingQueue(
+        currentUser.uid,
+        userProfile,
+        100, // ±100のレーティング範囲
+      );
 
-      await Future.delayed(const Duration(seconds: 2)); // ダミー
+      setState(() => _queueId = queueId);
 
+      // ④ マッチング結果を待機
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('対戦相手が見つかりました')),
-        );
-        // TODO: Navigator.push(context, MaterialPageRoute(builder: (_) => MatchScreen(...)));
+        _showMatchingWaitDialog(context, queueId);
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('エラー: $e')),
         );
-      }
-    } finally {
-      if (mounted) {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// マッチング待機ダイアログ
+  void _showMatchingWaitDialog(BuildContext context, String queueId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text(
+          '対戦相手を探索中...',
+          style: TextStyle(color: Colors.white),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '相手が見つかるまでお待ちください\n（最大5分）',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 24),
+            StreamBuilder<dynamic>(
+              stream: _matchingService.watchMatchingQueue(queueId),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null) {
+                  final queue = snapshot.data;
+
+                  // マッチング成功
+                  if (queue.isMatched && queue.matchId != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.pop(context); // ダイアログを閉じる
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MatchScreen(
+                            matchId: queue.matchId,
+                            isPlayer1: true, // TODO: 実装で確認
+                          ),
+                        ),
+                      );
+                    });
+                  }
+
+                  // マッチング失敗（タイムアウト）
+                  if (queue.isCancelled) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('相手が見つかりませんでした'),
+                        ),
+                      );
+                      if (mounted) {
+                        setState(() => _isLoading = false);
+                      }
+                    });
+                  }
+                }
+
+                return ElevatedButton(
+                  onPressed: () async {
+                    await _matchingService.cancelMatchingQueue(queueId);
+                    if (mounted) {
+                      Navigator.pop(context);
+                      setState(() => _isLoading = false);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                  ),
+                  child: const Text('キャンセル'),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
