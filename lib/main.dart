@@ -33,6 +33,7 @@ import 'weekly_review_screen.dart';
 import 'feedback_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'services/network_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +44,8 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    // ネットワークサービス初期化
+    await NetworkService().initFirebase();
     NetworkGameService.setFirebaseReady();
     CloudSyncService.setReady();
     AiDataService.setReady();
