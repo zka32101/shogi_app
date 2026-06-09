@@ -107,11 +107,47 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     setState(() => _isLoading = true);
 
     try {
-      // TODO: マッチング処理実装
+      final currentUser = _networkService.currentUser;
+      if (currentUser == null) {
+        throw Exception('ログインが必要です');
+      }
+
+      // ✅ 対局前 BAN チェック
+      final isBanned = await _networkService.isUserBanned(currentUser.uid);
+      if (isBanned) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('アカウント停止'),
+              content: const Text(
+                'このアカウントは不正行為のため停止されています。\n\n'
+                '詳細は support@kouki.jp までお問い合わせください。',
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('閉じる'),
+                ),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      // ② ユーザー情報を取得
+      final userProfile = await _networkService.getUserProfile(currentUser.uid);
+      if (userProfile == null) {
+        throw Exception('ユーザー情報が見つかりません');
+      }
+
+      // ③ マッチング処理開始
+      // TODO: マッチング実装
       // 実装例：
-      // 1. ユーザー認証確認
-      // 2. マッチング処理開始
-      // 3. 対戦相手が見つかったら MatchScreen に遷移
+      // 1. 同時にマッチング待機中のユーザーを検索
+      // 2. レーティング近いユーザーとマッチング
+      // 3. Match ドキュメント作成 → MatchScreen へ遷移
 
       await Future.delayed(const Duration(seconds: 2)); // ダミー
 
