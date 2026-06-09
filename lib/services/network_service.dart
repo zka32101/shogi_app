@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import '../models/user_profile.dart';
 import '../models/match.dart';
 import '../models/report.dart';
+import 'notification_service.dart';
 
 class NetworkService {
   static final NetworkService _instance = NetworkService._internal();
@@ -19,6 +20,7 @@ class NetworkService {
 
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final NotificationService _notificationService = NotificationService();
 
   // ── ユーザー認証 ────────────────────────────
   Future<bool> initFirebase() async {
@@ -132,7 +134,7 @@ class NetworkService {
   }
 
   // ── 報告機能 ────────────────────────────
-  /// 不正報告を作成（報告数10件で自動停止）
+  /// 不正報告を作成（報告数10件で自動停止 + 報告スパム検出）
   Future<bool> submitReport(
     String reporterUid,
     String reportedUid,
@@ -140,6 +142,31 @@ class NetworkService {
     String reason,
   ) async {
     try {
+      // ① 報告者がスパム状態かチェック
+      final isReporterSpam = await _isReporterSpamming(reporterUid);
+      if (isReporterSpam) {
+        print('Reporter is spamming. Banning reporter.');
+
+        final reporterProfile = await getUserProfile(reporterUid);
+        await _firestore.collection('users').doc(reporterUid).update({
+          'is_banned': true,
+          'banned_at': DateTime.now(),
+          'ban_reason': 'spam_reporting',
+        });
+
+        // 📧 報告者に BAN 通知を送信
+        final reporterEmail = await _notificationService.getUserEmail(reporterUid);
+        if (reporterEmail != null) {
+          await _notificationService.sendBanNotification(
+            reporterUid,
+            reporterEmail,
+            reporterProfile?.username ?? 'User',
+            'spam_reporting',
+          );
+        }
+        return false; // 報告を受け付けない
+      }
+
       final reportRef = _firestore.collection('reports').doc();
       final report = Report(
         id: reportRef.id,
@@ -151,10 +178,10 @@ class NetworkService {
         createdAt: DateTime.now(),
       );
 
-      // 報告を保存
+      // ② 報告を保存
       await reportRef.set(report.toJson());
 
-      // 報告数をカウント
+      // ③ 報告対象者の報告数をカウント（待機中のみ）
       final reportsSnapshot = await _firestore
           .collection('reports')
           .where('reported_user_id', isEqualTo: reportedUid)
@@ -163,15 +190,72 @@ class NetworkService {
 
       // 報告数が10以上で自動停止
       if (reportsSnapshot.docs.length >= 10) {
+        final reportedProfile = await getUserProfile(reportedUid);
         await _firestore.collection('users').doc(reportedUid).update({
           'is_banned': true,
           'banned_at': DateTime.now(),
+          'ban_reason': 'too_many_reports',
         });
+
+        // 📧 報告対象者に BAN 通知を送信
+        final reportedEmail = await _notificationService.getUserEmail(reportedUid);
+        if (reportedEmail != null) {
+          await _notificationService.sendBanNotification(
+            reportedUid,
+            reportedEmail,
+            reportedProfile?.username ?? 'User',
+            'too_many_reports',
+          );
+        }
       }
 
       return true;
     } catch (e) {
       print('Submit report error: $e');
+      return false;
+    }
+  }
+
+  /// 報告者がスパム状態かチェック
+  /// - 同一ユーザーへ3件以上の報告
+  /// - または報告総数10件以上で却下率80%以上
+  Future<bool> _isReporterSpamming(String reporterUid) async {
+    try {
+      // ① 報告者の全報告を取得
+      final allReports = await _firestore
+          .collection('reports')
+          .where('reporter_id', isEqualTo: reporterUid)
+          .get();
+
+      if (allReports.docs.length < 5) return false; // 5件未満はスパムではない
+
+      // ② 同一ユーザーへの重複報告をチェック
+      final reportCounts = <String, int>{};
+      for (var doc in allReports.docs) {
+        final reportedUid = doc['reported_user_id'] as String;
+        reportCounts[reportedUid] = (reportCounts[reportedUid] ?? 0) + 1;
+      }
+
+      // 同じユーザーに3件以上報告 → スパム
+      if (reportCounts.values.any((count) => count >= 3)) {
+        return true;
+      }
+
+      // ③ 却下率をチェック（報告総数10件以上で却下率80%以上）
+      if (allReports.docs.length >= 10) {
+        final dismissedCount = allReports.docs
+            .where((doc) => doc['status'] == 'dismissed')
+            .length;
+        final dismissalRate = dismissedCount / allReports.docs.length;
+
+        if (dismissalRate >= 0.8) {
+          return true; // 却下率80%以上 → スパム
+        }
+      }
+
+      return false;
+    } catch (e) {
+      print('Check reporter spamming error: $e');
       return false;
     }
   }
@@ -213,6 +297,29 @@ class NetworkService {
       });
     } catch (e) {
       print('Review report error: $e');
+    }
+  }
+
+  /// BAN を解除（管理者用）
+  Future<void> unbanUser(String userId) async {
+    try {
+      final userProfile = await getUserProfile(userId);
+      await _firestore.collection('users').doc(userId).update({
+        'is_banned': false,
+        'banned_at': null,
+      });
+
+      // 📧 BAN 解除通知を送信
+      final userEmail = await _notificationService.getUserEmail(userId);
+      if (userEmail != null) {
+        await _notificationService.sendUnbanNotification(
+          userId,
+          userEmail,
+          userProfile?.username ?? 'User',
+        );
+      }
+    } catch (e) {
+      print('Unban user error: $e');
     }
   }
 
