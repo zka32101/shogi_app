@@ -320,7 +320,9 @@ class GL {
     List<List<Piece?>> b,
     bool p1,
     Map<PieceType, int> hand,
+    [Map<PieceType, int>? oppHand],
   ) {
+    oppHand ??= {};
     for (int r = 0; r < 9; r++)
       for (int c = 0; c < 9; c++) {
         final p = b[r][c];
@@ -329,7 +331,7 @@ class GL {
       }
     for (final type in hand.keys) {
       if ((hand[type] ?? 0) <= 0) continue;
-      if (dropSquares(b, type, p1, hand, {}).isNotEmpty) return true;
+      if (dropSquares(b, type, p1, hand, oppHand).isNotEmpty) return true;
     }
     return false;
   }

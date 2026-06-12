@@ -731,7 +731,8 @@ class _GameScreenState extends State<GameScreen>
   void _endTurn() {
     final next = !p1Turn;
     final hand = next ? p1Hand : p2Hand;
-    if (!GL.hasLegalMove(board, next, hand)) {
+    final oppHand = next ? p2Hand : p1Hand;
+    if (!GL.hasLegalMove(board, next, hand, oppHand)) {
       result = GL.inCheck(board, next)
           ? (p1Turn ? '先手の勝ち！🎉' : '後手の勝ち！🎉')
           : '引き分け（千日手）';

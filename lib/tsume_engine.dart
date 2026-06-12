@@ -186,10 +186,11 @@ class TsumeEngine {
     if (!GL.inCheck(next.b, defenderIsP1)) return TsumeResult.no;
 
     final defHand = defenderIsP1 ? next.p1h : next.p2h;
+    final atkHand = attackerIsP1 ? next.p1h : next.p2h;
 
     // depth=1: 即詰みか確認
     if (depth == 1) {
-      if (!GL.hasLegalMove(next.b, defenderIsP1, defHand)) {
+      if (!GL.hasLegalMove(next.b, defenderIsP1, defHand, atkHand)) {
         return TsumeResult(isMate: true, matingMove: mv);
       }
       return TsumeResult.no;
