@@ -28,7 +28,7 @@ const _strengthOptions = [
 ];
 
 // ── 1日あたりの無料ネット対局数上限 ──────────────────────────
-const _kNetDailyLimit = 3;
+const _kNetDailyLimit = 5;
 
 class NetworkLobbyScreen extends StatefulWidget {
   const NetworkLobbyScreen({super.key});
@@ -72,7 +72,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
   /// true なら対局可能。false なら上限に達していてダイアログ表示済み。
   Future<bool> _checkDailyLimit() async {
     // プレミアム会員は無制限
-    if (PurchaseService.hasSubscription) return true;
+    if (PurchaseService.isPremium) return true;
 
     final prefs = await SharedPreferences.getInstance();
     final today = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD

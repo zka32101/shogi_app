@@ -8,6 +8,10 @@ import '../models/user_profile.dart';
 import '../models/match.dart';
 import '../models/report.dart';
 import 'notification_service.dart';
+import 'rating_service.dart';
+import 'network_achievement_service.dart';
+import 'daily_challenge_service.dart';
+import 'fcm_service.dart';
 
 class NetworkService {
   static final NetworkService _instance = NetworkService._internal();
@@ -21,6 +25,12 @@ class NetworkService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final NotificationService _notificationService = NotificationService();
+  final RatingService _ratingService = RatingService();
+  final NetworkAchievementService _achievementService =
+      NetworkAchievementService();
+  final DailyChallengeService _dailyChallengeService =
+      DailyChallengeService();
+  final FcmService _fcmService = FcmService();
 
   // ── ユーザー認証 ────────────────────────────
   Future<bool> initFirebase() async {
@@ -130,6 +140,138 @@ class NetworkService {
       });
     } catch (e) {
       print('Finish match error: $e');
+    }
+  }
+
+  /// マッチを終了し、ELO レーティングを更新
+  /// [matchId]: マッチID
+  /// [winnerId]: 勝者のUID（null の場合は引き分け）
+  /// [result]: 結果種類（'checkmate', 'resignation', 'timeout', 'draw'）
+  Future<void> finishMatchWithRating(
+    String matchId,
+    String? winnerId,
+    String result,
+  ) async {
+    try {
+      // ① マッチドキュメントを取得
+      final matchDoc = await _firestore.collection('matches').doc(matchId).get();
+      if (!matchDoc.exists) {
+        throw Exception('Match not found');
+      }
+
+      final matchData = matchDoc.data()!;
+      final player1Id = matchData['player1_id'] as String;
+      final player2Id = matchData['player2_id'] as String;
+      final player1Rating = matchData['player1_rating'] as int? ?? 1500;
+      final player2Rating = matchData['player2_rating'] as int? ?? 1500;
+
+      // ② 両プレイヤーの試合数を取得
+      final player1Profile = await getUserProfile(player1Id);
+      final player2Profile = await getUserProfile(player2Id);
+
+      if (player1Profile == null || player2Profile == null) {
+        throw Exception('User profile not found');
+      }
+
+      final player1Games = (player1Profile.wins ?? 0) + (player1Profile.losses ?? 0);
+      final player2Games = (player2Profile.wins ?? 0) + (player2Profile.losses ?? 0);
+
+      // ③ ELO レーティング変動を計算
+      final player1Won = winnerId == player1Id;
+      final ratingChange = _ratingService.calculateRatingChange(
+        player1Rating: player1Rating,
+        player2Rating: player2Rating,
+        player1Won: player1Won,
+        player1Games: player1Games,
+        player2Games: player2Games,
+      );
+
+      final player1RatingChange = ratingChange['player1'] ?? 0;
+      final player2RatingChange = ratingChange['player2'] ?? 0;
+
+      // ④ ユーザープロフィールを更新
+      await _firestore.collection('users').doc(player1Id).update({
+        'rating': player1Rating + player1RatingChange,
+        'wins': player1Won ? (player1Profile.wins ?? 0) + 1 : player1Profile.wins ?? 0,
+        'losses': !player1Won ? (player1Profile.losses ?? 0) + 1 : player1Profile.losses ?? 0,
+      });
+
+      await _firestore.collection('users').doc(player2Id).update({
+        'rating': player2Rating + player2RatingChange,
+        'wins': !player1Won ? (player2Profile.wins ?? 0) + 1 : player2Profile.wins ?? 0,
+        'losses': player1Won ? (player2Profile.losses ?? 0) + 1 : player2Profile.losses ?? 0,
+      });
+
+      // ⑤ マッチドキュメントを更新（ステータス完了）
+      await _firestore.collection('matches').doc(matchId).update({
+        'status': 'finished',
+        'winner': winnerId,
+        'result': result,
+        'finished_at': DateTime.now(),
+      });
+
+      print('Match finished with rating update: $matchId');
+      print('Player1 rating change: $player1RatingChange');
+      print('Player2 rating change: $player2RatingChange');
+
+      // ⑥ 実績・チャレンジ・FCM通知（非同期）
+      Future.microtask(() async {
+        final p1NewRating = player1Rating + player1RatingChange;
+        final p2NewRating = player2Rating + player2RatingChange;
+        final p1Wins = (player1Won ? (player1Profile.wins ?? 0) + 1 : player1Profile.wins ?? 0);
+        final p2Wins = (!player1Won ? (player2Profile.wins ?? 0) + 1 : player2Profile.wins ?? 0);
+        final p1Total = (player1Profile.wins ?? 0) + (player1Profile.losses ?? 0) + 1;
+        final p2Total = (player2Profile.wins ?? 0) + (player2Profile.losses ?? 0) + 1;
+
+        // 実績チェック
+        await _achievementService.checkAfterMatch(
+          userId: player1Id,
+          won: player1Won,
+          result: result,
+          newRating: p1NewRating,
+          totalWins: p1Wins,
+          totalMatches: p1Total,
+        );
+        await _achievementService.checkAfterMatch(
+          userId: player2Id,
+          won: !player1Won,
+          result: result,
+          newRating: p2NewRating,
+          totalWins: p2Wins,
+          totalMatches: p2Total,
+        );
+
+        // デイリーチャレンジ更新
+        await _dailyChallengeService.onMatchFinished(
+          userId: player1Id,
+          won: player1Won,
+          result: result,
+          ratingChange: player1RatingChange,
+        );
+        await _dailyChallengeService.onMatchFinished(
+          userId: player2Id,
+          won: !player1Won,
+          result: result,
+          ratingChange: player2RatingChange,
+        );
+
+        // 対局結果 FCM通知
+        await _fcmService.notifyMatchResult(
+          recipientId: player1Id,
+          isWin: player1Won,
+          ratingChange: player1RatingChange,
+          matchId: matchId,
+        );
+        await _fcmService.notifyMatchResult(
+          recipientId: player2Id,
+          isWin: !player1Won,
+          ratingChange: player2RatingChange,
+          matchId: matchId,
+        );
+      });
+    } catch (e) {
+      print('Finish match with rating error: $e');
+      rethrow;
     }
   }
 

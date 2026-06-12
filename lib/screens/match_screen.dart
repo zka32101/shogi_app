@@ -1,10 +1,21 @@
 // lib/screens/match_screen.dart
-// リアルタイム対局画面
+// リアルタイムネットワーク対局画面（盤面同期付き）
 
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
+import '../logic.dart';
+import '../piece.dart';
 import '../services/matching_service.dart';
 import '../services/network_service.dart';
+import '../services/board_sync_service.dart';
+import '../character_icons.dart';
+import 'network_board_widget.dart';
+import 'match_chat_widget.dart';
+import 'report_user_screen.dart';
+import 'match_analyzer_screen.dart';
+import '../theme_config.dart';
 
 class MatchScreen extends StatefulWidget {
   final String matchId;
@@ -23,25 +34,484 @@ class MatchScreen extends StatefulWidget {
 class _MatchScreenState extends State<MatchScreen> {
   final MatchingService _matchingService = MatchingService();
   final NetworkService _networkService = NetworkService();
+  final BoardSyncService _boardSync = BoardSyncService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  late Stream<Map<String, dynamic>?> _matchStream;
+  late Stream<NetworkBoardState?> _boardStream;
   bool _isResigning = false;
+  bool _showChat = false;
+  bool _isMakingMove = false;
+
+  // タイム管理
+  Timer? _clockTimer;
+  int _myTimeRemaining = 600;
+  int _opponentTimeRemaining = 600;
+  DateTime? _lastTickAt;
+
+  // 千日手検出: 盤面ハッシュの履歴
+  final List<String> _boardHistory = [];
+  bool _sennichiteDialogShown = false;
+
+  // キャラクターアイコン
+  String? _myCharIconId;
+
+  // 盤面テーマ
+  PieceTheme _theme = PieceTheme.standard;
 
   @override
   void initState() {
     super.initState();
-    _matchStream = _matchingService.watchMatch(widget.matchId);
+    _boardStream = _boardSync.watchBoardState(widget.matchId);
+    _startClock();
+    _initBoardIfNeeded();
+    _loadCharIcon();
+    _loadTheme();
   }
 
   @override
-  Widget build(BuildContext context) {
-    return WillPopScope(
-      onWillPop: () async {
-        // 対局中は戻るボタンを無効化
+  void dispose() {
+    _clockTimer?.cancel();
+    super.dispose();
+  }
+
+  // ── 初期化 ─────────────────────────────────────────────────
+
+  Future<void> _loadCharIcon() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final id = prefs.getString('character_icon_id');
+      if (mounted) setState(() => _myCharIconId = id);
+    } catch (_) {}
+  }
+
+  Future<void> _loadTheme() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final themeIdx = prefs.getInt('piece_theme_idx') ?? 0;
+      final themes = PieceTheme.values;
+      final theme = themeIdx < themes.length ? themes[themeIdx] : PieceTheme.standard;
+      if (mounted) setState(() => _theme = theme);
+    } catch (_) {}
+  }
+
+  Future<void> _initBoardIfNeeded() async {
+    try {
+      final doc =
+          await _firestore.collection('matches').doc(widget.matchId).get();
+      if (doc.exists && doc['board'] == null) {
+        await _boardSync.initMatchBoard(widget.matchId);
+      }
+      // 初期タイムを取得
+      if (doc.exists) {
+        setState(() {
+          _myTimeRemaining = widget.isPlayer1
+              ? (doc['player1_time'] as int? ?? 600)
+              : (doc['player2_time'] as int? ?? 600);
+          _opponentTimeRemaining = widget.isPlayer1
+              ? (doc['player2_time'] as int? ?? 600)
+              : (doc['player1_time'] as int? ?? 600);
+        });
+      }
+    } catch (e) {
+      print('Init board error: $e');
+    }
+  }
+
+  // ── タイマー管理 ───────────────────────────────────────────
+
+  void _startClock() {
+    _lastTickAt = DateTime.now();
+    _clockTimer =
+        Timer.periodic(const Duration(seconds: 1), (_) => _tickClock());
+  }
+
+  Future<void> _tickClock() async {
+    try {
+      final doc =
+          await _firestore.collection('matches').doc(widget.matchId).get();
+      if (!doc.exists) return;
+      final data = doc.data()!;
+      if (data['status'] == 'finished') {
+        _clockTimer?.cancel();
+        return;
+      }
+
+      final currentTurn = data['current_turn'] as int? ?? 1;
+      final isMyTurn = (currentTurn == 1) == widget.isPlayer1;
+
+      final p1Time = data['player1_time'] as int? ?? 600;
+      final p2Time = data['player2_time'] as int? ?? 600;
+
+      if (mounted) {
+        setState(() {
+          _myTimeRemaining =
+              widget.isPlayer1 ? p1Time : p2Time;
+          _opponentTimeRemaining =
+              widget.isPlayer1 ? p2Time : p1Time;
+        });
+      }
+
+      // 自分のターンで時間切れ
+      if (isMyTurn && _myTimeRemaining <= 0) {
+        _clockTimer?.cancel();
+        await _handleTimeout();
+      } else if (isMyTurn) {
+        // 自分の残り時間を 1 秒デクリメント
+        final myKey =
+            widget.isPlayer1 ? 'player1_time' : 'player2_time';
+        await _firestore
+            .collection('matches')
+            .doc(widget.matchId)
+            .update({myKey: _myTimeRemaining - 1});
+      }
+    } catch (e) {
+      print('Clock tick error: $e');
+    }
+  }
+
+  Future<void> _handleTimeout() async {
+    try {
+      final doc =
+          await _firestore.collection('matches').doc(widget.matchId).get();
+      if (!doc.exists) return;
+      final opponentId = widget.isPlayer1
+          ? doc['player2_id'] as String
+          : doc['player1_id'] as String;
+
+      await _networkService.finishMatchWithRating(
+          widget.matchId, opponentId, 'timeout');
+
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('対局中です。投了で終了してください。')),
+          const SnackBar(
+              content:
+                  Text('時間切れで敗北しました', style: TextStyle(color: Colors.red))),
         );
-        return false;
+      }
+    } catch (e) {
+      print('Timeout error: $e');
+    }
+  }
+
+  // ── 指し手 ─────────────────────────────────────────────────
+
+  Future<void> _onMove(KifuMove move) async {
+    if (_isMakingMove) return;
+    setState(() => _isMakingMove = true);
+
+    try {
+      // 現在の盤面を取得
+      final doc =
+          await _firestore.collection('matches').doc(widget.matchId).get();
+      if (!doc.exists) return;
+      final data = doc.data()!;
+
+      final board = BoardSyncService.boardFromJson(data['board'] as List);
+      final p1Hand = BoardSyncService.handFromJson(
+          (data['p1_hand'] as Map?)?.cast<String, dynamic>());
+      final p2Hand = BoardSyncService.handFromJson(
+          (data['p2_hand'] as Map?)?.cast<String, dynamic>());
+
+      // Firestore に指し手を適用
+      await _boardSync.applyMove(
+        matchId: widget.matchId,
+        currentBoard: board,
+        p1Hand: p1Hand,
+        p2Hand: p2Hand,
+        move: move,
+        isPlayer1Turn: widget.isPlayer1,
+      );
+
+      // 指した後の盤面で詰みチェック
+      final newBoard = GL.copy(board);
+      final newP1Hand = Map<PieceType, int>.from(p1Hand);
+      final newP2Hand = Map<PieceType, int>.from(p2Hand);
+      GL.applyKifuMove(newBoard, newP1Hand, newP2Hand, move);
+
+      final opponentIsP1 = !widget.isPlayer1;
+      final isCheckmate = _boardSync.isCheckmate(
+        newBoard,
+        newP1Hand,
+        newP2Hand,
+        opponentIsP1,
+      );
+
+      if (isCheckmate) {
+        final myId = _networkService.currentUser!.uid;
+        await _networkService.finishMatchWithRating(
+            widget.matchId, myId, 'checkmate');
+      } else {
+        // 千日手・持将棋チェック
+        _checkSpecialEndings(newBoard, newP1Hand, newP2Hand);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _isMakingMove = false);
+    }
+  }
+
+  // ── 投了 ───────────────────────────────────────────────────
+
+  Future<void> _resign() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('投了しますか？'),
+        content: const Text('この対局を終了します。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル')),
+          ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('投了する')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+    setState(() => _isResigning = true);
+    try {
+      final doc =
+          await _firestore.collection('matches').doc(widget.matchId).get();
+      final opponentId = widget.isPlayer1
+          ? doc['player2_id'] as String
+          : doc['player1_id'] as String;
+      await _networkService.finishMatchWithRating(
+          widget.matchId, opponentId, 'resignation');
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+        setState(() => _isResigning = false);
+      }
+    }
+  }
+
+  // ── 千日手・持将棋検出 ────────────────────────────────────────
+
+  String _boardHash(
+    List<List<Piece?>> board,
+    Map<PieceType, int> p1Hand,
+    Map<PieceType, int> p2Hand,
+    bool isP1Turn,
+  ) {
+    final sb = StringBuffer();
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        final p = board[r][c];
+        sb.write(p == null ? '.' : '${p.type.index}${p.isPlayer1 ? 'B' : 'W'}');
+      }
+    }
+    sb.write('|');
+    for (final e in p1Hand.entries) sb.write('${e.key.index}:${e.value},');
+    sb.write('|');
+    for (final e in p2Hand.entries) sb.write('${e.key.index}:${e.value},');
+    sb.write('|${isP1Turn ? '1' : '2'}');
+    return sb.toString();
+  }
+
+  void _checkSpecialEndings(
+    List<List<Piece?>> board,
+    Map<PieceType, int> p1Hand,
+    Map<PieceType, int> p2Hand,
+  ) {
+    final isP1Turn = !widget.isPlayer1; // 相手番
+    final hash = _boardHash(board, p1Hand, p2Hand, isP1Turn);
+    _boardHistory.add(hash);
+
+    // 千日手: 同一局面4回
+    final count = _boardHistory.where((h) => h == hash).length;
+    if (count >= 4 && !_sennichiteDialogShown) {
+      _sennichiteDialogShown = true;
+      _showSennichiteDialog();
+      return;
+    }
+
+    // 持将棋: 両玉が相手陣に入りポイントを確認
+    if (_checkJishogi(board, p1Hand, p2Hand)) {
+      _showJishogiDialog(board, p1Hand, p2Hand);
+    }
+  }
+
+  bool _checkJishogi(
+    List<List<Piece?>> board,
+    Map<PieceType, int> p1Hand,
+    Map<PieceType, int> p2Hand,
+  ) {
+    // 先手玉が敵陣(row 0-2)に、後手玉が敵陣(row 6-8)にいるか
+    bool p1KingIn = false, p2KingIn = false;
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        final p = board[r][c];
+        if (p == null) continue;
+        if (p.type == PieceType.king) {
+          if (p.isPlayer1 && r <= 2) p1KingIn = true;
+          if (!p.isPlayer1 && r >= 6) p2KingIn = true;
+        }
+      }
+    }
+    if (!p1KingIn || !p2KingIn) return false;
+
+    // ポイントカウント: 飛・角=5点, 他=1点 (玉除く)
+    int _count(List<List<Piece?>> b, Map<PieceType, int> hand, bool isP1) {
+      int pts = 0;
+      // 盤上の駒
+      for (int r = 0; r < 9; r++) {
+        for (int c = 0; c < 9; c++) {
+          final p = b[r][c];
+          if (p == null || p.isPlayer1 != isP1 || p.type == PieceType.king) continue;
+          final base = p.type == PieceType.rook || p.type == PieceType.bishop ? 5 : 1;
+          pts += base;
+        }
+      }
+      // 持ち駒
+      for (final e in hand.entries) {
+        final base = e.key == PieceType.rook || e.key == PieceType.bishop ? 5 : 1;
+        pts += base * e.value;
+      }
+      return pts;
+    }
+
+    final p1Pts = _count(board, p1Hand, true);
+    final p2Pts = _count(board, p2Hand, false);
+    return p1Pts >= 27 && p2Pts >= 27;
+  }
+
+  void _showSennichiteDialog() {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('千日手', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+        content: const Text(
+          '同一局面が4回繰り返されました。\n千日手により引き分けを申し込みますか？',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('続ける'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _proposeDraw('sennichite');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700),
+            child: const Text('引き分けを申し込む', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showJishogiDialog(
+    List<List<Piece?>> board,
+    Map<PieceType, int> p1Hand,
+    Map<PieceType, int> p2Hand,
+  ) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('持将棋', style: TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold)),
+        content: const Text(
+          '両玉が相手陣に入り点数条件を満たしました。\n持将棋として引き分けを申し込みますか？',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('続ける'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _proposeDraw('jishogi');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan.shade700),
+            child: const Text('引き分けを申し込む', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _proposeDraw(String reason) async {
+    try {
+      await _firestore.collection('matches').doc(widget.matchId).update({
+        'draw_proposed_by': _networkService.currentUser?.uid,
+        'draw_reason': reason,
+        'draw_proposed_at': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('引き分けを申し込みました。相手の応答を待っています...')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+      }
+    }
+  }
+
+  // ── 通報 ───────────────────────────────────────────────────
+
+  Future<void> _showReportDialog() async {
+    try {
+      final doc =
+          await _firestore.collection('matches').doc(widget.matchId).get();
+      final opponentId = widget.isPlayer1
+          ? doc['player2_id'] as String?
+          : doc['player1_id'] as String?;
+      final opponentName = widget.isPlayer1
+          ? doc['player2_name'] as String? ?? '相手'
+          : doc['player1_name'] as String? ?? '相手';
+      if (opponentId == null || !mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => ReportUserScreen(
+            reportedUserId: opponentId,
+            reportedUsername: opponentName,
+            matchId: widget.matchId,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+      }
+    }
+  }
+
+  // ── UI ─────────────────────────────────────────────────────
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('対局中です。投了で終了してください。')),
+          );
+        }
       },
       child: Scaffold(
         backgroundColor: const Color(0xFF1A1A2E),
@@ -49,96 +519,63 @@ class _MatchScreenState extends State<MatchScreen> {
           backgroundColor: const Color(0xFF16213E),
           title: const Text('対局中', style: TextStyle(color: Colors.white)),
           automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.chat,
+                  color: _showChat ? Colors.amber : Colors.white70),
+              onPressed: () => setState(() => _showChat = !_showChat),
+              tooltip: 'チャット',
+            ),
+            IconButton(
+              icon: const Icon(Icons.flag_outlined, color: Colors.white70),
+              onPressed: _showReportDialog,
+              tooltip: '通報',
+            ),
+          ],
         ),
-        body: StreamBuilder<Map<String, dynamic>?>(
-          stream: _matchStream,
+        body: StreamBuilder<NetworkBoardState?>(
+          stream: _boardStream,
           builder: (context, snapshot) {
             if (!snapshot.hasData || snapshot.data == null) {
-              return const Center(
-                child: CircularProgressIndicator(),
-              );
+              return const Center(child: CircularProgressIndicator());
+            }
+            final state = snapshot.data!;
+
+            // ゲーム終了
+            if (state.isFinished) {
+              return _buildGameOverScreen(state);
             }
 
-            final match = snapshot.data!;
-            final isMyTurn = (match['current_turn'] == 1 && widget.isPlayer1) ||
-                (match['current_turn'] == 2 && !widget.isPlayer1);
-            final myTime = widget.isPlayer1
-                ? match['player1_time'] as int
-                : match['player2_time'] as int;
-            final opponentTime = widget.isPlayer1
-                ? match['player2_time'] as int
-                : match['player1_time'] as int;
-            final status = match['status'] as String;
-
-            // ゲーム終了時
-            if (status == 'finished') {
-              return _buildGameOverScreen(match);
-            }
+            final isMyTurn = (state.currentTurn == 1) == widget.isPlayer1;
 
             return SafeArea(
               child: Column(
                 children: [
-                  // ① 対手情報 + タイマー
-                  _buildOpponentCard(
-                    match['player2_name'] if widget.isPlayer1
-                        else match['player1_name'],
-                    match['player2_rating'] if widget.isPlayer1
-                        else match['player1_rating'],
-                    opponentTime,
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ② 盤面（簡略版）
+                  // 相手情報バー
+                  _buildPlayerBar(isMe: false),
+                  // 盤面
                   Expanded(
-                    child: Center(
-                      child: Container(
-                        color: Colors.grey.shade900,
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              '将棋盤\n（実装中）',
-                              textAlign: TextAlign.center,
-                              style:
-                                  TextStyle(color: Colors.white54, fontSize: 20),
-                            ),
-                            const SizedBox(height: 20),
-                            if (isMyTurn)
-                              const Text(
-                                'あなたのターン',
-                                style: TextStyle(
-                                  color: Colors.amber,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              )
-                            else
-                              const Text(
-                                '相手を待機中...',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 16,
-                                ),
-                              ),
-                          ],
-                        ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: NetworkBoardWidget(
+                        state: state,
+                        isPlayer1: widget.isPlayer1,
+                        isMyTurn: isMyTurn && !_isMakingMove,
+                        onMove: _onMove,
+                        theme: _theme,
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 16),
-
-                  // ③ 自分の情報 + タイマー
-                  _buildPlayerCard(
-                    _networkService.currentUser?.email ?? 'You',
-                    match['player1_rating'] if widget.isPlayer1
-                        else match['player2_rating'],
-                    myTime,
-                  ),
-
-                  // ④ 操作ボタン
-                  _buildActionButtons(isMyTurn, match),
+                  // 自分情報バー
+                  _buildPlayerBar(isMe: true),
+                  // 操作ボタン
+                  _buildActionBar(isMyTurn),
+                  // チャットパネル
+                  if (_showChat)
+                    SizedBox(
+                      height: 200,
+                      child: MatchChatWidget(matchId: widget.matchId),
+                    ),
                 ],
               ),
             );
@@ -148,228 +585,204 @@ class _MatchScreenState extends State<MatchScreen> {
     );
   }
 
-  Widget _buildOpponentCard(String name, int rating, int timeSeconds) {
-    final timeDisplay = _formatTime(timeSeconds);
+  Widget _buildPlayerBar({required bool isMe}) {
+    final time = isMe ? _myTimeRemaining : _opponentTimeRemaining;
+    final isLow = time <= 30;
+    final timeStr = _formatTime(time);
+    final charIcon = (isMe && _myCharIconId != null)
+        ? findCharacterById(_myCharIconId!)
+        : null;
+
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
-        borderRadius: BorderRadius.circular(8),
+        color: isMe
+            ? Colors.blue.shade900.withAlpha(80)
+            : Colors.grey.shade900,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Row(
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'レート: $rating',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
+          if (charIcon != null)
+            Container(
+              width: 26,
+              height: 26,
+              decoration: BoxDecoration(
+                color: charIcon.bgColor,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.cyan.withAlpha(120), width: 1.5),
+              ),
+              child: Center(
+                child: Text(charIcon.emoji, style: const TextStyle(fontSize: 14)),
+              ),
+            )
+          else
+            Icon(
+              isMe ? Icons.person : Icons.person_outline,
+              color: isMe ? Colors.cyan : Colors.white54,
+              size: 18,
             ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                timeDisplay,
-                style: TextStyle(
-                  color: timeSeconds < 60 ? Colors.red : Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text(
-                '残り時間',
-                style: TextStyle(color: Colors.white70, fontSize: 10),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlayerCard(String name, int rating, int timeSeconds) {
-    final timeDisplay = _formatTime(timeSeconds);
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade900.withAlpha(100),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  'レート: $rating',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                timeDisplay,
-                style: TextStyle(
-                  color: timeSeconds < 60 ? Colors.red : Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text(
-                'あなた',
-                style: TextStyle(color: Colors.cyan, fontSize: 10),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons(bool isMyTurn, Map<String, dynamic> match) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          Expanded(
-            child: ElevatedButton.icon(
-              onPressed: isMyTurn ? () {} : null,
-              icon: const Icon(Icons.check),
-              label: const Text('手を指す'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isMyTurn ? Colors.blue.shade700 : Colors.grey,
-                foregroundColor: Colors.white,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          ElevatedButton.icon(
-            onPressed: _isResigning ? null : _resignMatch,
-            icon: const Icon(Icons.flag),
-            label: const Text('投了'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red.shade700,
-              foregroundColor: Colors.white,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildGameOverScreen(Map<String, dynamic> match) {
-    final winner = match['winner'] as String?;
-    final result = match['result'] as String?;
-    final isWinner = winner == _networkService.currentUser?.uid;
-
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            isWinner ? Icons.emoji_events : Icons.close_circle,
-            size: 80,
-            color: isWinner ? Colors.amber : Colors.grey,
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(width: 6),
           Text(
-            isWinner ? '勝利！' : '敗北',
+            isMe ? 'あなた' : '相手',
             style: TextStyle(
-              color: isWinner ? Colors.amber : Colors.grey,
-              fontSize: 28,
+              color: isMe ? Colors.cyan : Colors.white70,
+              fontSize: 13,
+            ),
+          ),
+          const Spacer(),
+          AnimatedDefaultTextStyle(
+            duration: const Duration(milliseconds: 300),
+            style: TextStyle(
+              color: isLow ? Colors.red : Colors.white,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '結果: $result',
-            style: const TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue.shade700,
-            ),
-            child: const Text('対局一覧に戻る'),
+            child: Text(timeStr),
           ),
         ],
       ),
     );
   }
 
-  Future<void> _resignMatch() async {
-    final confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('投了しますか？'),
-        content: const Text('この対局を終了します。'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('キャンセル'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('投了'),
-          ),
+  Widget _buildActionBar(bool isMyTurn) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      color: const Color(0xFF0F0F2E),
+      child: Row(
+        children: [
+          if (isMyTurn)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(40),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Text(
+                'あなたのターン',
+                style: TextStyle(
+                    color: Colors.amber, fontWeight: FontWeight.bold),
+              ),
+            )
+          else
+            const Text('相手の番...',
+                style: TextStyle(color: Colors.white54)),
+          const Spacer(),
+          if (_isMakingMove)
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          else
+            ElevatedButton.icon(
+              onPressed: _isResigning ? null : _resign,
+              icon: const Icon(Icons.flag, size: 16),
+              label: const Text('投了'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red.shade800,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              ),
+            ),
         ],
       ),
     );
+  }
 
-    if (confirm == true) {
-      setState(() => _isResigning = true);
+  // ── ゲームオーバー画面 ─────────────────────────────────────
 
-      // 相手をウィナーとして設定
-      final opponentId = widget.isPlayer1
-          ? (await _firestore.collection('matches').doc(widget.matchId).get())
-              ['player2_id']
-          : (await _firestore.collection('matches').doc(widget.matchId).get())
-              ['player1_id'];
+  Widget _buildGameOverScreen(NetworkBoardState state) {
+    final myId = _networkService.currentUser?.uid ?? '';
+    final isWinner = state.winner == myId;
+    final isDraw = state.winner == null;
 
-      await _matchingService.finishMatch(
-        widget.matchId,
-        opponentId,
-        'resignation',
-      );
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    }
+    return Column(
+      children: [
+        Expanded(
+          flex: 2,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  isDraw
+                      ? Icons.handshake
+                      : isWinner
+                          ? Icons.emoji_events
+                          : Icons.sentiment_dissatisfied,
+                  size: 72,
+                  color: isDraw
+                      ? Colors.grey
+                      : isWinner
+                          ? Colors.amber
+                          : Colors.grey.shade600,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  isDraw ? '引き分け' : isWinner ? '勝利！' : '敗北',
+                  style: TextStyle(
+                    color: isDraw
+                        ? Colors.grey
+                        : isWinner
+                            ? Colors.amber
+                            : Colors.grey.shade600,
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('${state.moveCount}手',
+                    style: const TextStyle(color: Colors.white54)),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.brown.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('一覧に戻る'),
+                    ),
+                    const SizedBox(width: 12),
+                    ElevatedButton.icon(
+                      onPressed: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MatchAnalyzerScreen(
+                              matchId: widget.matchId),
+                        ),
+                      ),
+                      icon: const Icon(Icons.analytics, size: 16),
+                      label: const Text('棋譜分析'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo.shade700,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+        // 感想戦チャット
+        Expanded(
+          flex: 3,
+          child: PostMatchChatWidget(matchId: widget.matchId),
+        ),
+      ],
+    );
   }
 
   String _formatTime(int seconds) {
-    final minutes = seconds ~/ 60;
-    final secs = seconds % 60;
-    return '$minutes:${secs.toString().padLeft(2, '0')}';
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
-
-  late FirebaseFirestore _firestore = FirebaseFirestore.instance;
 }

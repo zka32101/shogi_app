@@ -8,6 +8,8 @@ class UserProfile {
   final bool isBanned;
   final DateTime? bannedAt;
   final DateTime createdAt;
+  final int? wins;
+  final int? losses;
 
   UserProfile({
     required this.uid,
@@ -17,6 +19,8 @@ class UserProfile {
     this.isBanned = false,
     this.bannedAt,
     required this.createdAt,
+    this.wins = 0,
+    this.losses = 0,
   });
 
   Map<String, dynamic> toJson() {
@@ -28,6 +32,8 @@ class UserProfile {
       'is_banned': isBanned,
       'banned_at': bannedAt,
       'created_at': createdAt,
+      'wins': wins ?? 0,
+      'losses': losses ?? 0,
     };
   }
 
@@ -42,6 +48,8 @@ class UserProfile {
           ? DateTime.parse(json['banned_at'].toString())
           : null,
       createdAt: DateTime.parse(json['created_at'].toString()),
+      wins: json['wins'] as int? ?? 0,
+      losses: json['losses'] as int? ?? 0,
     );
   }
 }

@@ -2,6 +2,7 @@
 
 import 'dart:math';
 import 'piece.dart';
+import 'ai_personality.dart';
 
 // ===== GL: ゲームロジック =====
 class GL {
@@ -9,6 +10,38 @@ class GL {
 
   static List<List<Piece?>> copy(List<List<Piece?>> b) =>
       List.generate(9, (r) => List<Piece?>.from(b[r]));
+
+  /// 平手初期盤面を生成
+  static List<List<Piece?>> initialBoard() {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null, growable: false));
+    // 後手（isPlayer1=false, 上側, row 0-2）
+    b[0][0] = const Piece(PieceType.lance,  false);
+    b[0][1] = const Piece(PieceType.knight, false);
+    b[0][2] = const Piece(PieceType.silver, false);
+    b[0][3] = const Piece(PieceType.gold,   false);
+    b[0][4] = const Piece(PieceType.king,   false);
+    b[0][5] = const Piece(PieceType.gold,   false);
+    b[0][6] = const Piece(PieceType.silver, false);
+    b[0][7] = const Piece(PieceType.knight, false);
+    b[0][8] = const Piece(PieceType.lance,  false);
+    b[1][1] = const Piece(PieceType.rook,   false);
+    b[1][7] = const Piece(PieceType.bishop, false);
+    for (int c = 0; c < 9; c++) b[2][c] = const Piece(PieceType.pawn, false);
+    // 先手（isPlayer1=true, 下側, row 6-8）
+    for (int c = 0; c < 9; c++) b[6][c] = const Piece(PieceType.pawn, true);
+    b[7][1] = const Piece(PieceType.bishop, true);
+    b[7][7] = const Piece(PieceType.rook,   true);
+    b[8][0] = const Piece(PieceType.lance,  true);
+    b[8][1] = const Piece(PieceType.knight, true);
+    b[8][2] = const Piece(PieceType.silver, true);
+    b[8][3] = const Piece(PieceType.gold,   true);
+    b[8][4] = const Piece(PieceType.king,   true);
+    b[8][5] = const Piece(PieceType.gold,   true);
+    b[8][6] = const Piece(PieceType.silver, true);
+    b[8][7] = const Piece(PieceType.knight, true);
+    b[8][8] = const Piece(PieceType.lance,  true);
+    return b;
+  }
 
   // 疑似合法手（王手放置を除外しない）
   static List<(int, int)> pseudo(List<List<Piece?>> b, int row, int col) {
@@ -447,6 +480,16 @@ class NyugyokuChecker {
 class AI {
   static final _rand = Random();
 
+  // ── パーソナリティ（棋風設定）──────────────────────────────
+  static AiPersonality? _personality;
+  static bool _personalityAiIsP1 = true;
+
+  /// 対局開始前に呼ぶ。personality=nullでデフォルト評価関数に戻る
+  static void setPersonality(AiPersonality? personality, {bool aiIsP1 = true}) {
+    _personality = personality;
+    _personalityAiIsP1 = aiIsP1;
+  }
+
   // ── 置換表・キラー手・ヒストリーテーブル ──────────────────────
   static final Map<String, _TTEntry> _tt = {};
   static const _ttMaxSize = 600000;
@@ -646,34 +689,70 @@ class AI {
     Map<PieceType, int> p1h,
     Map<PieceType, int> p2h,
   ) {
+    final pers = _personality;
+    final aiIsP1 = _personalityAiIsP1;
     int score = 0;
 
-    // ① 駒の価値 + 位置ボーナス
+    // ① 駒の価値 + 位置ボーナス（攻め傾向: AIの駒の前進ボーナスに攻め係数）
     for (int r = 0; r < 9; r++) {
       for (int c = 0; c < 9; c++) {
         final p = b[r][c];
         if (p == null) continue;
         final base = _val[p.type] ?? 0;
-        final pos  = _posBonus(p.type, r, p.isPlayer1);
-        score += (p.isPlayer1 ? 1 : -1) * (base + pos);
+        final rawPos = _posBonus(p.type, r, p.isPlayer1);
+        int pos = rawPos;
+        if (pers != null) {
+          // AI自身の駒の前進ボーナスに攻め係数を適用
+          final isAiPiece = p.isPlayer1 == aiIsP1;
+          if (isAiPiece) pos = (rawPos * pers.attackBias).round();
+        }
+        // 駒得係数: AIの駒の素材価値に greedBias を乗算
+        int pieceBase = base;
+        if (pers != null && p.isPlayer1 == aiIsP1) {
+          pieceBase = (base * pers.greedBias).round();
+        }
+        score += (p.isPlayer1 ? 1 : -1) * (pieceBase + pos);
       }
     }
 
-    // ② 持ち駒の価値（盤上の85%）
-    for (final e in p1h.entries)
-      score += e.value * ((_val[e.key] ?? 0) * 0.85).round();
-    for (final e in p2h.entries)
-      score -= e.value * ((_val[e.key] ?? 0) * 0.85).round();
+    // ② 持ち駒の価値（AI側に greedBias 適用）
+    final defHandWeight = 0.85;
+    final aiHandWeight  = pers != null ? (0.85 * pers.greedBias) : 0.85;
+    if (aiIsP1) {
+      for (final e in p1h.entries)
+        score += e.value * ((_val[e.key] ?? 0) * aiHandWeight).round();
+      for (final e in p2h.entries)
+        score -= e.value * ((_val[e.key] ?? 0) * defHandWeight).round();
+    } else {
+      for (final e in p1h.entries)
+        score += e.value * ((_val[e.key] ?? 0) * defHandWeight).round();
+      for (final e in p2h.entries)
+        score -= e.value * ((_val[e.key] ?? 0) * aiHandWeight).round();
+    }
 
-    // ③ 玉の盾（隣接味方駒）
-    score += _kingShield(b, true);
-    score -= _kingShield(b, false);
+    // ③ 玉の盾（AI側の玉に defenceBias 適用）
+    final aiShield  = pers != null ? (pers.defenceBias) : 1.0;
+    final oppShield = 1.0;
+    if (aiIsP1) {
+      score += (_kingShield(b, true)  * aiShield).round();
+      score -= (_kingShield(b, false) * oppShield).round();
+    } else {
+      score += (_kingShield(b, true)  * oppShield).round();
+      score -= (_kingShield(b, false) * aiShield).round();
+    }
 
-    // ④ 玉の危険度（新規: 近接敵駒のペナルティ）
-    score -= _kingDanger(b, true);   // 先手玉が危険 → 先手のスコアを下げる
-    score += _kingDanger(b, false);  // 後手玉が危険 → 先手のスコアを上げる
+    // ④ 玉の危険度（AI自玉の危険度に defenceBias 適用）
+    final aiDanger  = pers != null ? pers.defenceBias : 1.0;
+    final oppDanger = 1.0;
+    if (aiIsP1) {
+      score -= (_kingDanger(b, true)  * aiDanger).round();
+      score += (_kingDanger(b, false) * oppDanger).round();
+    } else {
+      score -= (_kingDanger(b, true)  * oppDanger).round();
+      score += (_kingDanger(b, false) * aiDanger).round();
+    }
 
-    // ⑤ 飛車オープンファイルボーナス（新規）
+    // ⑤ 飛車オープンファイルボーナス（性格非依存: 常に両者同等）
     score += _rookOpenBonus(b, true);
     score -= _rookOpenBonus(b, false);
 

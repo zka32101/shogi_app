@@ -13,6 +13,9 @@ dependencies:
   cupertino_icons: ^1.0.8
   shared_preferences: ^2.3.0
 
+  # ローカライズ / 日付フォーマット
+  intl: ^0.20.2
+
   # 状態管理
   flutter_riverpod: ^2.6.1
 
@@ -28,6 +31,8 @@ dependencies:
   firebase_database: ^11.1.0
   cloud_firestore: ^5.0.0
   firebase_auth: ^5.0.0
+  firebase_messaging: ^15.0.0
+  firebase_crashlytics: ^4.0.0
   network_info_plus: ^6.0.0
 
 dev_dependencies:

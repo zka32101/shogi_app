@@ -1463,12 +1463,115 @@ List<_TesujiProb> _buildTesujiProblems() {
     ));
   }
 
+  // ===== 捨て駒 ① =====
+  // 先手が角を捨てて後手玉を追い詰める手筋（捨て駒で相手の守り駒を排除）
+  // 後手玉(0,4)、後手金(1,4)が玉を守っている
+  // 先手角(3,2)を(1,4)に動かして後手金に当てる→後手金が取ったら後手玉の守りが崩れる
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king, false);           // 後手玉 5一(0,4)
+    b[1][4] = Piece(PieceType.gold, false);           // 後手金 5二(1,4) 玉の守り
+    b[8][4] = Piece(PieceType.king, true);            // 先手玉 5九(8,4)
+    b[3][2] = Piece(PieceType.bishop, true);          // 先手角 7四(3,2)
+    b[1][6] = Piece(PieceType.rook, true);            // 先手飛 3二(1,6)
+    b[0][6] = Piece(PieceType.gold, true);            // 先手金 3一(0,6) 玉の右封鎖
+    // 角(3,2)→(1,4): 後手金に当たる（角捨て）
+    // 後手金が角を取ると → 先手飛(1,6)の縦効きで(1,4)=取った金を再取り → (0,4)=玉への縦王手
+    // 後手金が逃げると → 先手飛(1,6)→(1,4)で金取り & 次に(0,4)王手
+    list.add(_TesujiProb(
+      id: 'suteroma_1',
+      title: '捨て駒 ①（角捨て）',
+      category: '捨て駒',
+      explanation: '先手角を5二の後手金に当てます。後手金が角を取ると、先手飛が縦に動いて後手玉に王手がかかります。守り駒を排除するための角捨ての手筋。',
+      board: b,
+      answer: AMove(fr: 3, fc: 2, tr: 1, tc: 4),
+    ));
+  }
+
+  // ===== 捨て駒 ② =====
+  // 先手が銀を捨てて後手玉の逃げ道を塞ぐ
+  // 後手玉(0,0)、先手が銀を(0,1)に打って玉に当てる
+  // 後手玉が銀を取ると(0,1)に移動 → 先手飛(2,1)の縦効きで(0,1)=王手→詰み
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king, false);           // 後手玉 9一(0,0)
+    b[8][8] = Piece(PieceType.king, true);            // 先手玉 1九(8,8)
+    b[2][0] = Piece(PieceType.rook, true);            // 先手飛 9三(2,0)
+    b[1][0] = Piece(PieceType.pawn, false);           // 後手歩 9二(1,0) 飛の前に歩
+    b[0][1] = Piece(PieceType.gold, false);           // 後手金 8一(0,1) 玉の逃げ先
+    b[1][1] = Piece(PieceType.gold, true);            // 先手金 8二(1,1) 玉の上守り
+    // 先手銀を(1,0)に打つ: 後手歩のある場所に割り込む
+    // → 先手銀(1,0)で後手歩を取りながら後手玉(0,0)に接近
+    // → 後手玉逃げ場(0,1)=後手金（先手金(1,1)の利きで(0,1)も守られている?）
+    // 先手金(1,1)の利き(先手fwd=-1): (0,0)=玉!,(0,1),(0,2),(1,0),(1,2),(2,1)
+    // → 先手金は(0,0)に王手できるが、まず銀を打って後手玉の周囲を崩す
+    // 銀を(0,1)に打つ→後手金と交換して先手金で詰む構想
+    list.add(_TesujiProb(
+      id: 'suteroma_2',
+      title: '捨て駒 ②（銀打ち捨て）',
+      category: '捨て駒',
+      explanation: '先手は持ち駒の銀を8二に打ちます。後手金を排除して後手玉の守りを崩す捨て駒の発想です。次の手で先手金が後手玉に迫ります。',
+      board: b,
+      p1Hand: {PieceType.silver: 1},
+      answer: AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.silver),
+    ));
+  }
+
+  // ===== 捨て駒 ③ =====
+  // 先手が飛車を捨てて後手の守備形を崩す（飛車捨て）
+  // 後手玉(0,4)、後手の1段目に先手飛を突入させて後手角を取り、玉の守りを崩す
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king, false);           // 後手玉 5一(0,4)
+    b[0][3] = Piece(PieceType.bishop, false);         // 後手角 6一(0,3) 玉の守り
+    b[8][4] = Piece(PieceType.king, true);            // 先手玉 5九(8,4)
+    b[2][3] = Piece(PieceType.rook, true);            // 先手飛 6三(2,3)
+    b[0][5] = Piece(PieceType.gold, true);            // 先手金 4一(0,5) 玉の右
+    b[1][4] = Piece(PieceType.gold, true);            // 先手金 5二(1,4) 玉の下
+    // 先手飛(2,3)→(0,3): 後手角を取る（飛車が後手角の場所に突入）
+    // 後手玉(0,4)に縦効きはないが、角を排除して先手金との連携で玉を追い詰める
+    // 飛(0,3)の横効きで(0,4)=玉に王手! → 詰み（先手金(0,5)と(1,4)が逃げ場封鎖）
+    list.add(_TesujiProb(
+      id: 'suteroma_3',
+      title: '捨て駒 ③（飛車突入）',
+      category: '捨て駒',
+      explanation: '先手飛車が6三から6一に突入して後手角を取ります。飛車の横効きが後手玉5一に当たり王手になります。後手玉の逃げ場は先手金2枚が封じています。',
+      board: b,
+      answer: AMove(fr: 2, fc: 3, tr: 0, tc: 3),
+    ));
+  }
+
+  // ===== 捨て駒 ④ =====
+  // 歩の突き捨てで相手の守り形を乱す（歩捨て）
+  // 先手が後手銀の前に歩を打って後手銀に取らせ、戦線を整える
+  {
+    final b = _empty();
+    b[0][1] = Piece(PieceType.king, false);           // 後手玉 8一(0,1)
+    b[8][8] = Piece(PieceType.king, true);            // 先手玉 1九(8,8)
+    b[2][2] = Piece(PieceType.silver, false);         // 後手銀 7三(2,2) 守備の銀
+    b[1][1] = Piece(PieceType.rook, false);           // 後手飛 8二(1,1)
+    b[4][2] = Piece(PieceType.rook, true);            // 先手飛 7五(4,2)
+    b[3][1] = Piece(PieceType.pawn, true);            // 先手歩 8四(3,1)
+    // 先手歩(3,1)→(2,1): 後手飛の前（8三）に歩を打ち付ける
+    // 後手飛が取る→先手飛(4,2)が縦に後手陣へ
+    // または後手銀が7四に来たとき歩で取って戦線に乱れを作る
+    // ここでは: 歩(3,1)→(2,1)で後手飛に当てる突き捨て
+    list.add(_TesujiProb(
+      id: 'suteroma_4',
+      title: '捨て駒 ④（歩の突き捨て）',
+      category: '捨て駒',
+      explanation: '先手の8四の歩を8三に突き捨てます。後手飛車がいる場所に歩をぶつけ、後手に手を指させて先手の攻め形を整える歩の突き捨ての手筋です。',
+      board: b,
+      answer: AMove(fr: 3, fc: 1, tr: 2, tc: 1),
+    ));
+  }
+
   return list;
 }
 
 final List<_TesujiProb> _problems = _buildTesujiProblems();
 
-const List<String> _categories = ['全て', '飛車取り', '王手金取り', '両取り', '守り', '詰め'];
+const List<String> _categories = ['全て', '飛車取り', '王手金取り', '両取り', '守り', '詰め', '捨て駒'];
 
 // ===== メイン画面 =====
 class TesujiScreen extends StatefulWidget {

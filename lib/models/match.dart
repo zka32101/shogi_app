@@ -39,5 +39,5 @@ class Match {
     );
   }
 
-  bool isFinished => winner != null;
+  bool get isFinished => winner != null;
 }
