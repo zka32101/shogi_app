@@ -1,0 +1,224 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── ヘルパー関数 ────────────────────────────────────────────
+
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isSelf(uid) {
+      return request.auth.uid == uid;
+    }
+
+    function isNotBanned() {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return !user.data.get('is_banned', false);
+    }
+
+    function isAdmin() {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return user.data.get('is_admin', false) == true;
+    }
+
+    function isMatchPlayer(matchData) {
+      return request.auth.uid == matchData.player1_id
+          || request.auth.uid == matchData.player2_id;
+    }
+
+    // ── ユーザー ─────────────────────────────────────────────────
+
+    match /users/{uid} {
+      allow read: if isAuth();
+      allow create: if isSelf(uid);
+      allow update: if isSelf(uid)
+        // BANフラグはユーザー自身が変更不可
+        && !('is_banned' in request.resource.data.diff(resource.data).affectedKeys())
+        && !('is_admin' in request.resource.data.diff(resource.data).affectedKeys())
+        && !('report_count' in request.resource.data.diff(resource.data).affectedKeys());
+      allow delete: if false;
+    }
+
+    // ── 対局 ─────────────────────────────────────────────────────
+
+    match /matches/{matchId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && isNotBanned();
+      allow update: if isAuth() && isNotBanned()
+        // 対局参加者のみ更新可能
+        && isMatchPlayer(resource.data)
+        // statusをfinishedに変更は参加者のみ
+        && (
+          request.resource.data.status == resource.data.status
+          || isMatchPlayer(resource.data)
+        );
+      allow delete: if false;
+
+      // 棋譜（移動ログ）サブコレクション
+      match /spectator_chat/{commentId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && isNotBanned()
+          && request.resource.data.user_id == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      match /post_match_chat/{messageId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && isNotBanned()
+          && request.resource.data.user_id == request.auth.uid
+          // メッセージ長制限
+          && request.resource.data.text.size() <= 200;
+        allow update, delete: if false;
+      }
+
+      match /chat/{messageId} {
+        allow read: if isAuth();
+        allow create: if isAuth() && isNotBanned()
+          && request.resource.data.user_id == request.auth.uid;
+        allow update, delete: if false;
+      }
+    }
+
+    // ── マッチングキュー ─────────────────────────────────────────
+
+    match /matching_queue/{queueId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && isNotBanned()
+        && request.resource.data.user_id == request.auth.uid;
+      allow update: if isAuth()
+        // キャンセルは自分のみ
+        && (request.auth.uid == resource.data.user_id
+            || request.resource.data.status == 'matched');
+      allow delete: if isAuth()
+        && request.auth.uid == resource.data.user_id;
+    }
+
+    // ── 報告 ─────────────────────────────────────────────────────
+
+    match /reports/{reportId} {
+      allow read: if isAuth() && (
+        request.auth.uid == resource.data.reporter_id || isAdmin()
+      );
+      allow create: if isAuth() && isNotBanned()
+        && request.resource.data.reporter_id == request.auth.uid
+        // 自分自身への報告は不可
+        && request.resource.data.reporter_id != request.resource.data.reported_user_id;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ── ランキング（読み取り専用） ───────────────────────────────
+
+    match /rankings/{rankId} {
+      allow read: if isAuth();
+      allow write: if false; // Cloud Functions のみ更新
+    }
+
+    // ── トーナメント ──────────────────────────────────────────────
+
+    match /tournaments/{tournamentId} {
+      allow read: if isAuth();
+      allow create: if isAuth() && isNotBanned();
+      allow update: if isAuth() && isNotBanned()
+        && (
+          // 作成者 or 管理者
+          request.auth.uid == resource.data.creator_id || isAdmin()
+          // エントリーのみ一般ユーザーも変更可
+          || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['entries'])
+        );
+      allow delete: if isAdmin();
+    }
+
+    // ── フレンド ──────────────────────────────────────────────────
+
+    match /friends/{friendDocId} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.user1_id
+            || request.auth.uid == resource.data.user2_id);
+      allow create: if isAuth();
+      allow delete: if isAuth()
+        && (request.auth.uid == resource.data.user1_id
+            || request.auth.uid == resource.data.user2_id);
+      allow update: if false;
+    }
+
+    match /friend_requests/{requestId} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.sender_id
+            || request.auth.uid == resource.data.recipient_id);
+      allow create: if isAuth() && isNotBanned()
+        && request.resource.data.sender_id == request.auth.uid;
+      allow update: if isAuth()
+        // 受信者のみ承認・拒否可
+        && request.auth.uid == resource.data.recipient_id
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['status', 'accepted_at']);
+      allow delete: if false;
+    }
+
+    // ── 対局招待 ──────────────────────────────────────────────────
+
+    match /direct_challenges/{challengeId} {
+      allow read: if isAuth()
+        && (request.auth.uid == resource.data.sender_id
+            || request.auth.uid == resource.data.recipient_id);
+      allow create: if isAuth() && isNotBanned()
+        && request.resource.data.sender_id == request.auth.uid;
+      allow update: if isAuth()
+        && request.auth.uid == resource.data.recipient_id;
+      allow delete: if false;
+    }
+
+    // ── デイリーチャレンジ ────────────────────────────────────────
+
+    match /daily_challenges/{challengeId} {
+      allow read: if isAuth();
+      allow write: if isAdmin(); // Cloud Functions / 管理者のみ
+    }
+
+    match /user_challenge_progress/{progressId} {
+      allow read: if isAuth()
+        && resource.data.user_id == request.auth.uid;
+      allow write: if isAuth()
+        && request.resource.data.user_id == request.auth.uid;
+    }
+
+    // ── チート分析 ────────────────────────────────────────────────
+
+    match /cheat_analysis/{userId} {
+      allow read: if isAdmin();
+      allow write: if false; // Cloud Functions のみ
+    }
+
+    // ── FCMキュー ─────────────────────────────────────────────────
+
+    match /fcm_queue/{notifId} {
+      allow read: if false; // Cloud Functions のみ
+      allow create: if isAuth(); // クライアントから作成OK
+      allow update, delete: if false;
+    }
+
+    // ── 通知 ──────────────────────────────────────────────────────
+
+    match /notifications/{notifId} {
+      allow read: if isAdmin();
+      allow create: if isAuth();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    // ── 2FA OTPコード ─────────────────────────────────────────────
+
+    match /otp_codes/{uid} {
+      allow read: if isSelf(uid);
+      allow write: if isSelf(uid);
+    }
+
+    // ── 管理者専用 ────────────────────────────────────────────────
+
+    match /admin/{document=**} {
+      allow read, write: if isAdmin();
+    }
+  }
+}

@@ -2,10 +2,14 @@
 
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'game_screen.dart';
 import 'purchase_service.dart';
 import 'castle_guide_service.dart';
 import 'theme_config.dart';
+import 'character_icons.dart';
+import 'ai_personality.dart';
+import 'screens/premium_screen.dart';
 
 class GameSetupScreen extends StatefulWidget {
   final GameMode mode; // pvp or vsAI
@@ -21,6 +25,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   bool _aiIsP2 = true; // AI が後手か
   int? _timeLimitSec;
   int? _byoyomiSec;
+  int _fischerIncrementSec = 0;
   Handicap _handicap = Handicap.none;
   PieceTheme _theme = PieceTheme.standard;
   VariantType _variant = VariantType.normal;
@@ -34,17 +39,67 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   // コーチモード
   bool _coachMode = false;
 
+  // 対戦相手キャラクター
+  String? _opponentCharacterId;
+
   // 持ち時間の選択肢
   static const _timeOptions = <int?>[null, 180, 300, 600, 900, 1800];
   static const _timeLabels = ['なし', '3分', '5分', '10分', '15分', '30分'];
 
-  void _startGame() {
+  Future<void> _startGame() async {
+    // ローカル対局の場合、無料プラン対戦5回制限をチェック
+    if (widget.mode == GameMode.pvp && !PurchaseService.isPremium) {
+      final prefs = await SharedPreferences.getInstance();
+      final today = DateTime.now().toIso8601String().substring(0, 10);
+      final savedDate = prefs.getString('local_game_date') ?? '';
+      int count = savedDate == today ? (prefs.getInt('local_game_count') ?? 0) : 0;
+
+      if (count >= 5) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              backgroundColor: const Color(0xFF16213E),
+              title: const Text('本日の対戦回数に達しました', style: TextStyle(color: Colors.white)),
+              content: const Text(
+                '無料プランでは1日5回までのローカル対局が可能です。\nプレミアムプランで無制限にプレイできます。',
+                style: TextStyle(color: Colors.white70),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('閉じる', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700),
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                    );
+                  },
+                  child: const Text('プレミアムプラン', style: TextStyle(color: Colors.white)),
+                ),
+              ],
+            ),
+          );
+          return;
+        }
+      }
+
+      // カウント更新
+      await prefs.setString('local_game_date', today);
+      await prefs.setInt('local_game_count', count + 1);
+    }
+
     final settings = GameSettings(
       mode: widget.mode,
       aiLevel: _aiLevel,
       aiIsP2: _aiIsP2,
       timeLimitSec: _timeLimitSec,
       byoyomiSec: _byoyomiSec,
+      fischerIncrementSec: _fischerIncrementSec,
       theme: _theme,
       handicap: _handicap,
       variant: _variant,
@@ -53,11 +108,14 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       castleGuideName: _castleGuideName,
       castleGuideMaxPly: _castleGuideMaxPly,
       coachMode: _coachMode,
+      opponentCharacterId: _opponentCharacterId,
     );
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (_) => GameScreen(settings: settings)),
-    );
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => GameScreen(settings: settings)),
+      );
+    }
   }
 
   @override
@@ -127,6 +185,17 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   const SizedBox(height: 10),
                   _coachModeSection(),
                   const SizedBox(height: 20),
+
+                  // ── 対戦相手キャラクター ──────────────────
+                  _sectionHeader(Icons.face, '対戦相手キャラクター'),
+                  const SizedBox(height: 4),
+                  const Text(
+                    'キャラによって棋風が変わります',
+                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                  ),
+                  const SizedBox(height: 10),
+                  _opponentCharSection(),
+                  const SizedBox(height: 20),
                 ],
 
                 // ── pvp 専用セクション ──────────────────
@@ -144,6 +213,16 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   _variantSection(),
                   const SizedBox(height: 20),
                 ],
+
+                // ── 共通: 持ち時間 ──────────────────
+                _sectionHeader(Icons.timer, '持ち時間'),
+                const SizedBox(height: 10),
+                _timeSection(),
+                const SizedBox(height: 16),
+                _byoyomiSection(),
+                const SizedBox(height: 16),
+                _fischerSection(),
+                const SizedBox(height: 20),
               ],
             ),
           ),
@@ -348,6 +427,56 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     );
   }
 
+  // ── フィッシャー加算 ──────────────────────────────
+  Widget _fischerSection() {
+    final enabled = _timeLimitSec != null;
+    return Opacity(
+      opacity: enabled ? 1.0 : 0.4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Icon(Icons.add_alarm, size: 14, color: Colors.white54),
+            const SizedBox(width: 6),
+            Text(
+              'フィッシャー加算${enabled ? '' : '（持ち時間設定時のみ）'}',
+              style: const TextStyle(color: Colors.white54, fontSize: 12),
+            ),
+          ]),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 6,
+            children: [
+              _fischerChip('なし', 0, enabled),
+              _fischerChip('+5秒', 5, enabled),
+              _fischerChip('+10秒', 10, enabled),
+              _fischerChip('+15秒', 15, enabled),
+              _fischerChip('+30秒', 30, enabled),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _fischerChip(String label, int val, bool enabled) {
+    final sel = _fischerIncrementSec == val;
+    return ChoiceChip(
+      label: Text(label),
+      selected: sel,
+      onSelected: enabled ? (_) => setState(() => _fischerIncrementSec = val) : null,
+      selectedColor: Colors.green.shade800,
+      backgroundColor: const Color(0xFF16213E),
+      labelStyle: TextStyle(
+        color: sel ? Colors.white : Colors.white54,
+        fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+      ),
+      side: BorderSide(color: sel ? Colors.green.shade400 : Colors.white24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+  }
+
   // ── 駒落ち ──────────────────────────────────────
   Widget _handicapSection() {
     return Container(
@@ -469,39 +598,36 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
   // ── テーマ選択タップ ──────────────────────────────────────
   void _onThemeTap(PieceTheme t) {
-    if (_isPremiumTheme(t) && !PurchaseService.hasThemePack) {
-      _showThemePackDialog();
+    if (_isPremiumTheme(t) && !PurchaseService.isPremium) {
+      _showPremiumDialog();
       return;
     }
     setState(() => _theme = t);
   }
 
-  // ── テーマパック購入ダイアログ ──────────────────────────────────────
-  void _showThemePackDialog() {
+  // ── プレミアム購入ダイアログ ──────────────────────────────────────
+  void _showPremiumDialog() {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: const Color(0xFF16213E),
         title: const Row(children: [
-          Icon(Icons.palette, color: Colors.purple),
+          Icon(Icons.diamond, color: Colors.amber),
           SizedBox(width: 8),
-          Text('テーマパック', style: TextStyle(color: Colors.white)),
+          Text('プレミアムプラン', style: TextStyle(color: Colors.white)),
         ]),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              '🌿 エメラルド  🌸 桜\n2つのプレミアムテーマを解放します。',
+              'このテーマを使用するにはプレミアムプランが必要です。',
               style: TextStyle(color: Colors.white70, height: 1.5),
             ),
             const SizedBox(height: 12),
-            Text(
-              PurchaseService.themePackProduct?.price ?? '¥120',
-              style: const TextStyle(
-                  color: Colors.amber,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16),
+            const Text(
+              '300円または500円のプランをご購入ください。',
+              style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],
         ),
@@ -511,24 +637,19 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             child: const Text('キャンセル',
                 style: TextStyle(color: Colors.white54)),
           ),
-          if (!kIsWeb && PurchaseService.isAvailable)
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purple.shade700),
-              onPressed: () async {
-                Navigator.pop(context);
-                await PurchaseService.purchaseThemePack();
-                if (mounted) setState(() {});
-              },
-              child: const Text('購入する',
-                  style: TextStyle(color: Colors.white)),
-            )
-          else
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8),
-              child: Text('※ このデバイスでは購入できません',
-                  style: TextStyle(color: Colors.white38, fontSize: 11)),
-            ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amber.shade700),
+            onPressed: () async {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const PremiumScreen()),
+              );
+            },
+            child: const Text('プレミアムプランを購入',
+                style: TextStyle(color: Colors.white)),
+          ),
         ],
       ),
     );
@@ -542,7 +663,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       children: PieceTheme.values.map((t) {
         final cfg = boardThemeConfig(t);
         final sel = _theme == t;
-        final locked = _isPremiumTheme(t) && !PurchaseService.hasThemePack;
+        final locked = _isPremiumTheme(t) && !PurchaseService.isPremium;
         return GestureDetector(
           onTap: () => _onThemeTap(t),
           child: Stack(
@@ -780,6 +901,131 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   }
 
   // ── ヘルパー ──────────────────────────────────────
+  Widget _opponentCharSection() {
+    final isPremium = PurchaseService.isPremium;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // なし（デフォルト）
+        _opponentCharTile(null, 'デフォルト', '標準的なバランスAI', true),
+        const SizedBox(height: 8),
+        // キャラ一覧（ティア別）
+        ...allCharacterIcons.map((icon) {
+          final unlocked = switch (icon.tier) {
+            CharIconTier.free => true,
+            CharIconTier.subscription => isPremium,
+            CharIconTier.pack => isPremium,
+          };
+          return _opponentCharTile(
+            icon.id,
+            '${icon.emoji} ${icon.name}',
+            _personalityDesc(icon.id),
+            unlocked,
+          );
+        }),
+      ],
+    );
+  }
+
+  String _personalityDesc(String id) {
+    final p = characterPersonalities[id];
+    if (p == null) return '';
+    final parts = <String>[];
+    if (p.attackBias >= 1.8) parts.add('超攻撃的');
+    else if (p.attackBias >= 1.3) parts.add('攻め型');
+    else if (p.attackBias <= 0.6) parts.add('受け型');
+    if (p.defenceBias >= 1.8) parts.add('堅陣重視');
+    else if (p.defenceBias >= 1.3) parts.add('守り堅め');
+    else if (p.defenceBias <= 0.4) parts.add('玉無視');
+    if (p.greedBias >= 1.3) parts.add('駒得貪欲');
+    if (p.depthBonus >= 2) parts.add('超深読み');
+    else if (p.depthBonus >= 1) parts.add('深読み');
+    else if (p.depthBonus <= -1) parts.add('速攻浅読み');
+    return parts.isEmpty ? 'バランス型' : parts.join('・');
+  }
+
+  Widget _opponentCharTile(String? id, String label, String desc, bool unlocked) {
+    final selected = _opponentCharacterId == id;
+    final icon = id != null ? findCharacterById(id) : null;
+    return GestureDetector(
+      onTap: unlocked
+          ? () => setState(() => _opponentCharacterId = id)
+          : () => ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(
+                    characterPersonalities[id]?.attackBias != null
+                        ? 'このキャラはサブスクまたはパック購入が必要です'
+                        : 'このキャラはサブスクまたはパック購入が必要です',
+                  ),
+                  duration: const Duration(seconds: 2),
+                ),
+              ),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        margin: const EdgeInsets.only(bottom: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected
+              ? (icon != null ? icon.bgColor.withAlpha(50) : Colors.amber.withAlpha(30))
+              : const Color(0xFF16213E),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: selected
+                ? (icon != null ? icon.bgColor : Colors.amber)
+                : Colors.white12,
+            width: selected ? 1.5 : 1,
+          ),
+        ),
+        child: Row(children: [
+          // アイコン
+          if (icon != null)
+            Container(
+              width: 32,
+              height: 32,
+              decoration: BoxDecoration(
+                color: icon.bgColor,
+                shape: BoxShape.circle,
+              ),
+              child: Center(child: Text(icon.emoji, style: const TextStyle(fontSize: 16))),
+            )
+          else
+            Container(
+              width: 32,
+              height: 32,
+              decoration: const BoxDecoration(
+                color: Color(0xFF2A2A4A),
+                shape: BoxShape.circle,
+              ),
+              child: const Center(child: Icon(Icons.computer, color: Colors.white54, size: 16)),
+            ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: unlocked ? Colors.white : Colors.white38,
+                  fontSize: 13,
+                  fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                ),
+              ),
+              if (desc.isNotEmpty)
+                Text(
+                  desc,
+                  style: const TextStyle(color: Colors.white38, fontSize: 10),
+                ),
+            ]),
+          ),
+          if (!unlocked)
+            const Icon(Icons.lock, size: 14, color: Colors.white38),
+          if (selected)
+            Icon(Icons.check_circle, size: 16, color: icon?.bgColor ?? Colors.amber),
+        ]),
+      ),
+    );
+  }
+
   Widget _sectionHeader(IconData icon, String label) {
     return Row(children: [
       Icon(icon, size: 16, color: Colors.amber.shade300),

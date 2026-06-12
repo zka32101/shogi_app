@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/network_service.dart';
+import '../services/cheat_detection_service.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -15,8 +16,9 @@ class AdminPanelScreen extends StatefulWidget {
 class _AdminPanelScreenState extends State<AdminPanelScreen> {
   final NetworkService _networkService = NetworkService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final CheatDetectionService _cheatService = CheatDetectionService();
 
-  int _tabIndex = 0; // 0: 報告一覧、1: BAN済みユーザー
+  int _tabIndex = 0; // 0: 報告一覧、1: BAN済みユーザー、2: チート疑い、3: 統計
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +27,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       appBar: AppBar(
         backgroundColor: const Color(0xFF16213E),
         title: const Text('管理パネル', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SafeArea(
         child: Column(
@@ -34,12 +37,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               color: const Color(0xFF16213E),
               child: Row(
                 children: [
-                  Expanded(
-                    child: _buildTabButton('報告一覧', 0),
-                  ),
-                  Expanded(
-                    child: _buildTabButton('BAN済みユーザー', 1),
-                  ),
+                  Expanded(child: _buildTabButton('報告一覧', 0)),
+                  Expanded(child: _buildTabButton('BAN済み', 1)),
+                  Expanded(child: _buildTabButton('チート疑い', 2)),
+                  Expanded(child: _buildTabButton('統計', 3)),
                 ],
               ),
             ),
@@ -47,7 +48,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             Expanded(
               child: _tabIndex == 0
                   ? _buildReportsList()
-                  : _buildBannedUsersList(),
+                  : _tabIndex == 1
+                      ? _buildBannedUsersList()
+                      : _tabIndex == 2
+                          ? _buildCheatSuspectsList()
+                          : _buildStatsDashboard(),
             ),
           ],
         ),
@@ -376,5 +381,349 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         );
       }
     }
+  }
+
+  // ③ チート疑いユーザー一覧
+  Widget _buildCheatSuspectsList() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _cheatService.watchFlaggedUsers(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final users = snapshot.data!.docs;
+        if (users.isEmpty) {
+          return const Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.security, color: Colors.green, size: 48),
+                SizedBox(height: 12),
+                Text('フラグ付きユーザーはいません',
+                    style: TextStyle(color: Colors.white70)),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: [
+            // バッチ分析ボタン
+            Padding(
+              padding: const EdgeInsets.all(8),
+              child: ElevatedButton.icon(
+                onPressed: _runBatchAnalysis,
+                icon: const Icon(Icons.analytics),
+                label: const Text('全ユーザーを再分析'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade700,
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size.fromHeight(40),
+                ),
+              ),
+            ),
+            Expanded(
+              child: ListView.builder(
+                itemCount: users.length,
+                itemBuilder: (context, index) {
+                  final user = users[index];
+                  final data = user.data() as Map<String, dynamic>;
+                  final score =
+                      (data['cheat_score'] as num?)?.toDouble() ?? 0;
+                  final flags =
+                      (data['cheat_flags'] as List?)?.cast<String>() ?? [];
+                  final username =
+                      data['username'] as String? ?? 'Unknown';
+                  final scoreColor = score >= 85
+                      ? Colors.red
+                      : score >= 70
+                          ? Colors.orange
+                          : Colors.yellow;
+
+                  return Container(
+                    margin: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade900,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border(
+                        left: BorderSide(color: scoreColor, width: 4),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment:
+                              MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              username,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: scoreColor.withAlpha(50),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'スコア: ${score.toStringAsFixed(0)}',
+                                style: TextStyle(
+                                  color: scoreColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        // フラグ一覧
+                        Wrap(
+                          spacing: 4,
+                          runSpacing: 4,
+                          children: flags
+                              .map((f) => Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.red.shade900,
+                                      borderRadius:
+                                          BorderRadius.circular(3),
+                                    ),
+                                    child: Text(
+                                      f,
+                                      style: const TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 10,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _banCheatUser(user.id, username),
+                                icon: const Icon(Icons.block, size: 16),
+                                label: const Text('BAN'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.red.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton.icon(
+                                onPressed: () =>
+                                    _clearCheatFlag(user.id),
+                                icon: const Icon(Icons.check_circle_outline,
+                                    size: 16),
+                                label: const Text('誤検知'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green.shade700,
+                                  foregroundColor: Colors.white,
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 8),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _runBatchAnalysis() async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('バックグラウンドで分析中...')),
+    );
+    final results = await _cheatService.batchAnalyze(limit: 50);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(
+                '分析完了: ${results.length}件のフラグを検出しました')),
+      );
+    }
+  }
+
+  Future<void> _banCheatUser(String uid, String username) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('BAN確認'),
+        content: Text('$username をチート行為でBANしますか？'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル')),
+          ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('BAN')),
+        ],
+      ),
+    );
+    if (confirm != true) return;
+
+    try {
+      await _firestore.collection('users').doc(uid).update({
+        'is_banned': true,
+        'banned_at': DateTime.now(),
+        'ban_reason': 'cheat_detected',
+        'flagged_for_review': false,
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('BANしました')));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+      }
+    }
+  }
+
+  Future<void> _clearCheatFlag(String uid) async {
+    await _cheatService.clearFlag(uid);
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('フラグをクリアしました')),
+      );
+    }
+  }
+
+  // ④ 統計ダッシュボード
+  Widget _buildStatsDashboard() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _StatCard(
+            title: '総ユーザー数',
+            icon: Icons.people,
+            color: Colors.blue,
+            stream: _firestore
+                .collection('users')
+                .snapshots()
+                .map((s) => s.docs.length.toString()),
+          ),
+          const SizedBox(height: 10),
+          _StatCard(
+            title: 'BAN済みユーザー',
+            icon: Icons.block,
+            color: Colors.red,
+            stream: _firestore
+                .collection('users')
+                .where('is_banned', isEqualTo: true)
+                .snapshots()
+                .map((s) => s.docs.length.toString()),
+          ),
+          const SizedBox(height: 10),
+          _StatCard(
+            title: '未処理報告数',
+            icon: Icons.flag,
+            color: Colors.orange,
+            stream: _firestore
+                .collection('reports')
+                .where('status', isEqualTo: 'pending')
+                .snapshots()
+                .map((s) => s.docs.length.toString()),
+          ),
+          const SizedBox(height: 10),
+          _StatCard(
+            title: '総対局数',
+            icon: Icons.sports_esports,
+            color: Colors.green,
+            stream: _firestore
+                .collection('matches')
+                .where('status', isEqualTo: 'finished')
+                .snapshots()
+                .map((s) => s.docs.length.toString()),
+          ),
+          const SizedBox(height: 10),
+          _StatCard(
+            title: 'チート疑いユーザー',
+            icon: Icons.warning,
+            color: Colors.yellow,
+            stream: _firestore
+                .collection('users')
+                .where('flagged_for_review', isEqualTo: true)
+                .snapshots()
+                .map((s) => s.docs.length.toString()),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final Stream<String> stream;
+
+  const _StatCard({
+    required this.title,
+    required this.icon,
+    required this.color,
+    required this.stream,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade900,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: color, width: 4)),
+      ),
+      child: Row(children: [
+        Icon(icon, color: color, size: 32),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Text(
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          ),
+        ),
+        StreamBuilder<String>(
+          stream: stream,
+          builder: (ctx, snap) => Text(
+            snap.data ?? '...',
+            style: TextStyle(
+              color: color,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ]),
+    );
   }
 }

@@ -8,12 +8,17 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'logic.dart';
+import 'character_icons.dart';
+import 'ai_personality.dart';
 import 'sound_service.dart';
 import 'coach_report_screen.dart';
 import 'feedback_screen.dart';
 import 'ai_data_service.dart';
 import 'stats_screen.dart' show ratingToRank, ratingToColor;
 import 'rank_badge_widget.dart' show showRankUpDialog;
+import 'ghost_service.dart';
+import 'purchase_service.dart';
+import 'screens/premium_screen.dart';
 
 // ── コーチモード補助関数 ──────────────────────────────
 int _pEvalChange(int before, int after, bool wasP1Turn) =>
@@ -46,6 +51,7 @@ IconData _coachIcon(int change) {
 // ===== 盤面ペインター（グリッド＋星＋質感効果） =====
 class _BoardPainter extends CustomPainter {
   final Color cellColor;
+  final double? advantageRatio;
   final Color borderColor;
   final PieceTheme theme;
   final Color? gradientTop;
@@ -55,6 +61,7 @@ class _BoardPainter extends CustomPainter {
     required this.cellColor,
     required this.borderColor,
     required this.theme,
+    this.advantageRatio,
     this.gradientTop,
     this.gradientBottom,
   });
@@ -62,6 +69,21 @@ class _BoardPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final cellSize = size.width / 9;
+
+    // 有利度に応じた背景色（P1有利=青系、P2有利=赤系）
+    if (advantageRatio != null && advantageRatio != 0.5) {
+      Color advantageColor;
+      if (advantageRatio! > 0.5) {
+        // P1有利 → 青
+        final blend = ((advantageRatio! - 0.5) * 2).clamp(0.0, 1.0);
+        advantageColor = Color.lerp(Colors.transparent, Colors.blue.shade900.withAlpha(40), blend)!;
+      } else {
+        // P2有利 → 赤
+        final blend = ((0.5 - advantageRatio!) * 2).clamp(0.0, 1.0);
+        advantageColor = Color.lerp(Colors.transparent, Colors.red.shade900.withAlpha(40), blend)!;
+      }
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), Paint()..color = advantageColor);
+    }
 
     // 質感テーマ用：グラデーション背景を先に描画
     if (theme == PieceTheme.textured && gradientTop != null && gradientBottom != null) {
@@ -268,6 +290,7 @@ class GameSettings {
   final bool aiIsP2; // AI が後手か
   final int? timeLimitSec; // null=制限なし
   final int? byoyomiSec; // 秒読み（null=なし）
+  final int fischerIncrementSec; // フィッシャー加算（0=なし）
   final PieceTheme theme;
   final Handicap handicap;
   final VariantType variant;
@@ -278,6 +301,7 @@ class GameSettings {
   final bool networkIsHost; // ネットワーク対局でホストか
   final bool networkRated; // ネットワーク対局でレーティング戦か
   final bool coachMode;   // コーチモード（指導対局）
+  final String? opponentCharacterId; // AIの棋風キャラID（null=デフォルト）
 
   const GameSettings({
     this.mode = GameMode.pvp,
@@ -285,6 +309,7 @@ class GameSettings {
     this.aiIsP2 = true,
     this.timeLimitSec,
     this.byoyomiSec,
+    this.fischerIncrementSec = 0,
     this.theme = PieceTheme.standard,
     this.handicap = Handicap.none,
     this.variant = VariantType.normal,
@@ -295,6 +320,7 @@ class GameSettings {
     this.networkIsHost = false,
     this.networkRated = true,
     this.coachMode = false,
+    this.opponentCharacterId,
   });
 
   int get aiDepth {
@@ -380,8 +406,16 @@ class _GameScreenState extends State<GameScreen>
   IconData _coachBadgeIcon = Icons.remove;
   Timer? _coachBadgeTimer;
 
-  // --- サブスクリプション ---
-  bool _hasSubscription = false;
+  // --- キャラクターアイコン ---
+  String? _charIconId; // 自分（先手 or 人間側）のアイコンID
+
+  // --- AIキャラセリフ ---
+  String? _aiDialogue;       // 表示中のセリフ（null=非表示）
+  bool _dialogueVisible = false;
+
+  // --- 局面メモ ---
+  final Map<int, String> _memos = {}; // moveIndex → memo text
+  bool _showMemoOverlay = false;
 
   // --- アニメーション ---
   late AnimationController _anim;
@@ -398,9 +432,9 @@ class _GameScreenState extends State<GameScreen>
     super.initState();
     _anim = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 600),
     );
-    _animVal = CurvedAnimation(parent: _anim, curve: Curves.easeOut);
+    _animVal = CurvedAnimation(parent: _anim, curve: Curves.elasticOut);
     // 通常初期配置 or エディタからのカスタム配置
     board = widget.initialBoard != null
         ? GL.copy(widget.initialBoard!)
@@ -419,8 +453,16 @@ class _GameScreenState extends State<GameScreen>
     if (s.coachMode) {
       _coachInitialBoard = GL.copy(board);
     }
-    // サブスクリプション状態を読み込み
-    _loadSubscriptionStatus();
+    _loadCharacterIcon();
+    // AIパーソナリティを設定
+    if (vsAI) {
+      final pers = getPersonality(s.opponentCharacterId);
+      AI.setPersonality(pers, aiIsP1: !s.aiIsP2);
+      // 対局開始セリフ
+      if (s.opponentCharacterId != null) {
+        _showDialogue(DialogueTrigger.gameStart);
+      }
+    }
     // AI が先手の場合は最初の手番を AI に渡す
     if (vsAI && !s.aiIsP2) {
       Future.delayed(const Duration(milliseconds: 600), _runAI);
@@ -432,6 +474,7 @@ class _GameScreenState extends State<GameScreen>
     _anim.dispose();
     _timer?.cancel();
     _coachBadgeTimer?.cancel();
+    AI.setPersonality(null); // パーソナリティをリセット
     super.dispose();
   }
 
@@ -568,37 +611,101 @@ class _GameScreenState extends State<GameScreen>
 
   Map<PieceType, int> get _curH => p1Turn ? p1Hand : p2Hand;
   Map<PieceType, int> get _oppH => p1Turn ? p2Hand : p1Hand;
-  bool get _showAds => !_hasSubscription;
+  bool get _showAds => !PurchaseService.isPremium;
   static List<List<bool>> _eHL() =>
       List.generate(9, (_) => List.filled(9, false));
 
   // ===== サブスクリプション =====
-  Future<void> _loadSubscriptionStatus() async {
+  // ===== AIセリフ表示 =====
+  void _showDialogue(DialogueTrigger trigger) {
+    final line = getRandomDialogue(s.opponentCharacterId, trigger);
+    if (line == null || !mounted) return;
+    setState(() {
+      _aiDialogue = line;
+      _dialogueVisible = true;
+    });
+    Future.delayed(const Duration(seconds: 3), () {
+      if (mounted) setState(() => _dialogueVisible = false);
+    });
+  }
+
+  void _loadCharacterIcon() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final subStatus = prefs.getBool('subscription_active') ?? false;
+      final charIconId = prefs.getString('character_icon_id');
       if (mounted) {
-        setState(() => _hasSubscription = subStatus);
+        setState(() {
+          _charIconId = charIconId;
+        });
       }
     } catch (_) {}
   }
 
-  Future<void> _purchaseSubscription() async {
-    // 実装: 実際の課金処理はここに
-    // デモンストレーション用にlocal storageに保存
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('subscription_active', true);
-      if (mounted) {
-        setState(() => _hasSubscription = true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('サブスクリプションが有効になりました'),
-            duration: Duration(seconds: 2),
+  void _goToPremium() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const PremiumScreen()),
+    );
+  }
+
+  // ===== 局面メモ =====
+  void _openMemoDialog() {
+    final moveIdx = kifu.length; // 現在の手数でメモ
+    final existing = _memos[moveIdx] ?? '';
+    final ctrl = TextEditingController(text: existing);
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: Text(
+          '手数${moveIdx}のメモ',
+          style: const TextStyle(color: Colors.white, fontSize: 16),
+        ),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 4,
+          maxLength: 200,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'この局面についてメモ...',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: Colors.grey.shade900,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
           ),
-        );
-      }
-    } catch (_) {}
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('キャンセル'),
+          ),
+          if (existing.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                setState(() => _memos.remove(moveIdx));
+                Navigator.pop(context);
+              },
+              child: const Text('削除', style: TextStyle(color: Colors.red)),
+            ),
+          ElevatedButton(
+            onPressed: () {
+              final text = ctrl.text.trim();
+              setState(() {
+                if (text.isEmpty) {
+                  _memos.remove(moveIdx);
+                } else {
+                  _memos[moveIdx] = text;
+                }
+              });
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700),
+            child: const Text('保存', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ===== 成りダイアログ =====
@@ -641,14 +748,33 @@ class _GameScreenState extends State<GameScreen>
     // コーチバッジ（p1Turn 切替前、AI判定が正確）
     if (s.coachMode && kifu.isNotEmpty && result == null) {
       final humanJustMoved = !vsAI || !isAITurn;
-      final newEval = AI.eval(board, p1Hand, p2Hand);
       if (humanJustMoved) {
-        final change = _pEvalChange(_evalScore, newEval, kifu.last.p1);
+        final change = _pEvalChange(_evalScore, _evalScore, kifu.last.p1);
         _showCoachBadge(change);
       }
-      _evalScore = newEval;
     } else {
-      _evalScore = AI.eval(board, p1Hand, p2Hand);
+      // AI対局中: 人間が指した後にセリフトリガー（coachModeでない場合）
+      if (vsAI && kifu.isNotEmpty && s.opponentCharacterId != null && result == null) {
+        final humanJustMoved = isAITurn; // これからAI番 = 人間が今指した
+        if (humanJustMoved) {
+          final change = _pEvalChange(_evalScore, _evalScore, kifu.last.p1);
+          if (change >= 150) {
+            _showDialogue(DialogueTrigger.opponentGoodMove);
+          } else if (change <= -200) {
+            _showDialogue(DialogueTrigger.opponentBadMove);
+          }
+        }
+      }
+    }
+
+    // フィッシャー方式: 指した側の残り時間に加算
+    if (s.fischerIncrementSec > 0 && s.timeLimitSec != null && result == null) {
+      if (p1Turn) {
+        // p1Turn はまだ切り替わっていないので「今動いたのは先手」
+        p1Time = (p1Time + s.fischerIncrementSec).clamp(0, 3600);
+      } else {
+        p2Time = (p2Time + s.fischerIncrementSec).clamp(0, 3600);
+      }
     }
 
     p1Turn = next;
@@ -662,6 +788,11 @@ class _GameScreenState extends State<GameScreen>
   // ゲーム終了ダイアログ
   void _showGameEndDialog() {
     if (!mounted || result == null) return;
+    // AI対局終了セリフ
+    if (vsAI && s.opponentCharacterId != null) {
+      final aiWon = result!.contains(s.aiIsP2 ? '後手' : '先手');
+      _showDialogue(aiWon ? DialogueTrigger.aiWins : DialogueTrigger.aiLoses);
+    }
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -712,6 +843,19 @@ class _GameScreenState extends State<GameScreen>
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
+                if (kifu.length >= 2 && !result!.contains('勝ち') == false) // プレイヤーが負けた場合
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.repeat),
+                    label: const Text('リベンジ'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _loadDefeatAndReplay();
+                    },
+                  ),
                 ElevatedButton.icon(
                   icon: const Icon(Icons.refresh),
                   label: const Text('新局'),
@@ -766,26 +910,35 @@ class _GameScreenState extends State<GameScreen>
   Future<void> _runAI() async {
     if (result != null || !mounted) return;
     setState(() => _aiThinking = true);
-    await Future.delayed(Duration(milliseconds: 100 + Random().nextInt(200)));
-    if (!mounted || result != null) return;
+    try {
+      await Future.delayed(Duration(milliseconds: 100 + Random().nextInt(200)));
+      if (!mounted || result != null) return;
 
-    // ── オープニングブック参照（序盤20手以内・中級以上） ──
-    AMove? mv;
-    if (kifu.length < 20 && s.aiDepth >= 2) {
-      mv = AiDataService.lookupOpeningBook(board, kifu.length);
+      // ── オープニングブック参照（序盤20手以内・中級以上） ──
+      AMove? mv;
+      if (kifu.length < 20 && s.aiDepth >= 2) {
+        mv = AiDataService.lookupOpeningBook(board, kifu.length);
+      }
+
+      // ── ブックにない場合は探索（棋風による深さ補正を適用）──
+      final pers = getPersonality(s.opponentCharacterId);
+      final depthBonus = pers?.depthBonus ?? 0;
+      final effectiveDepth = (s.aiDepth + depthBonus).clamp(1, 6);
+      mv ??= await Future(() => AI.bestMove(board, p1Hand, p2Hand, !s.aiIsP2, effectiveDepth));
+
+      if (mv == null) {
+        if (mounted) setState(() => _aiThinking = false);
+        return;
+      }
+      if (mounted) {
+        setState(() {
+          _applyAIMove(mv!);
+          _aiThinking = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _aiThinking = false);
     }
-
-    // ── ブックにない場合は探索 ──
-    mv ??= await Future(() => AI.bestMove(board, p1Hand, p2Hand, !s.aiIsP2, s.aiDepth));
-
-    if (mv == null) {
-      setState(() => _aiThinking = false);
-      return;
-    }
-    setState(() {
-      _applyAIMove(mv!);
-      _aiThinking = false;
-    });
   }
 
   void _applyAIMove(AMove mv) {
@@ -906,12 +1059,14 @@ class _GameScreenState extends State<GameScreen>
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: text));
                   Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('クリップボードにコピーしました'),
-                      duration: Duration(seconds: 2),
-                    ),
-                  );
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('クリップボードにコピーしました'),
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
                 },
               ),
             ],
@@ -948,6 +1103,10 @@ class _GameScreenState extends State<GameScreen>
       await prefs.setString('kifu_records', jsonEncode(list));
       // 対局統計を更新
       await _updateStats();
+      // ゴーストデータをバックグラウンドでアップロード（fire-and-forget）
+      GhostService.updateMyGhost();
+      // ストリーク更新（週次・月次）
+      await _updateStreaks();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('棋譜を保存しました'),
@@ -991,16 +1150,43 @@ class _GameScreenState extends State<GameScreen>
       if (result != null) {
         if (vsAI) {
           final playerIsP1 = !s.aiIsP2;
-          if (result!.contains('先手') && playerIsP1) playerWon = true;
-          if (result!.contains('後手') && !playerIsP1) playerWon = true;
-          if (result!.contains('先手') && !playerIsP1) playerWon = false;
-          if (result!.contains('後手') && playerIsP1) playerWon = false;
+          playerWon = (result!.contains('先手') && playerIsP1) ||
+                      (result!.contains('後手') && !playerIsP1);
         }
         if (result!.contains('先手')) {
           await prefs.setInt('stats_p1_wins', (prefs.getInt('stats_p1_wins') ?? 0) + 1);
         } else if (result!.contains('後手')) {
           await prefs.setInt('stats_p2_wins', (prefs.getInt('stats_p2_wins') ?? 0) + 1);
         }
+      }
+
+      // 棋風診断用統計（先手視点）
+      final playerMoves = vsAI
+          ? kifu.where((m) => m.p1 != s.aiIsP2).toList()
+          : kifu.where((m) => m.p1).toList();
+      final totalPM = playerMoves.length;
+      if (totalPM > 0) {
+        final attackMvs = playerMoves.where((m) => m.drop == null && m.tr < m.fr).length;
+        final retreatMvs = playerMoves.where((m) => m.drop == null && m.tr > m.fr).length;
+        final dropMvs = playerMoves.where((m) => m.drop != null).length;
+        await prefs.setInt('playstyle_attack', (prefs.getInt('playstyle_attack') ?? 0) + attackMvs);
+        await prefs.setInt('playstyle_retreat', (prefs.getInt('playstyle_retreat') ?? 0) + retreatMvs);
+        await prefs.setInt('playstyle_drop', (prefs.getInt('playstyle_drop') ?? 0) + dropMvs);
+        await prefs.setInt('playstyle_total', (prefs.getInt('playstyle_total') ?? 0) + totalPM);
+        await prefs.setInt('playstyle_games', (prefs.getInt('playstyle_games') ?? 0) + 1);
+      }
+
+      // 絆レベル更新（対局で使用したキャラがいれば +1）
+      String? charId = s.opponentCharacterId;
+      if (charId != null) {
+        final key = 'character_bond_level_$charId';
+        final currentLevel = prefs.getInt(key) ?? 0;
+        await prefs.setInt(key, currentLevel + 1);
+      }
+
+      // リベンジ用：敗着検出（プレイヤーが負けた場合）
+      if (playerWon == false && kifu.length >= 2) {
+        _detectDefeatMove();
       }
 
       // レーティング更新（AI対局・レーティング戦のみ）
@@ -1029,6 +1215,150 @@ class _GameScreenState extends State<GameScreen>
     } catch (_) {}
   }
 
+  // ===== ストリーク更新（週次・月次） =====
+  Future<void> _updateStreaks() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final now = DateTime.now();
+      final weekKey = '${now.year}-W${(now.day / 7).ceil()}';
+      final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
+
+      if (result != null && result!.contains('勝')) {
+        // 勝利時のみストリーク更新
+        final weekStreak = (prefs.getInt('weekly_streak_$weekKey') ?? 0) + 1;
+        final monthStreak = (prefs.getInt('monthly_streak_$monthKey') ?? 0) + 1;
+        await prefs.setInt('weekly_streak_$weekKey', weekStreak);
+        await prefs.setInt('monthly_streak_$monthKey', monthStreak);
+      } else if (result != null) {
+        // 敗北時はストリークリセット
+        await prefs.remove('weekly_streak_$weekKey');
+        await prefs.remove('monthly_streak_$monthKey');
+      }
+    } catch (_) {}
+  }
+
+  // ===== リベンジ: 敗着から再開 =====
+  void _loadDefeatAndReplay() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final kifuJson = prefs.getString('last_defeat_kifu');
+      if (kifuJson == null) return;
+
+      final List<dynamic> moves = jsonDecode(kifuJson);
+      final playerIsP1 = !s.aiIsP2;
+
+      // 初期盤面に戻す
+      setState(() {
+        board = _initBoard(s.handicap);
+        p1Hand = {};
+        p2Hand = {};
+        p1Turn = true;
+        result = null;
+        kifu = [];
+        _coachInitialBoard = s.coachMode ? GL.copy(board) : null;
+        _boardSnaps.clear();
+        _p1HandSnaps.clear();
+        _p2HandSnaps.clear();
+        _p1TurnSnaps.clear();
+        _clearSel();
+        lastFR = null;
+        lastFC = null;
+        lastTR = null;
+        lastTC = null;
+        _hintMove = null;
+      });
+
+      // 敗着までの棋譜を再生
+      for (final moveJson in moves) {
+        final km = KifuMove.fromJson(moveJson as Map<String, dynamic>);
+        GL.applyKifuMove(board, p1Hand, p2Hand, km);
+        kifu.add(km);
+        p1Turn = !km.p1;
+      }
+
+      setState(() {
+        _updateAtkMap();
+        if (s.timeLimitSec != null) {
+          p1Time = s.timeLimitSec!;
+          p2Time = s.timeLimitSec!;
+          _startTimer();
+        }
+      });
+
+      // AIが後手の場合は思考開始
+      if (vsAI && !s.aiIsP2 && p1Turn) {
+        Future.delayed(const Duration(milliseconds: 600), _runAI);
+      }
+    } catch (_) {}
+  }
+
+  // ===== リベンジ: 敗着検出 =====
+  void _detectDefeatMove() async {
+    try {
+      final playerIsP1 = !s.aiIsP2;
+      var testBoard = List.generate(9, (_) => List<Piece?>.filled(9, null));
+      var testP1Hand = <PieceType, int>{};
+      var testP2Hand = <PieceType, int>{};
+
+      // 初期盤面をコピー
+      for (int i = 0; i < 9; i++) {
+        for (int j = 0; j < 9; j++) {
+          testBoard[i][j] = board[i][j];
+        }
+      }
+      testP1Hand = Map.from(p1Hand);
+      testP2Hand = Map.from(p2Hand);
+
+      int defeatIdx = -1;
+      int worstEval = 0;
+
+      // 棋譜を再生しながら敗着を検出
+      for (int i = 0; i < kifu.length; i++) {
+        final move = kifu[i];
+        final isPlayerMove = move.p1 == playerIsP1;
+
+        if (isPlayerMove) {
+          // 駒数ベースの簡易評価（少ないほど不利）
+          int piecesOnBoard = 0;
+          for (int r = 0; r < 9; r++)
+            for (int c = 0; c < 9; c++)
+              if (testBoard[r][c] != null && testBoard[r][c]!.isPlayer1 == playerIsP1) piecesOnBoard++;
+          final handPieces = (playerIsP1 ? testP1Hand : testP2Hand).values.fold(0, (a, b) => a + b);
+          final eval = piecesOnBoard + handPieces;
+          if (eval < worstEval || worstEval == 0) {
+            worstEval = eval;
+            defeatIdx = i;
+          }
+        }
+
+        // 手を適用
+        if (move.drop != null) {
+          testBoard[move.tr][move.tc] = Piece(move.drop!, move.p1);
+          final hand = move.p1 ? testP1Hand : testP2Hand;
+          hand[move.drop!] = (hand[move.drop!] ?? 1) - 1;
+          if (hand[move.drop!] == 0) hand.remove(move.drop!);
+        } else {
+          final piece = testBoard[move.fr][move.fc]!;
+          final cap = testBoard[move.tr][move.tc];
+          if (cap != null) {
+            final hand = move.p1 ? testP1Hand : testP2Hand;
+            hand[cap.baseType] = (hand[cap.baseType] ?? 0) + 1;
+          }
+          testBoard[move.tr][move.tc] = move.promote ? Piece(piece.promotedType, piece.isPlayer1) : piece;
+          testBoard[move.fr][move.fc] = null;
+        }
+      }
+
+      if (defeatIdx >= 0) {
+        // 敗着までの棋譜を保存
+        final defeatKifu = kifu.sublist(0, defeatIdx + 1);
+        final kifuJson = defeatKifu.map((m) => m.toJson()).toList();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setString('last_defeat_kifu', jsonEncode(kifuJson));
+      }
+    } catch (_) {}
+  }
+
   // ===== セルタップ =====
   Future<void> _onCell(int row, int col) async {
     if (result != null || _aiThinking) return;
@@ -1043,8 +1373,9 @@ class _GameScreenState extends State<GameScreen>
         if (s.coachMode) _saveSnap(); // スナップショット保存
         setState(() {
           board[row][col] = Piece(type, p1Turn);
-          _curH[type] = (_curH[type] ?? 1) - 1;
-          if (_curH[type] == 0) _curH.remove(type);
+          final hand = p1Turn ? p1Hand : p2Hand;
+          hand[type] = (hand[type] ?? 0) - 1;
+          if ((hand[type] ?? 0) <= 0) hand.remove(type);
           lastFR = -1;
           lastFC = -1;
           lastTR = row;
@@ -1128,7 +1459,8 @@ class _GameScreenState extends State<GameScreen>
     setState(() {
       if (cap != null) {
         final bt = cap.baseType;
-        _curH[bt] = (_curH[bt] ?? 0) + 1;
+        final hand = p1Turn ? p1Hand : p2Hand;
+        hand[bt] = (hand[bt] ?? 0) + 1;
       }
       board[row][col] = promote
           ? Piece(moving.promotedType, moving.isPlayer1)
@@ -1159,10 +1491,51 @@ class _GameScreenState extends State<GameScreen>
       }
       _clearSel();
       selHand = type;
-      final drops = GL.dropSquares(board, type, isP1, _curH, _oppH);
+      // isP1 は現在の手番と同一（1468行でガード）
+      // 正しい持ち駒と相手の持ち駒を渡す
+      final hand = isP1 ? p1Hand : p2Hand;
+      final oppHand = isP1 ? p2Hand : p1Hand;
+      final drops = GL.dropSquares(board, type, isP1, hand, oppHand);
       hl = _eHL();
       for (final d in drops) hl[d.$1][d.$2] = true;
     });
+  }
+
+  // ===== 有利度計算（駒数ベース） =====
+  double _advantageRatio() {
+    int p1Score = 0, p2Score = 0;
+    const values = {
+      PieceType.king: 0,
+      PieceType.rook: 5,
+      PieceType.bishop: 3,
+      PieceType.gold: 1,
+      PieceType.silver: 1,
+      PieceType.knight: 1,
+      PieceType.lance: 1,
+      PieceType.pawn: 1,
+      PieceType.promotedRook: 6,
+      PieceType.promotedBishop: 4,
+    };
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        final piece = board[r][c];
+        if (piece != null) {
+          final val = values[piece.type] ?? 0;
+          if (piece.isPlayer1) p1Score += val;
+          else p2Score += val;
+        }
+      }
+    }
+    p1Hand.forEach((type, cnt) {
+      final val = values[type] ?? 0;
+      p1Score += val * cnt;
+    });
+    p2Hand.forEach((type, cnt) {
+      final val = values[type] ?? 0;
+      p2Score += val * cnt;
+    });
+    final total = p1Score + p2Score;
+    return total == 0 ? 0.5 : p1Score / total;
   }
 
   // ===== テーマ =====
@@ -1284,6 +1657,15 @@ class _GameScreenState extends State<GameScreen>
               tooltip: 'AI講評',
               onPressed: _openCoachReport,
             ),
+          // 局面メモ
+          IconButton(
+            icon: Icon(
+              _memos.containsKey(kifu.length) ? Icons.note : Icons.note_add_outlined,
+              color: _memos.containsKey(kifu.length) ? Colors.amber : Colors.white54,
+            ),
+            tooltip: 'メモ',
+            onPressed: _openMemoDialog,
+          ),
           // 局面分析（ヒント）
           IconButton(
             icon: Icon(
@@ -1595,13 +1977,13 @@ class _GameScreenState extends State<GameScreen>
                       ),
                       const SizedBox(height: 8),
                       ElevatedButton(
-                        onPressed: _purchaseSubscription,
+                        onPressed: _goToPremium,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.amber.shade700,
                           minimumSize: const Size(double.infinity, 36),
                         ),
                         child: const Text(
-                          '毎月課金で広告を非表示',
+                          'プレミアムで広告を非表示',
                           style: TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -1626,19 +2008,79 @@ class _GameScreenState extends State<GameScreen>
         ? '  ⏱ ${_fmt(isP1 ? p1Time : p2Time)}'
         : '';
     final isAI = vsAI && (isP1 != s.aiIsP2);
-    return Container(
+    final isHumanPlayer = !isAI;
+
+    // アイコン決定: 人間→自分のアイコン、AI→対戦相手キャラ
+    CharacterIcon? charIcon;
+    if (isHumanPlayer && _charIconId != null) {
+      charIcon = findCharacterById(_charIconId!);
+    } else if (isAI && s.opponentCharacterId != null) {
+      charIcon = findCharacterById(s.opponentCharacterId!);
+    }
+
+    // AI名: キャラ名があれば使用
+    final aiLabel = isAI && s.opponentCharacterId != null
+        ? ' ${findCharacterById(s.opponentCharacterId!)?.name ?? "CPU"}'
+        : isAI ? ' (CPU)' : '';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // セリフバブル（AIの場合のみ）
+        if (isAI && _dialogueVisible && _aiDialogue != null)
+          AnimatedOpacity(
+            opacity: _dialogueVisible ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: Container(
+              margin: const EdgeInsets.fromLTRB(12, 2, 12, 0),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: charIcon != null
+                    ? charIcon.bgColor.withAlpha(200)
+                    : Colors.blueGrey.shade800,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.white24),
+              ),
+              child: Text(
+                _aiDialogue!,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ),
+          ),
+        Container(
       color: active ? const Color(0xFF0D3B66) : const Color(0xFF0A2540),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
       child: Row(
         children: [
-          Icon(
-            isAI ? Icons.computer : Icons.person,
-            color: Colors.white54,
-            size: 16,
-          ),
+          if (charIcon != null)
+            Container(
+              width: 24,
+              height: 24,
+              decoration: BoxDecoration(
+                color: charIcon.bgColor,
+                shape: BoxShape.circle,
+                border: isAI
+                    ? Border.all(color: Colors.amber.withAlpha(180), width: 1.5)
+                    : null,
+              ),
+              child: Center(
+                child: Text(charIcon.emoji, style: const TextStyle(fontSize: 13)),
+              ),
+            )
+          else
+            Icon(
+              isAI ? Icons.computer : Icons.person,
+              color: Colors.white54,
+              size: 16,
+            ),
           const SizedBox(width: 6),
           Text(
-            '${isP1 ? "▲ 先手" : "△ 後手"}${isAI ? " (CPU)" : ""}$timeStr',
+            '${isP1 ? "▲ 先手" : "△ 後手"}$aiLabel$timeStr',
             style: TextStyle(
               color: active ? Colors.white : Colors.white54,
               fontSize: 13,
@@ -1684,7 +2126,9 @@ class _GameScreenState extends State<GameScreen>
             ),
         ],
       ),
-    );
+        ), // Container (playerBar inner)
+      ], // Column children
+    ); // Column
   }
 
   // ===== 持ち駒バー =====
@@ -1842,6 +2286,7 @@ class _GameScreenState extends State<GameScreen>
                             cellColor: _cellColor,
                             borderColor: _cellBorder,
                             theme: s.theme,
+                            advantageRatio: _advantageRatio(),
                             gradientTop: _gradientTop,
                             gradientBottom: _gradientBottom,
                           ),
@@ -1962,15 +2407,20 @@ class _GameScreenState extends State<GameScreen>
                                         // 駒または移動可能マーク
                                         if (piece != null)
                                           Center(
-                                            child: RotatedBox(
-                                              quarterTurns: piece.isPlayer1 ? 0 : 2,
-                                              child: Text(
-                                                piece.label,
-                                                style: TextStyle(
-                                                  fontSize: cellSize * .62,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: pieceTextColor(piece),
-                                                  height: 1.0,
+                                            child: Transform.scale(
+                                              scale: (isLastTo && av < 1.0)
+                                                  ? 1.0 + 0.22 * (1.0 - av)
+                                                  : 1.0,
+                                              child: RotatedBox(
+                                                quarterTurns: piece.isPlayer1 ? 0 : 2,
+                                                child: Text(
+                                                  piece.label,
+                                                  style: TextStyle(
+                                                    fontSize: cellSize * .62,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: pieceTextColor(piece),
+                                                    height: 1.0,
+                                                  ),
                                                 ),
                                               ),
                                             ),

@@ -1,8 +1,11 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 
 import 'dart:async';
+import 'dart:math' show Random;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'purchase_service.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
@@ -1061,6 +1064,901 @@ void _buildExtraProblems(List<_TsumeProb> list) {
   }
 }
 
+// ===== タイムアタック画面 =====
+
+class TsumeTimeAttackScreen extends StatefulWidget {
+  const TsumeTimeAttackScreen({super.key});
+
+  @override
+  State<TsumeTimeAttackScreen> createState() => _TsumeTimeAttackScreenState();
+}
+
+class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
+  static const _bg = Color(0xFF1A1A2E);
+  static const _totalSec = 180; // 3分
+
+  // 有効な問題のみ（開始王手除外）
+  late final List<(int, _TsumeProb)> _validProblems;
+
+  int _score = 0;
+  int _remaining = _totalSec;
+  Timer? _timer;
+  bool _started = false;
+  bool _finished = false;
+
+  // 現在の問題
+  int _currentIdx = -1;
+  final _random = _Rng();
+
+  @override
+  void initState() {
+    super.initState();
+    _validProblems = [];
+    for (int i = 0; i < _problems.length; i++) {
+      if (!GL.inCheck(_problems[i].board, false)) {
+        _validProblems.add((i, _problems[i]));
+      }
+    }
+    _nextProblem();
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _start() {
+    _timer?.cancel();
+    setState(() => _started = true);
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() {
+        _remaining--;
+        if (_remaining <= 0) {
+          _remaining = 0;
+          _timer?.cancel();
+          _finished = true;
+        }
+      });
+    });
+  }
+
+  void _nextProblem() {
+    if (_validProblems.isEmpty) return;
+    final next = _random.nextInt(_validProblems.length);
+    setState(() => _currentIdx = next);
+  }
+
+  String _fmtTime(int s) =>
+      '${(s ~/ 60).toString().padLeft(2, '0')}:${(s % 60).toString().padLeft(2, '0')}';
+
+  @override
+  Widget build(BuildContext context) {
+    if (_finished) return _buildResult();
+
+    final (origIdx, prob) = _validProblems[_currentIdx];
+    final timerColor = _remaining <= 30
+        ? Colors.red
+        : _remaining <= 60
+            ? Colors.orange
+            : Colors.cyan;
+
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('タイムアタック', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              Icon(Icons.timer, color: timerColor, size: 18),
+              const SizedBox(width: 4),
+              Text(
+                _fmtTime(_remaining),
+                style: TextStyle(
+                  color: timerColor,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ]),
+          ),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber.withAlpha(40),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.withAlpha(120)),
+            ),
+            child: Text(
+              '$_score問',
+              style: const TextStyle(
+                color: Colors.amber,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: !_started
+          ? _buildStartScreen()
+          : _SolvePage(
+              key: ValueKey(origIdx),
+              prob: prob,
+              index: origIdx,
+              timeAttackMode: true,
+              onSolvedInTimeAttack: () {
+                setState(() => _score++);
+                _nextProblem();
+              },
+            ),
+    );
+  }
+
+  Widget _buildStartScreen() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.timer, color: Colors.cyan, size: 72),
+          const SizedBox(height: 20),
+          const Text(
+            'タイムアタック',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            '${_totalSec ~/ 60}分間でできるだけ多くの詰将棋を解こう！',
+            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '問題数: ${_validProblems.length}問',
+            style: const TextStyle(color: Colors.white38, fontSize: 12),
+          ),
+          const SizedBox(height: 32),
+          ElevatedButton.icon(
+            onPressed: _start,
+            icon: const Icon(Icons.play_arrow),
+            label: const Text('スタート', style: TextStyle(fontSize: 16)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.cyan.shade700,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResult() {
+    return Scaffold(
+      backgroundColor: _bg,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _score >= 10 ? '🏆' : _score >= 5 ? '🥈' : '🎯',
+              style: const TextStyle(fontSize: 72),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '終了！',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16213E),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  const Text('正解数', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$_score問',
+                    style: const TextStyle(
+                      color: Colors.amber,
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    _score >= 10
+                        ? '素晴らしい！将棋の達人です'
+                        : _score >= 5
+                            ? 'よくできました！'
+                            : 'もう少し！次は速く解けるよ',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _score = 0;
+                      _remaining = _totalSec;
+                      _started = false;
+                      _finished = false;
+                      _nextProblem();
+                    });
+                    _timer?.cancel();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('もう一度'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('戻る'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ランダム整数ヘルパー（dart:math Random のラッパー）
+class _Rng {
+  final _r = Random();
+  int nextInt(int max) => _r.nextInt(max);
+}
+
+// ===== デイリー詰将棋（Wordle式）=====
+
+class DailyTsumeScreen extends StatefulWidget {
+  const DailyTsumeScreen({super.key});
+  @override
+  State<DailyTsumeScreen> createState() => _DailyTsumeScreenState();
+}
+
+class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
+  static const _bg = Color(0xFF1A1A2E);
+  static const _maxAttempts = 3;
+
+  late final _TsumeProb _prob;
+  late final int _probIdx;
+  late final String _dateKey;
+
+  late List<String> _attempts;
+  int _currentAttempt = 0;
+  bool _done = false;
+  bool _solved = false;
+  int _solveKey = 0;
+  bool _loaded = false;
+  bool _freezeAvailable = true;
+  bool _streakFrozenToday = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _attempts = List<String>.filled(_maxAttempts, 'pending');
+    final now = DateTime.now();
+    _dateKey = '${now.year}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+
+    // 日付シードで全ユーザー共通の問題を選択
+    final seed = now.year * 10000 + now.month * 100 + now.day;
+    final valid = <(int, _TsumeProb)>[];
+    for (int i = 0; i < _problems.length; i++) {
+      if (!GL.inCheck(_problems[i].board, false)) valid.add((i, _problems[i]));
+    }
+    final idx = seed % valid.length;
+    final picked = valid[idx];
+    _probIdx = picked.$1;
+    _prob = picked.$2;
+
+    _loadState();
+  }
+
+  String get _prefBase => 'daily_wordle_$_dateKey';
+
+  String get _todayKey {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
+  }
+
+  String get _weekKey {
+    final now = DateTime.now();
+    final monday = now.subtract(Duration(days: now.weekday - 1));
+    return '${monday.year}-${monday.month.toString().padLeft(2,'0')}-${monday.day.toString().padLeft(2,'0')}';
+  }
+
+  Future<void> _loadState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final saved = prefs.getStringList('${_prefBase}_attempts');
+    final savedSolved = prefs.getBool('${_prefBase}_solved') ?? false;
+    final lastFreezeDate = prefs.getString('tsume_freeze_used_date') ?? '';
+    final frozenToday = prefs.getString('tsume_frozen_date') == _todayKey;
+    if (!mounted) return;
+    setState(() {
+      if (saved != null && saved.length == _maxAttempts) {
+        _attempts = saved;
+      }
+      _solved = savedSolved;
+      final pending = _attempts.indexOf('pending');
+      _currentAttempt = pending == -1 ? _maxAttempts : pending;
+      _done = _solved || _currentAttempt >= _maxAttempts;
+      _loaded = true;
+      _freezeAvailable = lastFreezeDate != _weekKey;
+      _streakFrozenToday = frozenToday;
+    });
+  }
+
+  Future<void> _useFreeze() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sub = PurchaseService.isPremium;
+    if (!_freezeAvailable && !sub) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('今週のフリーズは使用済みです（サブスクで無制限）')),
+        );
+      }
+      return;
+    }
+    final today = _todayKey;
+    await prefs.setString('tsume_frozen_date', today);
+    if (!sub) {
+      await prefs.setString('tsume_freeze_used_date', _weekKey);
+    }
+    if (mounted) {
+      setState(() {
+        _streakFrozenToday = true;
+        if (!sub) _freezeAvailable = false;
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ストリークを保護しました ❄️')),
+        );
+      }
+    }
+  }
+
+  Future<void> _saveState() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList('${_prefBase}_attempts', _attempts);
+    await prefs.setBool('${_prefBase}_solved', _solved);
+  }
+
+  void _onSolved() {
+    if (!mounted) return;
+    setState(() {
+      if (_currentAttempt < _maxAttempts) _attempts[_currentAttempt] = 'solved';
+      _solved = true;
+      _done = true;
+    });
+    _saveState();
+  }
+
+  void _onReset() {
+    if (_done || !mounted) return;
+    setState(() {
+      if (_currentAttempt < _maxAttempts) _attempts[_currentAttempt] = 'failed';
+      _currentAttempt++;
+      if (_currentAttempt >= _maxAttempts) _done = true;
+      _solveKey++;
+    });
+    _saveState();
+  }
+
+  String _buildShareText() {
+    final now = DateTime.now();
+    final dateStr = '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
+    final emojis = _attempts.map((a) => a == 'solved' ? '🟩' : a == 'failed' ? '🟥' : '⬜').join('');
+    return '効棋 デイリー詰将棋 $dateStr\n$emojis ${_prob.moves}手詰め';
+  }
+
+  Widget _buildAttemptBar() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: List.generate(_maxAttempts, (i) {
+        final status = _attempts[i];
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            color: status == 'solved'
+                ? Colors.green.shade700
+                : status == 'failed'
+                    ? Colors.red.shade800
+                    : i == _currentAttempt
+                        ? const Color(0xFF16213E)
+                        : Colors.grey.shade900,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: i == _currentAttempt && !_done
+                  ? Colors.amber
+                  : Colors.transparent,
+              width: 2,
+            ),
+          ),
+          child: Center(
+            child: Text(
+              status == 'solved'
+                  ? '🟩'
+                  : status == 'failed'
+                      ? '🟥'
+                      : '${i + 1}',
+              style: TextStyle(
+                fontSize: status == 'pending' ? 16 : 20,
+                color: Colors.white54,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('デイリー詰将棋', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: !_loaded
+          ? const Center(child: CircularProgressIndicator())
+          : _done
+              ? _buildResult()
+              : _buildGame(),
+    );
+  }
+
+  Widget _buildGame() {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          color: const Color(0xFF0F1729),
+          child: Column(
+            children: [
+              _buildAttemptBar(),
+              const SizedBox(height: 8),
+              Text(
+                '残り ${_maxAttempts - _currentAttempt} 回',
+                style: const TextStyle(color: Colors.white54, fontSize: 12),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: _SolvePage(
+            key: ValueKey(_solveKey),
+            prob: _prob,
+            index: _probIdx,
+            onSolvedCallback: _onSolved,
+            onResetRequested: _onReset,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResult() {
+    final shareText = _buildShareText();
+    final solveAttempt = _attempts.indexWhere((a) => a == 'solved');
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(_solved ? '🎉' : '😔', style: const TextStyle(fontSize: 72)),
+            const SizedBox(height: 16),
+            Text(
+              _solved ? '正解！' : '残念…',
+              style: TextStyle(
+                color: _solved ? Colors.amber : Colors.white70,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              _solved
+                  ? '${solveAttempt + 1}回目で解けました！'
+                  : '明日また挑戦してください',
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: _attempts
+                  .map((a) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 4),
+                        child: Text(
+                          a == 'solved' ? '🟩' : a == 'failed' ? '🟥' : '⬜',
+                          style: const TextStyle(fontSize: 32),
+                        ),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${_prob.moves}手詰め',
+              style: const TextStyle(color: Colors.white38, fontSize: 12),
+            ),
+            const SizedBox(height: 28),
+            if (_solved)
+              ElevatedButton.icon(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: shareText));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('クリップボードにコピーしました'),
+                        backgroundColor: Colors.green,
+                      duration: Duration(seconds: 2),
+                    ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.copy),
+                label: const Text('結果をコピー'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              )
+            else
+              ElevatedButton.icon(
+                onPressed: _useFreeze,
+                icon: const Icon(Icons.shield),
+                label: const Text('ストリーク保護'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                ),
+              ),
+            const SizedBox(height: 12),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey.shade700,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('戻る'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ===== ローグライト タイムアタック =====
+
+class TsumeRogueliteScreen extends StatefulWidget {
+  const TsumeRogueliteScreen({super.key});
+  @override
+  State<TsumeRogueliteScreen> createState() => _TsumeRogueliteScreenState();
+}
+
+class _TsumeRogueliteScreenState extends State<TsumeRogueliteScreen> {
+  static const _bg = Color(0xFF1A1A2E);
+  static const _maxLives = 3;
+  static const _prefBestKey = 'roguelite_best_score';
+
+  late final List<(int, _TsumeProb)> _sortedProblems;
+  int _lives = _maxLives;
+  int _score = 0;
+  int _currentProbIdx = 0;
+  bool _finished = false;
+  bool _started = false;
+  int _bestScore = 0;
+  int _solveKey = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    final valid = <(int, _TsumeProb)>[];
+    for (int i = 0; i < _problems.length; i++) {
+      if (!GL.inCheck(_problems[i].board, false)) valid.add((i, _problems[i]));
+    }
+    valid.sort((a, b) => a.$2.moves.compareTo(b.$2.moves));
+    _sortedProblems = valid;
+    _loadBest();
+  }
+
+  Future<void> _loadBest() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) setState(() => _bestScore = prefs.getInt(_prefBestKey) ?? 0);
+  }
+
+  Future<void> _saveBest() async {
+    if (_score > _bestScore) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(_prefBestKey, _score);
+      if (mounted) setState(() => _bestScore = _score);
+    }
+  }
+
+  void _onSolved() {
+    if (!mounted) return;
+    if (_currentProbIdx + 1 >= _sortedProblems.length) {
+      setState(() { _score++; _finished = true; });
+    } else {
+      setState(() { _score++; _currentProbIdx++; _solveKey++; });
+    }
+    _saveBest();
+  }
+
+  void _onWrongAttempt() {
+    if (!mounted) return;
+    setState(() {
+      _lives--;
+      _solveKey++;
+      if (_lives <= 0) _finished = true;
+    });
+    if (_lives <= 0) _saveBest();
+  }
+
+  Widget _buildLivesBar() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...List.generate(_maxLives, (i) => Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 2),
+          child: Icon(
+            i < _lives ? Icons.favorite : Icons.favorite_border,
+            color: i < _lives ? Colors.redAccent : Colors.grey.shade700,
+            size: 22,
+          ),
+        )),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_finished) return _buildResult();
+    if (!_started) return _buildStart();
+
+    final (origIdx, prob) = _sortedProblems[_currentProbIdx];
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('ローグライト', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+            child: _buildLivesBar(),
+          ),
+          Container(
+            margin: const EdgeInsets.only(right: 12, top: 10, bottom: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.amber.withAlpha(40),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.withAlpha(120)),
+            ),
+            child: Text(
+              '$_score問',
+              style: const TextStyle(
+                color: Colors.amber,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+      body: _SolvePage(
+        key: ValueKey(_solveKey),
+        prob: prob,
+        index: origIdx,
+        onSolvedCallback: _onSolved,
+        onResetRequested: _onWrongAttempt,
+      ),
+    );
+  }
+
+  Widget _buildStart() {
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('ローグライト', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('❤️❤️❤️', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 20),
+              const Text(
+                'ローグライト',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'ライフ3つで詰将棋に挑戦！\n間違えるとライフが減る。\n難易度は1手詰めから徐々に上がる。',
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+                textAlign: TextAlign.center,
+              ),
+              if (_bestScore > 0) ...[
+                const SizedBox(height: 16),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withAlpha(20),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.amber.withAlpha(80)),
+                  ),
+                  child: Text(
+                    '自己ベスト: $_bestScore問',
+                    style: const TextStyle(color: Colors.amber, fontSize: 14, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: () => setState(() => _started = true),
+                icon: const Icon(Icons.play_arrow),
+                label: const Text('スタート', style: TextStyle(fontSize: 16)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResult() {
+    final isNewBest = _score > 0 && _score >= _bestScore;
+    return Scaffold(
+      backgroundColor: _bg,
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              _lives > 0 ? '🏆' : _score >= 5 ? '⚔️' : '💀',
+              style: const TextStyle(fontSize: 72),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _lives > 0 ? '全問クリア！' : 'ゲームオーバー',
+              style: TextStyle(
+                color: _lives > 0 ? Colors.amber : Colors.white,
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+              decoration: BoxDecoration(
+                color: const Color(0xFF16213E),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Column(
+                children: [
+                  const Text('正解数', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                  const SizedBox(height: 4),
+                  Text(
+                    '$_score問',
+                    style: const TextStyle(
+                      color: Colors.amber,
+                      fontSize: 48,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  if (isNewBest) ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withAlpha(40),
+                        border: Border.all(color: Colors.amber),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text('🏆 自己ベスト更新！', style: TextStyle(color: Colors.amber, fontSize: 12)),
+                    ),
+                  ] else if (_bestScore > 0) ...[
+                    const SizedBox(height: 4),
+                    Text('自己ベスト: $_bestScore問', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 32),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _lives = _maxLives;
+                      _score = 0;
+                      _currentProbIdx = 0;
+                      _finished = false;
+                      _started = true;
+                      _solveKey++;
+                    });
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('もう一度'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.red.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade700,
+                    foregroundColor: Colors.white,
+                  ),
+                  child: const Text('戻る'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ===== 問題一覧画面 =====
 
 class TsumeScreen extends StatefulWidget {
@@ -1084,6 +1982,8 @@ class _TsumeScreenState extends State<TsumeScreen>
   // ── デイリー＆ストリーク ──
   int _streak = 0;
   bool _dailySolved = false;
+  bool _freezeAvailable = true;  // 週1回無料フリーズ使用可
+  bool _streakFrozenToday = false;
   int get _dailyIdx {
     final now = DateTime.now();
     final seed = now.year * 10000 + now.month * 100 + now.day;
@@ -1128,10 +2028,24 @@ class _TsumeScreenState extends State<TsumeScreen>
     final lastDate = prefs.getString('tsume_last_solve_date') ?? '';
     final streak = prefs.getInt('tsume_streak') ?? 0;
     final dailySolvedToday = prefs.getString('tsume_daily_solved') == _todayKey;
+
+    // フリーズ状態を確認（週単位でリセット）
+    final lastFreezeDate = prefs.getString('tsume_freeze_used_date') ?? '';
+    final freezeAvailable = lastFreezeDate != _getWeekKey;
+    final frozenToday = prefs.getString('tsume_frozen_date') == _todayKey;
+
     if (mounted) setState(() {
       _streak = streak;
       _dailySolved = dailySolvedToday;
+      _freezeAvailable = freezeAvailable;
+      _streakFrozenToday = frozenToday;
     });
+  }
+
+  String get _getWeekKey {
+    final now = DateTime.now();
+    final weekStart = now.subtract(Duration(days: now.weekday - 1));
+    return '${weekStart.year}-${weekStart.month.toString().padLeft(2,'0')}-${weekStart.day.toString().padLeft(2,'0')}';
   }
 
   // ── 正解時のストリーク更新 ──
@@ -1167,6 +2081,50 @@ class _TsumeScreenState extends State<TsumeScreen>
       _streak = newStreak;
       if (isDaily) _dailySolved = true;
     });
+  }
+
+  // ── ストリーク保険（フリーズ） ──
+  Future<void> _useFreeze() async {
+    final prefs = await SharedPreferences.getInstance();
+    final sub = PurchaseService.isPremium;
+
+    // サブスク無制限、未加入は週1回
+    if (!_freezeAvailable && !sub) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('フリーズは週1回までです。サブスク加入で無制限に！'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
+
+    // フリーズ使用
+    await prefs.setString('tsume_frozen_date', _todayKey);
+    if (!sub) {
+      await prefs.setString('tsume_freeze_used_date', _getWeekKey);
+    }
+
+    // ストリークを継続（昨日解いた扱いにする）
+    final yesterday = DateTime.now().subtract(const Duration(days: 1));
+    final yesterdayKey = '${yesterday.year}-${yesterday.month.toString().padLeft(2,'0')}-${yesterday.day.toString().padLeft(2,'0')}';
+    await prefs.setString('tsume_last_solve_date', yesterdayKey);
+
+    if (mounted) {
+      setState(() {
+        _freezeAvailable = false;
+        _streakFrozenToday = true;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('ストリークが保護されました！'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   Future<void> _loadCleared() async {
@@ -1288,22 +2246,39 @@ class _TsumeScreenState extends State<TsumeScreen>
   }
 
   String _clearCountLabel(int moves) {
-    final filtered = <int>[];
+    final idxs = <int>[];
     for (int i = 0; i < _problems.length; i++) {
-      if (_problems[i].moves == moves) filtered.add(i);
+      if (_problems[i].moves == moves && !GL.inCheck(_problems[i].board, false)) {
+        idxs.add(i);
+      }
     }
-    final total = filtered.length;
-    final done = filtered.where((i) => i < _cleared.length && _cleared[i]).length;
-    return '$done/$total クリア';
+    final total = idxs.length;
+    final done = idxs.where((i) => i < _cleared.length && _cleared[i]).length;
+    return '$done/$total';
   }
+
+  Tab _tabItem(String title, String sub) => Tab(
+    height: 52,
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 1),
+        Text(sub, style: const TextStyle(fontSize: 9)),
+      ],
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
-    // フィルタ後の問題リスト(元インデックス付き)
+    // フィルタ後の問題リスト(元インデックス付き) ※開始局面で王手の問題は除外
     final filtered = <(int, _TsumeProb)>[];
     for (int i = 0; i < _problems.length; i++) {
       if (_filterMoves == 0 || _problems[i].moves == _filterMoves) {
-        filtered.add((i, _problems[i]));
+        if (!GL.inCheck(_problems[i].board, false)) {
+          filtered.add((i, _problems[i]));
+        }
       }
     }
 
@@ -1340,21 +2315,24 @@ class _TsumeScreenState extends State<TsumeScreen>
               ),
             ),
         ],
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
-          unselectedLabelColor: Colors.white54,
-          labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
-          tabs: [
-            const Tab(text: '全て'),
-            Tab(text: '1手詰め\n${_clearCountLabel(1)}'),
-            Tab(text: '3手詰め\n${_clearCountLabel(3)}'),
-            Tab(text: '5手詰め\n${_clearCountLabel(5)}'),
-            Tab(text: '7手詰め\n${_clearCountLabel(7)}'),
-            Tab(text: '9手詰め\n${_clearCountLabel(9)}'),
-          ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(56),
+          child: TabBar(
+            controller: _tabController,
+            isScrollable: true,
+            indicatorColor: Colors.amber,
+            labelColor: Colors.amber,
+            unselectedLabelColor: Colors.white54,
+            labelPadding: const EdgeInsets.symmetric(horizontal: 10),
+            tabs: [
+              const Tab(height: 52, text: '全て'),
+              _tabItem('1手詰め', _clearCountLabel(1)),
+              _tabItem('3手詰め', _clearCountLabel(3)),
+              _tabItem('5手詰め', _clearCountLabel(5)),
+              _tabItem('7手詰め', _clearCountLabel(7)),
+              _tabItem('9手詰め', _clearCountLabel(9)),
+            ],
+          ),
         ),
       ),
       body: filtered.isEmpty
@@ -1453,7 +2431,19 @@ class _TsumeScreenState extends State<TsumeScreen>
 class _SolvePage extends StatefulWidget {
   final _TsumeProb prob;
   final int index;
-  const _SolvePage({required this.prob, required this.index});
+  final bool timeAttackMode;
+  final VoidCallback? onSolvedInTimeAttack;
+  final VoidCallback? onSolvedCallback;   // generic: skips dialog, shows snackbar
+  final VoidCallback? onResetRequested;   // intercept reset button
+  const _SolvePage({
+    super.key,
+    required this.prob,
+    required this.index,
+    this.timeAttackMode = false,
+    this.onSolvedInTimeAttack,
+    this.onSolvedCallback,
+    this.onResetRequested,
+  });
 
   @override
   State<_SolvePage> createState() => _SolvePageState();
@@ -1500,6 +2490,7 @@ class _SolvePageState extends State<_SolvePage> {
     _resetState();
     _loadBestTime();
     // 1秒ごとに画面更新
+    _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!_solved && mounted) {
         setState(() => _elapsedSec = _stopwatch.elapsed.inSeconds);
@@ -1646,6 +2637,15 @@ class _SolvePageState extends State<_SolvePage> {
     final type = _selectedHandPiece;
     if (type == null) return;
 
+    // 打てるマスでなければ選択解除のみ
+    if (!_legalDots.contains((tr, tc))) {
+      setState(() {
+        _selectedHandPiece = null;
+        _legalDots = {};
+      });
+      return;
+    }
+
     setState(() {
       _selectedHandPiece = null;
       _selected = null;
@@ -1678,7 +2678,12 @@ class _SolvePageState extends State<_SolvePage> {
     }
 
     if (!mounted) return;
-    setState(() => _verifying = false);
+    setState(() {
+      _verifying = false;
+      _selected = null;
+      _legalDots = {};
+      _selectedHandPiece = null;
+    });
 
     if (validMove == null) {
       _showWrong();
@@ -1772,6 +2777,41 @@ class _SolvePageState extends State<_SolvePage> {
       _solved = true;
       _elapsedSec = elapsed;
     });
+
+    // タイムアタックモード: ダイアログなしで次の問題へ
+    if (widget.timeAttackMode) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+          content: Text('正解！次の問題へ'),
+          backgroundColor: Colors.green,
+          duration: Duration(milliseconds: 800),
+        ),
+        );
+      }
+      Future.delayed(const Duration(milliseconds: 900), () {
+        widget.onSolvedInTimeAttack?.call();
+      });
+      return;
+    }
+
+    // 汎用コールバックモード（デイリー・ローグライト）
+    if (widget.onSolvedCallback != null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('正解！'),
+            backgroundColor: Colors.green,
+            duration: Duration(milliseconds: 800),
+          ),
+        );
+      }
+      Future.delayed(const Duration(milliseconds: 900), () {
+        widget.onSolvedCallback?.call();
+      });
+      return;
+    }
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -1846,13 +2886,15 @@ class _SolvePageState extends State<_SolvePage> {
   }
 
   void _showWrong() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('もう一度考えてみましょう'),
-        backgroundColor: Colors.redAccent,
-        duration: Duration(seconds: 2),
-      ),
-    );
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('もう一度考えてみましょう'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   // ===== 持ち駒ウィジェット =====
@@ -1870,14 +2912,21 @@ class _SolvePageState extends State<_SolvePage> {
       children: hand.entries.map((e) {
         final selected = isP1 && _selectedHandPiece == e.key;
         return GestureDetector(
-          onTap: isP1 && _p1Turn && !_solved
+          onTap: isP1 && _p1Turn && !_solved && !_verifying
               ? () {
                   setState(() {
-                    _selectedHandPiece =
-                        _selectedHandPiece == e.key ? null : e.key;
-                    if (_selectedHandPiece != null) {
-                      _selected = null;
+                    final tapping = e.key;
+                    if (_selectedHandPiece == tapping) {
+                      // 同じ駒を再タップ → 選択解除
+                      _selectedHandPiece = null;
                       _legalDots = {};
+                    } else {
+                      _selectedHandPiece = tapping;
+                      _selected = null;
+                      // 打てるマスをハイライト表示
+                      _legalDots = GL
+                          .dropSquares(_board, tapping, true, _p1Hand, _p2Hand)
+                          .toSet();
                     }
                   });
                 }
@@ -1953,7 +3002,13 @@ class _SolvePageState extends State<_SolvePage> {
             ),
           ),
           TextButton.icon(
-            onPressed: () => setState(() => _resetState()),
+            onPressed: () {
+              if (widget.onResetRequested != null) {
+                widget.onResetRequested!();
+              } else {
+                setState(() => _resetState());
+              }
+            },
             icon: const Icon(Icons.refresh, color: Colors.white54, size: 18),
             label: const Text('リセット',
                 style: TextStyle(color: Colors.white54, fontSize: 13)),
@@ -2071,6 +3126,8 @@ class _SolvePageState extends State<_SolvePage> {
                             _selected != null ? {_selected!} : {},
                         showLabels: true,
                         size: boardSize,
+                        boardFlipped: false,
+                        currentIsP1: _p1Turn,
                       ),
                     ),
                   ),

@@ -231,7 +231,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
   static const _cardColor = Color(0xFF16213E);
 
   bool _loading = true;
-  bool _hasSubscription = false;
+  bool _hasPlan500 = false;
   _WeeklyStats? _stats;
   int _currentRating = 1000;
 
@@ -243,8 +243,8 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
 
   Future<void> _load() async {
     try {
-      _hasSubscription = PurchaseService.hasSubscription;
-      if (_hasSubscription) {
+      _hasPlan500 = PurchaseService.hasPlan500;
+      if (_hasPlan500) {
         await _loadStats();
       }
     } catch (_) {}
@@ -286,7 +286,7 @@ class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: Colors.amber))
-          : !_hasSubscription
+          : !_hasPlan500
               ? _buildLockedView()
               : _buildContent(),
     );

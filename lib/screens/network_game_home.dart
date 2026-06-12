@@ -4,7 +4,19 @@
 import 'package:flutter/material.dart';
 import '../services/network_service.dart';
 import '../services/matching_service.dart';
+import '../services/fcm_service.dart';
 import 'match_screen.dart';
+import 'ranking_screen.dart';
+import 'spectator_screen.dart';
+import 'tournament_screen.dart';
+import 'player_profile_screen.dart';
+import 'friend_screen.dart';
+import 'daily_challenge_screen.dart';
+import 'achievement_screen.dart';
+import 'season_screen.dart';
+import 'premium_screen.dart';
+import 'customize_screen.dart';
+import 'club_screen.dart';
 
 class NetworkGameHome extends StatefulWidget {
   const NetworkGameHome({super.key});
@@ -16,8 +28,16 @@ class NetworkGameHome extends StatefulWidget {
 class _NetworkGameHomeState extends State<NetworkGameHome> {
   final NetworkService _networkService = NetworkService();
   final MatchingService _matchingService = MatchingService();
+  final FcmService _fcmService = FcmService();
   bool _isLoading = false;
   String? _queueId;
+
+  @override
+  void initState() {
+    super.initState();
+    // FCM初期化・トークン登録
+    _fcmService.initialize();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,6 +72,169 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
                 label: const Text('対局を探す'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.brown.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // ランキングボタン
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const RankingScreen())),
+                icon: const Icon(Icons.leaderboard),
+                label: const Text('ランキング'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 観戦ボタン
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SpectatorListScreen())),
+                icon: const Icon(Icons.live_tv),
+                label: const Text('ライブ観戦'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // トーナメントボタン
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const TournamentListScreen())),
+                icon: const Icon(Icons.emoji_events),
+                label: const Text('トーナメント'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.orange.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // マイプロフィール
+              ElevatedButton.icon(
+                onPressed: () {
+                  final uid = _networkService.currentUser?.uid;
+                  if (uid != null) {
+                    Navigator.push(context, MaterialPageRoute(
+                      builder: (_) => PlayerProfileScreen(
+                          userId: uid, isCurrentUser: true),
+                    ));
+                  }
+                },
+                icon: const Icon(Icons.person),
+                label: const Text('マイプロフィール'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // フレンド
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const FriendScreen())),
+                icon: const Icon(Icons.group),
+                label: const Text('フレンド'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // デイリーチャレンジ
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(
+                        builder: (_) => const DailyChallengeScreen())),
+                icon: const Icon(Icons.today),
+                label: const Text('デイリーチャレンジ'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepOrange.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // 実績
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(
+                        builder: (_) => const AchievementScreen())),
+                icon: const Icon(Icons.emoji_events),
+                label: const Text('実績'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.yellow.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // シーズン
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const SeasonScreen())),
+                icon: const Icon(Icons.calendar_month),
+                label: const Text('シーズンランキング'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.deepPurple.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // クラブ
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const ClubScreen())),
+                icon: const Icon(Icons.groups),
+                label: const Text('クラブ'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo.shade600,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // カスタマイズ
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const CustomizeScreen())),
+                icon: const Icon(Icons.palette),
+                label: const Text('カスタマイズ'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade600,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              // プレミアム
+              ElevatedButton.icon(
+                onPressed: () => Navigator.push(context,
+                    MaterialPageRoute(builder: (_) => const PremiumScreen())),
+                icon: const Icon(Icons.workspace_premium),
+                label: const Text('プレミアム'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple.shade700,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),

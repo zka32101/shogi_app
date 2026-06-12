@@ -4,6 +4,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/matching_queue.dart';
 import '../models/user_profile.dart';
+import 'cheat_detection_service.dart';
+import 'fcm_service.dart';
 
 class MatchingService {
   static final MatchingService _instance = MatchingService._internal();
@@ -15,6 +17,8 @@ class MatchingService {
   MatchingService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final CheatDetectionService _cheatService = CheatDetectionService();
+  final FcmService _fcmService = FcmService();
 
   // マッチングタイムアウト（秒）
   static const matchingTimeoutSeconds = 300; // 5分
@@ -142,6 +146,22 @@ class MatchingService {
         'match_id': matchRef.id,
       });
 
+      // ✅ FCM通知：両プレイヤーに対局開始を通知
+      Future.microtask(() async {
+        await _fcmService.notifyMatchFound(
+          recipientId: queue1.userId,
+          opponentName: queue2.username,
+          opponentRating: queue2.rating,
+          matchId: matchRef.id,
+        );
+        await _fcmService.notifyMatchFound(
+          recipientId: queue2.userId,
+          opponentName: queue1.username,
+          opponentRating: queue1.rating,
+          matchId: matchRef.id,
+        );
+      });
+
       print('Match created: ${matchRef.id}');
     } catch (e) {
       print('Create match error: $e');
@@ -189,13 +209,16 @@ class MatchingService {
 
   // ── ゲーム終了 ────────────────────────────
 
-  /// マッチを終了
+  /// マッチを終了 + 対局後チート分析を非同期実行
   Future<void> finishMatch(
     String matchId,
     String? winnerId,
     String result, // 'checkmate', 'resignation', 'timeout', 'draw'
   ) async {
     try {
+      final matchDoc =
+          await _firestore.collection('matches').doc(matchId).get();
+
       await _firestore.collection('matches').doc(matchId).update({
         'status': 'finished',
         'winner': winnerId,
@@ -204,6 +227,20 @@ class MatchingService {
       });
 
       print('Match finished: $matchId, winner: $winnerId, result: $result');
+
+      // 対局後に両プレイヤーのチート分析を非同期実行
+      if (matchDoc.exists) {
+        final data = matchDoc.data()!;
+        final p1Id = data['player1_id'] as String?;
+        final p2Id = data['player2_id'] as String?;
+
+        if (p1Id != null) {
+          Future.microtask(() => _cheatService.analyzePlayer(p1Id));
+        }
+        if (p2Id != null) {
+          Future.microtask(() => _cheatService.analyzePlayer(p2Id));
+        }
+      }
     } catch (e) {
       print('Finish match error: $e');
     }

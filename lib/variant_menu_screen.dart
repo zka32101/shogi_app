@@ -3,6 +3,30 @@
 import 'package:flutter/material.dart';
 import 'game_screen.dart';
 
+extension VariantTypeExtra on VariantType {
+  IconData get icon {
+    switch (this) {
+      case VariantType.normal:         return Icons.sports_esports;
+      case VariantType.captureForced:  return Icons.flash_on;
+      case VariantType.checkForced:    return Icons.gavel;
+      case VariantType.hiddenPieces:   return Icons.visibility_off;
+      case VariantType.kagemusha:      return Icons.theater_comedy;
+      case VariantType.invader:        return Icons.rocket_launch;
+    }
+  }
+
+  String get description {
+    switch (this) {
+      case VariantType.normal:         return '通常の将棋ルール';
+      case VariantType.captureForced:  return '取れる駒があれば必ず取らなければならない';
+      case VariantType.checkForced:    return '王手できる場合は必ず王手しなければならない';
+      case VariantType.hiddenPieces:   return '相手の駒の種類が見えない';
+      case VariantType.kagemusha:      return '相手の王将の位置が見えない';
+      case VariantType.invader:        return '陣地に侵入された駒は自分の駒になる';
+    }
+  }
+}
+
 class VariantMenuScreen extends StatefulWidget {
   const VariantMenuScreen({super.key});
 
@@ -152,8 +176,6 @@ class _VariantCard extends StatelessWidget {
   Color get _accentColor {
     switch (variant) {
       case VariantType.captureForced: return Colors.red.shade600;
-      case VariantType.noDrops:       return Colors.blueGrey.shade500;
-      case VariantType.masked:        return Colors.purple.shade600;
       case VariantType.checkForced:   return Colors.orange.shade700;
       case VariantType.hiddenPieces:  return Colors.teal.shade600;
       case VariantType.kagemusha:     return Colors.deepPurple.shade400;
