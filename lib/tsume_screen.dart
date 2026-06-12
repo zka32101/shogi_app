@@ -2460,7 +2460,6 @@ class _SolvePageState extends State<_SolvePage> {
   // solution のインデックス: 偶数=先手の手、奇数=後手の応手
   int _solutionIdx = 0;
   bool _solved = false;
-  bool _showHint = false;
   bool _startInCheck = false; // 開始局面で後手玉がすでに王手されている場合は問題に誤りあり
 
   (int, int)? _selected;
@@ -2531,7 +2530,6 @@ class _SolvePageState extends State<_SolvePage> {
     _p2Hand = Map<PieceType, int>.from(prob.p2Hand);
     _solutionIdx = 0;
     _solved = false;
-    _showHint = false;
     _selected = null;
     _legalDots = {};
     _lastFrom = null;
@@ -2964,9 +2962,6 @@ class _SolvePageState extends State<_SolvePage> {
   Widget build(BuildContext context) {
     final prob = widget.prob;
     final sol = _currentSol;
-    final hintFrom =
-        _showHint && sol != null && sol.fr >= 0 ? (sol.fr, sol.fc) : null;
-    final hintTo = _showHint && sol != null ? (sol.tr, sol.tc) : null;
 
     final turnText = _verifying
         ? '検証中...'
@@ -3120,8 +3115,6 @@ class _SolvePageState extends State<_SolvePage> {
                         moveDots: _legalDots,
                         lastMoveFrom: _lastFrom,
                         lastMoveTo: _lastTo,
-                        hintFrom: hintFrom,
-                        hintTo: hintTo,
                         highlightSquares:
                             _selected != null ? {_selected!} : {},
                         showLabels: true,
@@ -3148,27 +3141,6 @@ class _SolvePageState extends State<_SolvePage> {
                   ),
                 ),
                 const SizedBox(height: 16),
-
-                // ヒントボタン
-                ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _showHint
-                        ? Colors.cyan.shade700
-                        : Colors.blueGrey.shade800,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 24, vertical: 10),
-                  ),
-                  onPressed: _solved ? null : () => setState(() => _showHint = !_showHint),
-                  icon: Icon(
-                    _showHint ? Icons.visibility_off : Icons.lightbulb_outline,
-                    size: 16,
-                  ),
-                  label: Text(_showHint ? 'ヒント非表示' : 'ヒントを見る'),
-                ),
-                const SizedBox(height: 14),
 
                 // 操作ガイド
                 Container(
