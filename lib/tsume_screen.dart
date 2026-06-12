@@ -1188,7 +1188,7 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
       body: !_started
           ? _buildStartScreen()
           : _SolvePage(
-              key: ValueKey(origIdx),
+              key: ValueKey(_currentIdx),
               prob: prob,
               index: origIdx,
               timeAttackMode: true,
