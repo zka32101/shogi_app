@@ -682,6 +682,22 @@ class _SolveScreenState extends State<_SolveScreen> {
   bool _solved = false;
   String? _feedback;
 
+  // 盤面管理（詰みまで進行用）
+  late List<List<Piece?>> _currentBoard;
+  late Map<PieceType, int> _p1Hand;
+  late Map<PieceType, int> _p2Hand;
+  bool _p1Turn = true; // 先手番
+  int _moveCount = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // 初期盤面をコピー
+    _currentBoard = List.generate(9, (r) => List<Piece?>.from(widget.prob.board[r]));
+    _p1Hand = Map<PieceType, int>.from(widget.prob.p1Hand);
+    _p2Hand = {};
+  }
+
   (int, int)? get _hintFrom =>
       _showHint ? (widget.prob.answer.fr, widget.prob.answer.fc) : null;
   (int, int)? get _hintTo =>
@@ -690,12 +706,12 @@ class _SolveScreenState extends State<_SolveScreen> {
   void _onCellTap(int row, int col) {
     if (_solved) return;
 
-    final board = widget.prob.board;
+    final board = _currentBoard;
     final piece = board[row][col];
 
     // Nothing selected: try to select a 先手 piece
     if (_selectedFrom == null) {
-      if (piece != null && piece.isPlayer1) {
+      if (piece != null && piece.isPlayer1 == _p1Turn) {
         setState(() {
           _selectedFrom = (row, col);
           _feedback = null;
@@ -721,26 +737,118 @@ class _SolveScreenState extends State<_SolveScreen> {
       return;
     }
 
-    // Attempt the move
-    final ans = widget.prob.answer;
-    final correct =
-        ans.fr == fr && ans.fc == fc && ans.tr == row && ans.tc == col;
+    // ゲーム開始時は正解判定、ゲーム進行中は任意の合法手を受け入れる
+    if (_moveCount == 0) {
+      // 最初の手のみ判定
+      final ans = widget.prob.answer;
+      final correct =
+          ans.fr == fr && ans.fc == fc && ans.tr == row && ans.tc == col;
 
-    if (correct) {
-      _handleCorrect();
+      if (correct) {
+        _handleCorrect();
+      } else {
+        _handleWrong();
+      }
     } else {
-      _handleWrong();
+      // ゲーム進行中：合法手なら実行
+      final legalMoves = GL.legal(_currentBoard, fr, fc);
+      if (legalMoves.any((m) => m.$1 == row && m.$2 == col)) {
+        // 盤面を更新
+        _currentBoard[row][col] = _currentBoard[fr][fc];
+        _currentBoard[fr][fc] = null;
+        _p1Turn = false; // 後手の番に
+        _moveCount++;
+
+        setState(() {
+          _selectedFrom = null;
+          _feedback = '後手の応手を待っています...';
+        });
+
+        Future.delayed(const Duration(milliseconds: 600), () {
+          _playDefenderMove();
+        });
+      } else {
+        setState(() {
+          _feedback = '違う移動です。合法手を指してください。';
+          _selectedFrom = null;
+        });
+      }
     }
   }
 
   void _handleCorrect() async {
     HapticFeedback.mediumImpact();
+
+    // 正解の手を盤面に適用
+    final ans = widget.prob.answer;
+    _currentBoard[ans.tr][ans.tc] = _currentBoard[ans.fr][ans.fc];
+    _currentBoard[ans.fr][ans.fc] = null;
+    _p1Turn = false; // 後手の番に
+    _moveCount++;
+
     setState(() {
-      _solved = true;
-      _feedback = '正解！素晴らしい手です！';
+      _feedback = '正解！これは詰みに向かう手です。';
       _selectedFrom = null;
     });
-    await widget.onCleared();
+
+    // 後手の応手を自動選択
+    await Future.delayed(const Duration(milliseconds: 800));
+    _playDefenderMove();
+  }
+
+  void _playDefenderMove() {
+    // 後手が詰みに陥っているかチェック
+    if (!GL.hasLegalMove(_currentBoard, false, _p2Hand, _p1Hand)) {
+      setState(() {
+        _solved = true;
+        _feedback = '詰みました！問題完了！';
+      });
+      widget.onCleared();
+      return;
+    }
+
+    // 後手の合法手をランダムに選択（簡単な実装）
+    final moves = <(int, int, int, int)>[];
+    for (int r = 0; r < 9; r++) {
+      for (int c = 0; c < 9; c++) {
+        final piece = _currentBoard[r][c];
+        if (piece != null && piece.isPlayer1 == false) {
+          final legalMoves = GL.legal(_currentBoard, r, c);
+          for (final (tr, tc) in legalMoves) {
+            moves.add((r, c, tr, tc));
+          }
+        }
+      }
+    }
+
+    if (moves.isEmpty) {
+      setState(() {
+        _solved = true;
+        _feedback = '詰みました！問題完了！';
+      });
+      widget.onCleared();
+      return;
+    }
+
+    // ランダムに応手を選択
+    final move = moves[(moves.length * 0.5).toInt()]; // 中央値を選択（戦略的な応手）
+    _currentBoard[move.$3][move.$4] = _currentBoard[move.$1][move.$2];
+    _currentBoard[move.$1][move.$2] = null;
+    _p1Turn = true;
+    _moveCount++;
+
+    setState(() {
+      _feedback = '後手の応手...';
+    });
+
+    // 後手の応手後、ユーザーの次の手を待つ
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (mounted) {
+        setState(() {
+          _feedback = 'さらに有効な手を指してください。';
+        });
+      }
+    });
   }
 
   void _handleWrong() {
@@ -837,10 +945,10 @@ class _SolveScreenState extends State<_SolveScreen> {
                   width: boardSize,
                   height: boardSize,
                   child: MiniBoardWidget(
-                    board: prob.board,
+                    board: _currentBoard,
                     size: boardSize,
                     showLabels: true,
-                    currentIsP1: _solved ? null : true,
+                    currentIsP1: _solved ? null : _p1Turn,
                     lastMoveFrom: _selectedFrom,
                     lastMoveTo: _solved
                         ? (prob.answer.tr, prob.answer.tc)
