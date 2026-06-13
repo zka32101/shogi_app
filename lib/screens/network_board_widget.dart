@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../piece.dart';
 import '../logic.dart';
+import '../game_screen.dart';
 import '../services/board_sync_service.dart';
 import '../theme_config.dart';
 
