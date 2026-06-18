@@ -61,6 +61,8 @@ import 'playstyle_diagnosis_screen.dart';
 import 'ghost_service.dart';
 import 'screens/ghost_screen.dart';
 import 'services/fcm_service.dart';
+import 'models/story_data.dart';
+import 'screens/story_overlay.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -105,14 +107,14 @@ class ShogiApp extends StatelessWidget {
       ),
       // ナビゲーションバーのラベルテキストを白色に
       navigationBarTheme: NavigationBarThemeData(
-        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>(
-          (Set<WidgetState> states) {
-            if (states.contains(WidgetState.selected)) {
-              return const TextStyle(color: Colors.white);
-            }
-            return const TextStyle(color: Colors.white70);
-          },
-        ),
+        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((
+          Set<WidgetState> states,
+        ) {
+          if (states.contains(WidgetState.selected)) {
+            return const TextStyle(color: Colors.white);
+          }
+          return const TextStyle(color: Colors.white70);
+        }),
       ),
     ),
     home: const HomeScreen(),
@@ -141,7 +143,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    _checkFirstLaunch();
+    _initializeApp();
+  }
+
+  Future<void> _initializeApp() async {
+    await _checkFirstLaunch();
+    // 📖 プロローグストーリーを表示（初回または表示済みでない場合）
+    if (mounted) {
+      await StoryManager.showStoryIfNeeded(context, prologue);
+    }
   }
 
   Future<void> _checkFirstLaunch() async {
@@ -282,7 +292,7 @@ class _PlayTabState extends State<_PlayTab> {
       if (mounted) {
         setState(() {
           _rating = r;
-          _rank   = ratingToRank(r);
+          _rank = ratingToRank(r);
           _rankColor = ratingToColor(r);
           _ghostWins = record.wins;
           _ghostLosses = record.losses;
@@ -292,14 +302,23 @@ class _PlayTabState extends State<_PlayTab> {
         final raw = prefs.getString('rating_history') ?? '[]';
         final hist = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
         final ratings = hist.map((e) => e['rating'] as int? ?? 700).toList();
-        if (mounted) setState(() => _ratingHistory = ratings.reversed.take(20).toList().reversed.toList());
+        if (mounted)
+          setState(
+            () => _ratingHistory = ratings.reversed
+                .take(20)
+                .toList()
+                .reversed
+                .toList(),
+          );
       } catch (_) {}
     } catch (_) {}
   }
 
   void _go(BuildContext ctx, Widget screen) {
-    Navigator.push(ctx, MaterialPageRoute(builder: (_) => screen))
-        .then((_) => _loadRating()); // 対局後に戻ったら更新
+    Navigator.push(
+      ctx,
+      MaterialPageRoute(builder: (_) => screen),
+    ).then((_) => _loadRating()); // 対局後に戻ったら更新
   }
 
   @override
@@ -326,14 +345,20 @@ class _PlayTabState extends State<_PlayTab> {
               'KOUKI  ·  Learn the Kiki',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.white38, fontSize: 11, letterSpacing: 3),
+                color: Colors.white38,
+                fontSize: 11,
+                letterSpacing: 3,
+              ),
             ),
             const SizedBox(height: 4),
             const Text(
               '好機を見つける将棋の効きを学ぶ',
               textAlign: TextAlign.center,
               style: TextStyle(
-                  color: Colors.white24, fontSize: 10, letterSpacing: 2),
+                color: Colors.white24,
+                fontSize: 10,
+                letterSpacing: 2,
+              ),
             ),
             const SizedBox(height: 12),
 
@@ -341,7 +366,10 @@ class _PlayTabState extends State<_PlayTab> {
             GestureDetector(
               onTap: () => _go(context, const StatsScreen()),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [const Color(0xFF16213E), _rankColor.withAlpha(30)],
@@ -349,20 +377,38 @@ class _PlayTabState extends State<_PlayTab> {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _rankColor.withAlpha(80), width: 1.5),
+                  border: Border.all(
+                    color: _rankColor.withAlpha(80),
+                    width: 1.5,
+                  ),
                 ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(Icons.military_tech, color: _rankColor, size: 20),
                     const SizedBox(width: 8),
-                    Text(_rank,
-                        style: TextStyle(color: _rankColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(
+                      _rank,
+                      style: TextStyle(
+                        color: _rankColor,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(width: 12),
-                    Text('$_rating',
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                    Text(
+                      '$_rating',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                     const SizedBox(width: 6),
-                    const Text('pts', style: TextStyle(color: Colors.white38, fontSize: 12)),
+                    const Text(
+                      'pts',
+                      style: TextStyle(color: Colors.white38, fontSize: 12),
+                    ),
                   ],
                 ),
               ),
@@ -376,21 +422,42 @@ class _PlayTabState extends State<_PlayTab> {
                 child: Container(
                   height: 48,
                   margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(5),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.white12),
                   ),
-                  child: Row(children: [
-                    const Text('推移', style: TextStyle(color: Colors.white24, fontSize: 9, letterSpacing: 1)),
-                    const SizedBox(width: 8),
-                    Expanded(child: CustomPaint(
-                      painter: _RatingMiniGraphPainter(history: _ratingHistory, currentRating: _rating),
-                    )),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.open_in_new, color: Colors.white24, size: 12),
-                  ]),
+                  child: Row(
+                    children: [
+                      const Text(
+                        '推移',
+                        style: TextStyle(
+                          color: Colors.white24,
+                          fontSize: 9,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: CustomPaint(
+                          painter: _RatingMiniGraphPainter(
+                            history: _ratingHistory,
+                            currentRating: _rating,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.open_in_new,
+                        color: Colors.white24,
+                        size: 12,
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -407,7 +474,10 @@ class _PlayTabState extends State<_PlayTab> {
                     final isCurrent = _rank == rr.rank;
                     return Container(
                       margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: isCurrent
                             ? rr.color.withAlpha(40)
@@ -423,7 +493,9 @@ class _PlayTabState extends State<_PlayTab> {
                         style: TextStyle(
                           color: isCurrent ? rr.color : Colors.white38,
                           fontSize: 11,
-                          fontWeight: isCurrent ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isCurrent
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                         ),
                       ),
                     );
@@ -444,29 +516,52 @@ class _PlayTabState extends State<_PlayTab> {
               child: Column(
                 children: [
                   // 持ち時間行
-                  Row(children: [
-                    Icon(Icons.timer_outlined, size: 13, color: Colors.lightBlue.shade300),
-                    const SizedBox(width: 4),
-                    const Text('持ち時間: ',
-                        style: TextStyle(color: Colors.white38, fontSize: 11)),
-                    _settingChip(
-                      widget.timeLimitSec == null ? 'なし' : '${widget.timeLimitSec! ~/ 60}分',
-                      widget.timeLimitSec == null ? Colors.white24 : Colors.green.shade700,
-                    ),
-                    if (widget.byoyomiSec != null) ...[
-                      const SizedBox(width: 8),
-                      Icon(Icons.timer, size: 13, color: Colors.lightBlue.shade300),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.timer_outlined,
+                        size: 13,
+                        color: Colors.lightBlue.shade300,
+                      ),
                       const SizedBox(width: 4),
-                      const Text('秒読み: ',
-                          style: TextStyle(color: Colors.white38, fontSize: 11)),
-                      _settingChip('${widget.byoyomiSec}秒', Colors.cyan.shade700),
+                      const Text(
+                        '持ち時間: ',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                      _settingChip(
+                        widget.timeLimitSec == null
+                            ? 'なし'
+                            : '${widget.timeLimitSec! ~/ 60}分',
+                        widget.timeLimitSec == null
+                            ? Colors.white24
+                            : Colors.green.shade700,
+                      ),
+                      if (widget.byoyomiSec != null) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.timer,
+                          size: 13,
+                          color: Colors.lightBlue.shade300,
+                        ),
+                        const SizedBox(width: 4),
+                        const Text(
+                          '秒読み: ',
+                          style: TextStyle(color: Colors.white38, fontSize: 11),
+                        ),
+                        _settingChip(
+                          '${widget.byoyomiSec}秒',
+                          Colors.cyan.shade700,
+                        ),
+                      ],
                     ],
-                  ]),
+                  ),
                   const SizedBox(height: 4),
                   Align(
                     alignment: Alignment.centerRight,
-                    child: const Text('設定タブで変更できます',
-                        style: TextStyle(color: Colors.white24, fontSize: 10)),
+                    child: const Text(
+                      '設定タブで変更できます',
+                      style: TextStyle(color: Colors.white24, fontSize: 10),
+                    ),
                   ),
                 ],
               ),
@@ -476,22 +571,34 @@ class _PlayTabState extends State<_PlayTab> {
             _sectionLabel('対局モード'),
             const SizedBox(height: 10),
             // PvP + AI
-            Row(children: [
-              Expanded(
-                child: _bigButton(
-                  context, 'ローカル対局', Icons.people, Colors.brown.shade700,
-                  () => _go(context, const GameSetupScreen(mode: GameMode.pvp)),
+            Row(
+              children: [
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    'ローカル対局',
+                    Icons.people,
+                    Colors.brown.shade700,
+                    () =>
+                        _go(context, const GameSetupScreen(mode: GameMode.pvp)),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
             const SizedBox(height: 8),
             _bigButton(
-              context, 'AI対局', Icons.computer, Colors.blueGrey.shade700,
+              context,
+              'AI対局',
+              Icons.computer,
+              Colors.blueGrey.shade700,
               () => _go(context, const GameSetupScreen(mode: GameMode.vsAI)),
             ),
             const SizedBox(height: 8),
             _bigButton(
-              context, 'ネットワーク対局', Icons.wifi, const Color(0xFF1A5276),
+              context,
+              'ネットワーク対局',
+              Icons.wifi,
+              const Color(0xFF1A5276),
               () => _go(context, const NetworkLobbyScreen()),
             ),
             const SizedBox(height: 20),
@@ -499,7 +606,10 @@ class _PlayTabState extends State<_PlayTab> {
             _sectionLabel('統計・ツール'),
             const SizedBox(height: 10),
             _bigButton(
-              context, '統計', Icons.bar_chart, Colors.indigo.shade600,
+              context,
+              '統計',
+              Icons.bar_chart,
+              Colors.indigo.shade600,
               () => _go(context, const StatsScreen()),
             ),
             const SizedBox(height: 8),
@@ -507,37 +617,59 @@ class _PlayTabState extends State<_PlayTab> {
             GestureDetector(
               onTap: () => _go(context, const GhostScreen()),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [const Color(0xFF1A237E), Colors.deepPurple.shade900],
+                    colors: [
+                      const Color(0xFF1A237E),
+                      Colors.deepPurple.shade900,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.indigo.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Text('👻', style: TextStyle(fontSize: 28)),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('ゴースト棋士', style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
-                      Text(
-                        (_ghostWins + _ghostLosses) == 0
-                            ? '棋風ゴーストで自動対戦'
-                            : '今日 $_ghostWins勝 $_ghostLosses敗',
-                        style: TextStyle(
-                          color: (_ghostWins + _ghostLosses) == 0
-                              ? Colors.white38
-                              : Colors.white70,
-                          fontSize: 12,
-                        ),
+                child: Row(
+                  children: [
+                    const Text('👻', style: TextStyle(fontSize: 28)),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'ゴースト棋士',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          Text(
+                            (_ghostWins + _ghostLosses) == 0
+                                ? '棋風ゴーストで自動対戦'
+                                : '今日 $_ghostWins勝 $_ghostLosses敗',
+                            style: TextStyle(
+                              color: (_ghostWins + _ghostLosses) == 0
+                                  ? Colors.white38
+                                  : Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                    ]),
-                  ),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                    ),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -545,14 +677,21 @@ class _PlayTabState extends State<_PlayTab> {
             _sectionLabel('局面エディタ'),
             const SizedBox(height: 10),
             _bigButton(
-              context, '局面エディタ', Icons.edit_note, Colors.teal.shade700,
-              () => _go(context, EditorScreen(
-                    gameSettings: GameSettings(
-                      mode: GameMode.pvp,
-                      timeLimitSec: widget.timeLimitSec,
-                      fischerIncrementSec: widget.fischerIncrementSec,
-                      theme: widget.theme,
-                    ))),
+              context,
+              '局面エディタ',
+              Icons.edit_note,
+              Colors.teal.shade700,
+              () => _go(
+                context,
+                EditorScreen(
+                  gameSettings: GameSettings(
+                    mode: GameMode.pvp,
+                    timeLimitSec: widget.timeLimitSec,
+                    fischerIncrementSec: widget.fischerIncrementSec,
+                    theme: widget.theme,
+                  ),
+                ),
+              ),
             ),
             const SizedBox(height: 24),
           ],
@@ -592,19 +731,22 @@ class _StudyTab extends StatelessWidget {
             const Text(
               '学習',
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 4),
             // レベル凡例
-            Row(children: [
-              _levelChip('全員', Colors.green),
-              const SizedBox(width: 6),
-              _levelChip('10〜5級', Colors.blue),
-              const SizedBox(width: 6),
-              _levelChip('4級〜', Colors.orange),
-            ]),
+            Row(
+              children: [
+                _levelChip('全員', Colors.green),
+                const SizedBox(width: 6),
+                _levelChip('10〜5級', Colors.blue),
+                const SizedBox(width: 6),
+                _levelChip('4級〜', Colors.orange),
+              ],
+            ),
             const SizedBox(height: 12),
 
             // ── 全員向けセクション ──
@@ -622,24 +764,53 @@ class _StudyTab extends StatelessWidget {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withAlpha(120), width: 2),
+                  border: Border.all(
+                    color: Colors.amber.withAlpha(120),
+                    width: 2,
+                  ),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.explore, color: Colors.amber, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('学習ガイド', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('状況別おすすめ学習ルート', style: TextStyle(color: Colors.amber.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.explore, color: Colors.amber, size: 32),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '学習ガイド',
+                          style: TextStyle(
+                            color: Colors.amber,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '状況別おすすめ学習ルート',
+                          style: TextStyle(
+                            color: Colors.amber.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
 
             // ── 初級者向けセクション ──
-            _studyLevelHeader('初級者向け（10〜5級）', Colors.lightBlueAccent, Icons.school),
+            _studyLevelHeader(
+              '初級者向け（10〜5級）',
+              Colors.lightBlueAccent,
+              Icons.school,
+            ),
 
             // ── 定跡練習 ──
             GestureDetector(
@@ -655,16 +826,42 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.indigo.withAlpha(120)),
                 ),
-                child: Row(children: [
-                  Icon(Icons.sports_martial_arts, color: Colors.indigo.shade300, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('定跡練習', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('矢倉・四間飛車など8種 盤面ガイド付き', style: TextStyle(color: Colors.indigo.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.sports_martial_arts,
+                      color: Colors.indigo.shade300,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '定跡練習',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '矢倉・四間飛車など8種 盤面ガイド付き',
+                          style: TextStyle(
+                            color: Colors.indigo.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -683,22 +880,48 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.amber.withAlpha(100)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.lightbulb, color: Colors.amber, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('次の一手', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('中盤・終盤の好手を見つけよう 15問【10〜5級推奨】', style: TextStyle(color: Colors.amber.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lightbulb, color: Colors.amber, size: 32),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '次の一手',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '中盤・終盤の好手を見つけよう 15問【10〜5級推奨】',
+                          style: TextStyle(
+                            color: Colors.amber.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
 
             // ── 中級者以上セクション ──
-            _studyLevelHeader('中級者以上（4級〜）', Colors.orangeAccent, Icons.trending_up),
+            _studyLevelHeader(
+              '中級者以上（4級〜）',
+              Colors.orangeAccent,
+              Icons.trending_up,
+            ),
 
             // ── 囲い崩し道場 ──
             GestureDetector(
@@ -714,16 +937,42 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.orange.withAlpha(100)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.shield_outlined, color: Colors.orange, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('囲い崩し道場', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('美濃・矢倉・穴熊の崩し方 12問【4級〜推奨】', style: TextStyle(color: Colors.orange.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.shield_outlined,
+                      color: Colors.orange,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '囲い崩し道場',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '美濃・矢倉・穴熊の崩し方 12問【4級〜推奨】',
+                          style: TextStyle(
+                            color: Colors.orange.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -735,23 +984,52 @@ class _StudyTab extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.blueGrey.shade900, Colors.blueGrey.shade800],
+                    colors: [
+                      Colors.blueGrey.shade900,
+                      Colors.blueGrey.shade800,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.blueGrey.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.extension, color: Colors.blueGrey, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('詰将棋', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('1〜3手詰め 6問', style: TextStyle(color: Colors.blueGrey.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.extension,
+                      color: Colors.blueGrey,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '詰将棋',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '1〜3手詰め 6問',
+                          style: TextStyle(
+                            color: Colors.blueGrey.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -770,16 +1048,42 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.green.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.calendar_today, color: Colors.greenAccent, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('デイリー詰将棋', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('今日の問題 • 1日3回まで', style: TextStyle(color: Colors.green.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.calendar_today,
+                      color: Colors.greenAccent,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'デイリー詰将棋',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '今日の問題 • 1日3回まで',
+                          style: TextStyle(
+                            color: Colors.green.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -798,16 +1102,42 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.red.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.favorite, color: Colors.redAccent, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('ローグライト', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('ライフ3つ・難易度上昇・自己ベスト更新', style: TextStyle(color: Colors.orange.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.favorite,
+                      color: Colors.redAccent,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'ローグライト',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'ライフ3つ・難易度上昇・自己ベスト更新',
+                          style: TextStyle(
+                            color: Colors.orange.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -826,16 +1156,38 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.cyan.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.timer, color: Colors.cyan, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('タイムアタック', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('3分間で何問解ける？', style: TextStyle(color: Colors.cyan.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.timer, color: Colors.cyan, size: 32),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'タイムアタック',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '3分間で何問解ける？',
+                          style: TextStyle(
+                            color: Colors.cyan.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -854,16 +1206,42 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.purple.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.psychology, color: Colors.purpleAccent, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('棋風診断', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('対局データからあなたの棋風を分析', style: TextStyle(color: Colors.purple.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.psychology,
+                      color: Colors.purpleAccent,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '棋風診断',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '対局データからあなたの棋風を分析',
+                          style: TextStyle(
+                            color: Colors.purple.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -882,16 +1260,42 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.grey.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.military_tech, color: Colors.white70, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('棋力診断', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('5問で実力を測定', style: TextStyle(color: Colors.grey.shade300, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.military_tech,
+                      color: Colors.white70,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '棋力診断',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '5問で実力を測定',
+                          style: TextStyle(
+                            color: Colors.grey.shade300,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
@@ -903,23 +1307,52 @@ class _StudyTab extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Colors.blueGrey.shade900, Colors.blueGrey.shade700],
+                    colors: [
+                      Colors.blueGrey.shade900,
+                      Colors.blueGrey.shade700,
+                    ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.blueGrey.withAlpha(80)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.psychology, color: Colors.blueGrey, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('手筋トレーニング', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('12問・4カテゴリの手筋問題【4級〜推奨】', style: TextStyle(color: Colors.blueGrey.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.psychology,
+                      color: Colors.blueGrey,
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '手筋トレーニング',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          '12問・4カテゴリの手筋問題【4級〜推奨】',
+                          style: TextStyle(
+                            color: Colors.blueGrey.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -940,30 +1373,64 @@ class _StudyTab extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(color: Colors.purple.withAlpha(100)),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.analytics, color: Colors.purple, size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('弱点分析', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('レーダーチャートで苦手を把握', style: TextStyle(color: Colors.purple.shade200, fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(Icons.analytics, color: Colors.purple, size: 32),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '弱点分析',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        Text(
+                          'レーダーチャートで苦手を把握',
+                          style: TextStyle(
+                            color: Colors.purple.shade200,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _bigButton(context, 'プロ棋譜', Icons.video_library, Colors.red.shade800,
-                  () => _go(context, const ProKifuScreen())),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _bigButton(context, '学習カレンダー', Icons.calendar_month, Colors.green.shade800,
-                  () => _go(context, const StudyCalendarScreen())),
-              ),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    'プロ棋譜',
+                    Icons.video_library,
+                    Colors.red.shade800,
+                    () => _go(context, const ProKifuScreen()),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    '学習カレンダー',
+                    Icons.calendar_month,
+                    Colors.green.shade800,
+                    () => _go(context, const StudyCalendarScreen()),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
             GestureDetector(
               onTap: () => _go(context, const MonthlyTournamentScreen()),
@@ -976,18 +1443,47 @@ class _StudyTab extends StatelessWidget {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFFFD700).withAlpha(120), width: 1),
+                  border: Border.all(
+                    color: const Color(0xFFFFD700).withAlpha(120),
+                    width: 1,
+                  ),
                 ),
-                child: Row(children: [
-                  const Icon(Icons.emoji_events, color: Color(0xFFFFD700), size: 32),
-                  const SizedBox(width: 12),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('月例トーナメント', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    const Text('毎月開催の棋力別トーナメント', style: TextStyle(color: Color(0xFFFFD700), fontSize: 12)),
-                  ]),
-                  const Spacer(),
-                  const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-                ]),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.emoji_events,
+                      color: Color(0xFFFFD700),
+                      size: 32,
+                    ),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          '月例トーナメント',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const Text(
+                          '毎月開催の棋力別トーナメント',
+                          style: TextStyle(
+                            color: Color(0xFFFFD700),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const Spacer(),
+                    const Icon(
+                      Icons.arrow_forward_ios,
+                      color: Colors.white54,
+                      size: 14,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: 20),
@@ -997,109 +1493,220 @@ class _StudyTab extends StatelessWidget {
             // 弱点採掘
             GestureDetector(
               onTap: () => _go(context, const WeaknessMiningScreen()),
-              child: _bannerButton(context, '弱点採掘', Icons.analytics, Colors.teal.shade700, '繰り返す失敗パターンを検出'),
+              child: _bannerButton(
+                context,
+                '弱点採掘',
+                Icons.analytics,
+                Colors.teal.shade700,
+                '繰り返す失敗パターンを検出',
+              ),
             ),
             const SizedBox(height: 10),
             // 3分筋トレ
             GestureDetector(
               onTap: () => _go(context, const MicroTrainingScreen()),
-              child: _bannerButton(context, '3分筋トレ', Icons.timer, Colors.cyan.shade700, '毎日3分で手筋をマスター'),
+              child: _bannerButton(
+                context,
+                '3分筋トレ',
+                Icons.timer,
+                Colors.cyan.shade700,
+                '毎日3分で手筋をマスター',
+              ),
             ),
             const SizedBox(height: 10),
-            Row(children: [
-              Expanded(child: _bigButton(context, '友達対戦', Icons.people, Colors.orange.shade700, () => _go(context, const FriendChallengeScreen()))),
-              const SizedBox(width: 10),
-              Expanded(child: _bigButton(context, 'レース対戦', Icons.speed, Colors.purple.shade700, () => _go(context, const AsyncTrainingDuelScreen()))),
-            ]),
+            Row(
+              children: [
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    '友達対戦',
+                    Icons.people,
+                    Colors.orange.shade700,
+                    () => _go(context, const FriendChallengeScreen()),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    'レース対戦',
+                    Icons.speed,
+                    Colors.purple.shade700,
+                    () => _go(context, const AsyncTrainingDuelScreen()),
+                  ),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, '音声入出力', Icons.mic, Colors.blue.shade700, () => _go(context, const VoiceIOScreen())),
+            _bigButton(
+              context,
+              '音声入出力',
+              Icons.mic,
+              Colors.blue.shade700,
+              () => _go(context, const VoiceIOScreen()),
+            ),
             const SizedBox(height: 20),
 
             _sectionLabel('プレミアム機能'),
             const SizedBox(height: 10),
-            _bigButton(context, '週次AI振り返り 👑', Icons.analytics, Colors.purple.shade700,
-              () => _go(context, const WeeklyReviewScreen())),
+            _bigButton(
+              context,
+              '週次AI振り返り 👑',
+              Icons.analytics,
+              Colors.purple.shade700,
+              () => _go(context, const WeeklyReviewScreen()),
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, 'AI詰将棋ジェネレーター 👑', Icons.auto_fix_high, Colors.deepPurple.shade700,
-              () => _go(context, const PuzzleGeneratorScreen())),
+            _bigButton(
+              context,
+              'AI詰将棋ジェネレーター 👑',
+              Icons.auto_fix_high,
+              Colors.deepPurple.shade700,
+              () => _go(context, const PuzzleGeneratorScreen()),
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, '忘却曲線AI 👑', Icons.calendar_today, Colors.deepOrange.shade700, () => _go(context, const SpacedRepetitionScreen())),
+            _bigButton(
+              context,
+              '忘却曲線AI 👑',
+              Icons.calendar_today,
+              Colors.deepOrange.shade700,
+              () => _go(context, const SpacedRepetitionScreen()),
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, 'AI棋風コーチ 👑', Icons.person, Colors.red.shade700, () => _go(context, const CoachPersonalityScreen())),
+            _bigButton(
+              context,
+              'AI棋風コーチ 👑',
+              Icons.person,
+              Colors.red.shade700,
+              () => _go(context, const CoachPersonalityScreen()),
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, '自然言語Q&A 👑', Icons.chat, Colors.indigo.shade700, () => _go(context, const NaturalLangQAScreen())),
+            _bigButton(
+              context,
+              '自然言語Q&A 👑',
+              Icons.chat,
+              Colors.indigo.shade700,
+              () => _go(context, const NaturalLangQAScreen()),
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, '難易度自動調整 👑', Icons.trending_up, Colors.green.shade700, () => _go(context, const AdaptiveDifficultyScreen(userId: 'user_default'))),
+            _bigButton(
+              context,
+              '難易度自動調整 👑',
+              Icons.trending_up,
+              Colors.green.shade700,
+              () => _go(
+                context,
+                const AdaptiveDifficultyScreen(userId: 'user_default'),
+              ),
+            ),
             const SizedBox(height: 10),
-            _bigButton(context, 'カメラOCR 👑', Icons.camera_alt, Colors.amber.shade700, () => _go(context, const CameraOCRScreen())),
+            _bigButton(
+              context,
+              'カメラOCR 👑',
+              Icons.camera_alt,
+              Colors.amber.shade700,
+              () => _go(context, const CameraOCRScreen()),
+            ),
             const SizedBox(height: 20),
 
             _sectionLabel('将棋を学ぶ'),
             const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _bigButton(
-                  context, 'チュートリアル', Icons.school, Colors.blueGrey.shade700,
-                  () => _go(context, const TutorialScreen()),
+            Row(
+              children: [
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    'チュートリアル',
+                    Icons.school,
+                    Colors.blueGrey.shade700,
+                    () => _go(context, const TutorialScreen()),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _bigButton(
-                  context, '駒の動き', Icons.book, Colors.blueGrey.shade700,
-                  () => _go(context, const RulesScreen()),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    '駒の動き',
+                    Icons.book,
+                    Colors.blueGrey.shade700,
+                    () => _go(context, const RulesScreen()),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
             const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _bigButton(
-                  context, '使い方', Icons.help_outline, Colors.blueGrey.shade700,
-                  () => _go(context, const GuideScreen()),
+            Row(
+              children: [
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    '使い方',
+                    Icons.help_outline,
+                    Colors.blueGrey.shade700,
+                    () => _go(context, const GuideScreen()),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _bigButton(
-                  context, 'ランキング', Icons.leaderboard, Colors.blueGrey.shade700,
-                  () => _go(context, const RankingScreen()),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    'ランキング',
+                    Icons.leaderboard,
+                    Colors.blueGrey.shade700,
+                    () => _go(context, const RankingScreen()),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
             const SizedBox(height: 10),
             _bigButton(
-              context, 'バッジ', Icons.military_tech, Colors.blueGrey.shade700,
+              context,
+              'バッジ',
+              Icons.military_tech,
+              Colors.blueGrey.shade700,
               () => _go(context, const BadgeScreen()),
             ),
             const SizedBox(height: 20),
 
-
             _sectionLabel('戦術・囲い'),
             const SizedBox(height: 10),
-            Row(children: [
-              Expanded(
-                child: _bigButton(
-                  context, '囲いパターン', Icons.security, Colors.blueGrey.shade700,
-                  () => _go(context, const CastlePatternsScreen()),
+            Row(
+              children: [
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    '囲いパターン',
+                    Icons.security,
+                    Colors.blueGrey.shade700,
+                    () => _go(context, const CastlePatternsScreen()),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _bigButton(
-                  context, '戦法', Icons.trending_up, Colors.blueGrey.shade700,
-                  () => _go(context, const StrategiesScreen()),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _bigButton(
+                    context,
+                    '戦法',
+                    Icons.trending_up,
+                    Colors.blueGrey.shade700,
+                    () => _go(context, const StrategiesScreen()),
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
             const SizedBox(height: 10),
             _bigButton(
-              context, '定跡ガイド', Icons.route, Colors.blueGrey.shade700,
+              context,
+              '定跡ガイド',
+              Icons.route,
+              Colors.blueGrey.shade700,
               () => _go(context, const JosekiScreen()),
             ),
             const SizedBox(height: 10),
             _bigButton(
-              context, '将棋の格言', Icons.menu_book, Colors.blueGrey.shade700,
+              context,
+              '将棋の格言',
+              Icons.menu_book,
+              Colors.blueGrey.shade700,
               () => _go(context, const ProverbsScreen()),
             ),
             const SizedBox(height: 24),
@@ -1161,9 +1768,10 @@ class _SettingsTab extends StatelessWidget {
             const Text(
               '設定',
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold),
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -1192,8 +1800,10 @@ class _SettingsTab extends StatelessWidget {
                     _timeOptions.length,
                     (i) => DropdownMenuItem(
                       value: _timeOptions[i],
-                      child: Text(_timeLabels[i],
-                          style: const TextStyle(color: Colors.white)),
+                      child: Text(
+                        _timeLabels[i],
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
                   onChanged: onTime,
@@ -1209,10 +1819,22 @@ class _SettingsTab extends StatelessWidget {
                   style: const TextStyle(color: Colors.white),
                   underline: const SizedBox(),
                   items: const [
-                    DropdownMenuItem(value: null, child: Text('なし', style: TextStyle(color: Colors.white))),
-                    DropdownMenuItem(value: 30,   child: Text('30秒', style: TextStyle(color: Colors.white))),
-                    DropdownMenuItem(value: 60,   child: Text('60秒', style: TextStyle(color: Colors.white))),
-                    DropdownMenuItem(value: 120,  child: Text('2分',  style: TextStyle(color: Colors.white))),
+                    DropdownMenuItem(
+                      value: null,
+                      child: Text('なし', style: TextStyle(color: Colors.white)),
+                    ),
+                    DropdownMenuItem(
+                      value: 30,
+                      child: Text('30秒', style: TextStyle(color: Colors.white)),
+                    ),
+                    DropdownMenuItem(
+                      value: 60,
+                      child: Text('60秒', style: TextStyle(color: Colors.white)),
+                    ),
+                    DropdownMenuItem(
+                      value: 120,
+                      child: Text('2分', style: TextStyle(color: Colors.white)),
+                    ),
                   ],
                   onChanged: onByoyomi,
                 ),
@@ -1230,11 +1852,15 @@ class _SettingsTab extends StatelessWidget {
                     _fischerOptions.length,
                     (i) => DropdownMenuItem(
                       value: _fischerOptions[i],
-                      child: Text(_fischerLabels[i],
-                          style: const TextStyle(color: Colors.white)),
+                      child: Text(
+                        _fischerLabels[i],
+                        style: const TextStyle(color: Colors.white),
+                      ),
                     ),
                   ),
-                  onChanged: (v) { if (v != null) onFischer(v); },
+                  onChanged: (v) {
+                    if (v != null) onFischer(v);
+                  },
                 ),
               ),
               const Divider(color: Colors.white12, height: 24),
@@ -1261,9 +1887,12 @@ class _SettingsTab extends StatelessWidget {
                           width: sel ? 2.5 : 1,
                         ),
                         boxShadow: sel
-                            ? [BoxShadow(
-                                color: Colors.amber.withAlpha(80),
-                                blurRadius: 6)]
+                            ? [
+                                BoxShadow(
+                                  color: Colors.amber.withAlpha(80),
+                                  blurRadius: 6,
+                                ),
+                              ]
                             : null,
                       ),
                       child: Column(
@@ -1277,10 +1906,13 @@ class _SettingsTab extends StatelessWidget {
                                 color: cfg.cell,
                                 borderRadius: BorderRadius.circular(3),
                                 border: Border.all(
-                                    color: cfg.boardBorder, width: 2),
+                                  color: cfg.boardBorder,
+                                  width: 2,
+                                ),
                               ),
                               child: CustomPaint(
-                                  painter: _ThemePreviewPainter(cfg: cfg)),
+                                painter: _ThemePreviewPainter(cfg: cfg),
+                              ),
                             ),
                           ),
                           Padding(
@@ -1311,16 +1943,23 @@ class _SettingsTab extends StatelessWidget {
               Row(
                 children: PieceLabelStyle.values.map((style) {
                   final sel = labelStyle == style;
-                  final label = style == PieceLabelStyle.kanji ? '漢字' : '英字 (K/B/R...)';
+                  final label = style == PieceLabelStyle.kanji
+                      ? '漢字'
+                      : '英字 (K/B/R...)';
                   return Padding(
                     padding: const EdgeInsets.only(right: 8),
                     child: GestureDetector(
                       onTap: () => onLabelStyle(style),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 180),
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
                         decoration: BoxDecoration(
-                          color: sel ? Colors.amber.withAlpha(40) : Colors.white10,
+                          color: sel
+                              ? Colors.amber.withAlpha(40)
+                              : Colors.white10,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: sel ? Colors.amber : Colors.white24,
@@ -1332,7 +1971,9 @@ class _SettingsTab extends StatelessWidget {
                           style: TextStyle(
                             color: sel ? Colors.amber : Colors.white70,
                             fontSize: 13,
-                            fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                            fontWeight: sel
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ),
@@ -1345,35 +1986,45 @@ class _SettingsTab extends StatelessWidget {
               // ── 音声読み上げ ──
               _settingRow(
                 '音声読み上げ',
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(
-                    speechEnabled ? Icons.volume_up : Icons.volume_off,
-                    color: speechEnabled ? Colors.greenAccent : Colors.white38,
-                    size: 18,
-                  ),
-                  Switch(
-                    value: speechEnabled,
-                    activeColor: Colors.greenAccent,
-                    onChanged: onSpeech,
-                  ),
-                ]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      speechEnabled ? Icons.volume_up : Icons.volume_off,
+                      color: speechEnabled
+                          ? Colors.greenAccent
+                          : Colors.white38,
+                      size: 18,
+                    ),
+                    Switch(
+                      value: speechEnabled,
+                      activeColor: Colors.greenAccent,
+                      onChanged: onSpeech,
+                    ),
+                  ],
+                ),
               ),
               const Divider(color: Colors.white12, height: 16),
               // ── 駒の音 ──
               _settingRow(
                 '駒の音',
-                Row(mainAxisSize: MainAxisSize.min, children: [
-                  Icon(
-                    soundEnabled ? Icons.music_note : Icons.music_off,
-                    color: soundEnabled ? Colors.orangeAccent : Colors.white38,
-                    size: 18,
-                  ),
-                  Switch(
-                    value: soundEnabled,
-                    activeColor: Colors.orangeAccent,
-                    onChanged: onSound,
-                  ),
-                ]),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      soundEnabled ? Icons.music_note : Icons.music_off,
+                      color: soundEnabled
+                          ? Colors.orangeAccent
+                          : Colors.white38,
+                      size: 18,
+                    ),
+                    Switch(
+                      value: soundEnabled,
+                      activeColor: Colors.orangeAccent,
+                      onChanged: onSound,
+                    ),
+                  ],
+                ),
               ),
             ]),
             const SizedBox(height: 20),
@@ -1382,7 +2033,9 @@ class _SettingsTab extends StatelessWidget {
             _sectionLabel('言語 / Language'),
             const SizedBox(height: 8),
             _settingCard([
-              Builder(builder: (ctx) => LanguageSettingsWidget(onChanged: () {})),
+              Builder(
+                builder: (ctx) => LanguageSettingsWidget(onChanged: () {}),
+              ),
             ]),
             const SizedBox(height: 20),
 
@@ -1533,7 +2186,12 @@ Widget _studyLevelHeader(String level, Color color, IconData icon) => Padding(
       const SizedBox(width: 6),
       Text(
         level,
-        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+        style: TextStyle(
+          color: color,
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 1,
+        ),
       ),
       const SizedBox(width: 8),
       Expanded(child: Container(height: 1, color: color.withAlpha(60))),
@@ -1541,8 +2199,13 @@ Widget _studyLevelHeader(String level, Color color, IconData icon) => Padding(
   ),
 );
 
-Widget _bigButton(BuildContext context, String label, IconData icon,
-    Color color, VoidCallback onTap) {
+Widget _bigButton(
+  BuildContext context,
+  String label,
+  IconData icon,
+  Color color,
+  VoidCallback onTap,
+) {
   return ElevatedButton(
     style: ElevatedButton.styleFrom(
       backgroundColor: color,
@@ -1567,8 +2230,13 @@ Widget _bigButton(BuildContext context, String label, IconData icon,
   );
 }
 
-Widget _bannerButton(BuildContext context, String label, IconData icon,
-    Color color, String subtitle) {
+Widget _bannerButton(
+  BuildContext context,
+  String label,
+  IconData icon,
+  Color color,
+  String subtitle,
+) {
   return Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
@@ -1580,16 +2248,34 @@ Widget _bannerButton(BuildContext context, String label, IconData icon,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: color.withAlpha(100)),
     ),
-    child: Row(children: [
-      Icon(icon, color: Colors.white, size: 28),
-      const SizedBox(width: 12),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-        Text(subtitle, style: TextStyle(color: Colors.white.withAlpha(200), fontSize: 12)),
-      ]),
-      const Spacer(),
-      const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
-    ]),
+    child: Row(
+      children: [
+        Icon(icon, color: Colors.white, size: 28),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            Text(
+              subtitle,
+              style: TextStyle(
+                color: Colors.white.withAlpha(200),
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        const Spacer(),
+        const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
+      ],
+    ),
   );
 }
 
@@ -1601,7 +2287,9 @@ Widget _settingCard(List<Widget> children) => Container(
     border: Border.all(color: Colors.white12),
   ),
   child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start, children: children),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: children,
+  ),
 );
 
 Widget _settingChip(String text, Color color) => Container(
@@ -1611,15 +2299,17 @@ Widget _settingChip(String text, Color color) => Container(
     border: Border.all(color: color, width: 0.8),
     borderRadius: BorderRadius.circular(10),
   ),
-  child: Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+  child: Text(
+    text,
+    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+  ),
 );
 
 Widget _settingRow(String label, Widget control) => Padding(
   padding: const EdgeInsets.symmetric(vertical: 8),
   child: Row(
     children: [
-      Text(label,
-          style: const TextStyle(color: Colors.white70, fontSize: 14)),
+      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14)),
       const Spacer(),
       control,
     ],
@@ -1640,11 +2330,21 @@ Widget _buildPremiumCard(BuildContext context) => Container(
     children: [
       Row(
         children: [
-          Icon(Icons.diamond, color: PurchaseService.isPremium ? Colors.amber.shade400 : Colors.white54, size: 18),
+          Icon(
+            Icons.diamond,
+            color: PurchaseService.isPremium
+                ? Colors.amber.shade400
+                : Colors.white54,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Text(
             PurchaseService.isPremium ? 'プレミアム購入済み' : 'プレミアムプラン',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
           ),
         ],
       ),
@@ -1668,7 +2368,10 @@ Widget _buildPremiumCard(BuildContext context) => Container(
               backgroundColor: Colors.amber.shade700,
               minimumSize: const Size(double.infinity, 36),
             ),
-            child: const Text('プレミアムプランを購入', style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'プレミアムプランを購入',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ),
       ],
@@ -1687,9 +2390,7 @@ Widget _feedbackTile(
   return InkWell(
     onTap: () => Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => FeedbackScreen(initialType: type),
-      ),
+      MaterialPageRoute(builder: (_) => FeedbackScreen(initialType: type)),
     ),
     child: Padding(
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -1710,10 +2411,18 @@ Widget _feedbackTile(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold)),
-                Text(subtitle,
-                    style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.white38, fontSize: 11),
+                ),
               ],
             ),
           ),
@@ -1772,10 +2481,7 @@ class _SourceLink extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                    ),
+                    style: const TextStyle(color: Colors.white54, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -1783,7 +2489,11 @@ class _SourceLink extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            Icon(Icons.open_in_new, color: Colors.blue.withAlpha(150), size: 14),
+            Icon(
+              Icons.open_in_new,
+              color: Colors.blue.withAlpha(150),
+              size: 14,
+            ),
           ],
         ),
       ),
@@ -1800,26 +2510,35 @@ class _ThemePreviewPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final cell = size.width / 3;
     // 3×3 グリッド
-    final gridP = Paint()..color = cfg.cellBorder..strokeWidth = 0.5;
+    final gridP = Paint()
+      ..color = cfg.cellBorder
+      ..strokeWidth = 0.5;
     for (int i = 1; i < 3; i++) {
-      canvas.drawLine(Offset(i * cell, 0), Offset(i * cell, size.height), gridP);
+      canvas.drawLine(
+        Offset(i * cell, 0),
+        Offset(i * cell, size.height),
+        gridP,
+      );
       canvas.drawLine(Offset(0, i * cell), Offset(size.width, i * cell), gridP);
     }
     // 星目
-    final dotP = Paint()..color = cfg.starPoint..style = PaintingStyle.fill;
+    final dotP = Paint()
+      ..color = cfg.starPoint
+      ..style = PaintingStyle.fill;
     canvas.drawCircle(Offset(cell, cell), 3, dotP);
     // 王
     final tp = TextPainter(
       text: TextSpan(
         text: '王',
         style: TextStyle(
-            color: cfg.pieceNormal, fontSize: cell * 0.7,
-            fontWeight: FontWeight.bold),
+          color: cfg.pieceNormal,
+          fontSize: cell * 0.7,
+          fontWeight: FontWeight.bold,
+        ),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas,
-        Offset(cell * 2 - tp.width / 2, cell * 2 - tp.height / 2));
+    tp.paint(canvas, Offset(cell * 2 - tp.width / 2, cell * 2 - tp.height / 2));
   }
 
   @override
@@ -1829,7 +2548,10 @@ class _ThemePreviewPainter extends CustomPainter {
 class _RatingMiniGraphPainter extends CustomPainter {
   final List<int> history;
   final int currentRating;
-  const _RatingMiniGraphPainter({required this.history, required this.currentRating});
+  const _RatingMiniGraphPainter({
+    required this.history,
+    required this.currentRating,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1849,10 +2571,15 @@ class _RatingMiniGraphPainter extends CustomPainter {
     // Draw filled area
     final path = Path()..moveTo(pts.first.dx, size.height);
     for (final p in pts) path.lineTo(p.dx, p.dy);
-    path..lineTo(pts.last.dx, size.height)..close();
-    canvas.drawPath(path, Paint()
-      ..color = Colors.lightBlueAccent.withAlpha(20)
-      ..style = PaintingStyle.fill);
+    path
+      ..lineTo(pts.last.dx, size.height)
+      ..close();
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.lightBlueAccent.withAlpha(20)
+        ..style = PaintingStyle.fill,
+    );
 
     // Draw line
     final linePaint = Paint()
