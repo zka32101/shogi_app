@@ -4577,6 +4577,35 @@ Future<void> _recordCharacterBond(String characterId) async {
       await StoryManager.showStoryIfNeeded(context, storyEvent);
     }
   }
+
+  // 全棋霊の絆完成を確認
+  if (mounted) {
+    final stats = await CharacterBondService.getBondStatistics();
+    if (stats.canUnlockCoexistenceEnding) {
+      // エンディング選択画面を表示
+      await showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext ctx) => EndingChoiceScreen(
+          onChoose: (endingType) async {
+            // エンディング選択を保存
+            final prefs = await SharedPreferences.getInstance();
+            await prefs.setString('selected_ending', endingType.toString());
+
+            // 成功メッセージを表示（オプション）
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('エンディング: ${endingType.name} を選択しました'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        ),
+      );
+    }
+  }
 }
 
 // ===== 初期盤面 =====
