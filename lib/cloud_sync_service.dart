@@ -73,7 +73,7 @@ class CloudSyncService {
       // バッジ: ユニオン（どちらかで獲得済みなら保持）
       final serverBadgesRaw = data['badges'] as String? ?? '[]';
       try {
-        final serverBadges = (jsonDecode(serverBadgesRaw) as List).cast<String>();
+        final serverBadges = (jsonDecode(serverBadgesRaw) as List).whereType<String>().toList();
         for (final badgeName in serverBadges) {
           await prefs.setBool('badge_$badgeName', true);
         }

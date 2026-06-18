@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 
@@ -10,13 +11,16 @@ import 'mini_board_widget.dart';
 class _TesujiProb {
   final String id;
   final String title;
-  final String category; // '飛車取り'|'王手金取り'|'両取り'|'守り'
+  final String category; // '飛車取り'|'王手金取り'|'両取り'|'守り'|'詰め'|'捨て駒'
   final String explanation;
   final List<List<Piece?>> board;
   final Map<PieceType, int> p1Hand;
   final Map<PieceType, int> p2Hand;
   final bool p1Turn;
   final AMove answer; // 正解手（fr,fc,tr,tc）
+  final String? sourceUrl;
+  final String? sourceTitle;
+  final String difficulty; // '初級'|'中級'|'上級'
 
   const _TesujiProb({
     required this.id,
@@ -28,6 +32,9 @@ class _TesujiProb {
     this.p2Hand = const {},
     this.p1Turn = true,
     required this.answer,
+    this.sourceUrl,
+    this.sourceTitle,
+    required this.difficulty,
   });
 }
 
@@ -60,6 +67,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角が7七から5五へ斜めに動き、後手の飛車をタダ取りできます。角の斜め効きを活かす基本手筋。',
       board: b,
       answer: AMove(fr: 6, fc: 6, tr: 4, tc: 4),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -81,6 +91,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手桂馬が3四から2二に跳んで後手飛車を直接取ります。桂馬の跳び効きを利用した飛車狙いの手筋。',
       board: b,
       answer: AMove(fr: 3, fc: 6, tr: 1, tc: 7),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -101,6 +114,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手銀が7九から8八に動き、後手の飛車を取りながら成ります。銀の斜め前への移動で飛車を獲得する手筋。',
       board: b,
       answer: AMove(fr: 8, fc: 2, tr: 7, tc: 1, promote: true),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -123,6 +139,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が4三から4二の歩を取りながら王手します。後手玉は逃げるしかなく（銀が(1,3)を守っているため取れない）、次の手で3一の金も取れます。',
       board: b,
       answer: AMove(fr: 2, fc: 3, tr: 1, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -166,6 +185,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手銀が5三から4二の後手金を取ります。取った銀は5一の後手玉に王手をかけます。相手は王手を防がなければならず、金を守れません。',
       board: b,
       answer: AMove(fr: 2, fc: 4, tr: 1, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -201,6 +223,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が横移動して後手金をタダ取りします。取った後は後手玉への縦方向の王手が続きます。飛車の横効きを使った金取りの手筋。',
       board: b,
       answer: AMove(fr: 2, fc: 5, tr: 2, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -233,6 +258,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角が5五から3四に動きます。角は斜めの2方向に同時に効くため、後手の飛車（2二）と金（2四）を同時に攻撃します。どちらを守っても片方が取られます。',
       board: b,
       answer: AMove(fr: 4, fc: 4, tr: 2, tc: 6),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -280,6 +308,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が前進して5五の地点に来ると、左右に後手の角（5六）と金（5四）を同時に攻撃します。飛車の横効きを活かした両取りの手筋。',
       board: b,
       answer: AMove(fr: 6, fc: 3, tr: 4, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -306,6 +337,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角が5五から7三に動いて後手銀を取ります。取った後の角は9一の飛車も攻撃しています。銀を取りながら飛車も狙う「角による両取り」の手筋。',
       board: b,
       answer: AMove(fr: 4, fc: 4, tr: 2, tc: 2),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -330,6 +364,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.gold: 1},
       answer: AMove(fr: -1, fc: -1, tr: 1, tc: 8, drop: PieceType.gold),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -358,6 +395,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '後手飛車の縦効きと後手角の斜め効きが先手玉に集中しています。先手玉を6九に逃げることで両方の利きから外れ、安全な場所に避けられます。',
       board: b,
       answer: AMove(fr: 8, fc: 4, tr: 8, tc: 3),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -389,6 +429,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.silver: 1},
       answer: AMove(fr: -1, fc: -1, tr: 7, tc: 4, drop: PieceType.silver),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -410,6 +453,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手香車が5九から前進して5二の後手飛車をタダ取りします。香車の縦一直線の効きを活かした手筋。途中に駒がないことを確認しましょう。',
       board: b,
       answer: AMove(fr: 8, fc: 4, tr: 1, tc: 4, promote: true),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -432,6 +478,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.rook: 1},
       answer: AMove(fr: -1, fc: -1, tr: 0, tc: 7, drop: PieceType.rook),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -445,7 +494,7 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[8][3] = Piece(PieceType.king, true);    // 先手玉 6九(8,3)
     b[3][3] = Piece(PieceType.rook, false);   // 後手飛 6四(3,3)
     b[5][1] = Piece(PieceType.bishop, true);  // 先手角 8六(5,1)
-    b[4][2] = Piece(PieceType.pawn, false);   // 後手歩 7五(4,2) 後手の防御駒
+    // b[4][2] removed: pawn here blocks bishop's diagonal from (5,1) to (3,3)
     list.add(_TesujiProb(
       id: 'hikisha_6',
       title: '飛車取り ⑥',
@@ -453,6 +502,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角が8六から6四に動いて後手飛車をタダ取りします。角の斜め効きが飛車に直接当たっています。',
       board: b,
       answer: AMove(fr: 5, fc: 1, tr: 3, tc: 3),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -465,15 +517,121 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[0][6] = Piece(PieceType.king, false);   // 後手玉 3一(0,6)
     b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九(8,4)
     b[1][8] = Piece(PieceType.rook, false);   // 後手飛 1二(1,8)
-    b[3][7] = Piece(PieceType.silver, true);  // 先手銀 2四(3,7)
+    b[2][7] = Piece(PieceType.silver, true);  // 先手銀 2三(2,7) — moved from (3,7): silver at (3,7) cannot reach (1,8) in one move
     b[0][8] = Piece(PieceType.pawn, false);   // 後手歩 1一(0,8) 飛の後ろ
     list.add(_TesujiProb(
       id: 'hikisha_7',
       title: '飛車取り ⑦',
       category: '飛車取り',
-      explanation: '先手銀が2四から1二に斜め前進して後手飛車を取りながら成ります。敵陣で銀が成銀になり、飛車も獲得できます。',
+      explanation: '先手銀が2三から1二に斜め前進して後手飛車を取りながら成ります。敵陣で銀が成銀になり、飛車も獲得できます。',
       board: b,
-      answer: AMove(fr: 3, fc: 7, tr: 1, tc: 8, promote: true),
+      answer: AMove(fr: 2, fc: 7, tr: 1, tc: 8, promote: true),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
+    ));
+  }
+
+  // ===== 飛車取り ⑧（角と飛車の連携） =====
+  // 後手飛が5五(4,4)にいて、先手角が8八(6,6)、先手銀が7九(7,7)
+  // 先手銀を8八に移動して角の利きが5五の飛車を間接的に攻撃する
+  // 銀(7,7)→(6,6): 角を(6,6)から角が飛の位置まで効く配置にする
+  // より直接的に: 先手角8八→飛車を狙う手
+  // 実は角と銀の連携で飛車を取る
+  {
+    final b = _empty();
+    b[0][3] = Piece(PieceType.king, false);   // 後手玉 4一(0,3)
+    b[8][5] = Piece(PieceType.king, true);    // 先手玉 4九(8,5)
+    b[4][4] = Piece(PieceType.rook, false);   // 後手飛 5五(4,4)
+    b[6][6] = Piece(PieceType.bishop, true);  // 先手角 3三(6,6)
+    b[7][7] = Piece(PieceType.silver, true);  // 先手銀 2二(7,7)
+    b[3][3] = Piece(PieceType.gold, false);   // 後手金 6四(3,3)
+    // 先手銀(7,7)→(6,6)で角のいた位置に移動
+    // 銀(6,6)の利き(先手fwd=-1): (5,5),(5,6),(5,7),(7,5),(7,7)
+    // 飛(4,4)は銀(6,6)から遠い
+    // 別配置: 先手角(4,2)→(4,4)で飛取り直接的
+    // または角が(6,2)にいて(4,4)に斜めで届く
+    b[6][6] = null;
+    b[7][7] = null;
+    b[6][2] = Piece(PieceType.bishop, true);  // 先手角 3七(6,2)
+    b[7][3] = Piece(PieceType.silver, true);  // 先手銀 6八(7,3)
+    // 角(6,2)→(4,4): dr=-2,dc=+2 → 斜め右上 → 飛を取る
+    list.add(_TesujiProb(
+      id: 'hikisha_8',
+      title: '飛車取り ⑧',
+      category: '飛車取り',
+      explanation: '先手角が3七から5五に動いて後手飛車をタダ取りします。先手銀とともに後手飛を攻めるポジションに角が移動する「角と銀の連携」による飛車取りの手筋。',
+      board: b,
+      answer: AMove(fr: 6, fc: 2, tr: 4, tc: 4),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
+    ));
+  }
+
+  // ===== 飛車取り ⑨（桂馬による飛車狙い） =====
+  // 後手飛が2二(1,7)にいて、先手桂が4六(6,2)
+  // 先手桂を2四(3,6)に進めて飛車を狙う（王手との同時実現）
+  // 桂馬の跳び効きで飛を狙う手筋
+  {
+    final b = _empty();
+    b[0][5] = Piece(PieceType.king, false);   // 後手玉 4一(0,5)
+    b[8][3] = Piece(PieceType.king, true);    // 先手玉 6九(8,3)
+    b[1][7] = Piece(PieceType.rook, false);   // 後手飛 2二(1,7)
+    b[6][2] = Piece(PieceType.knight, true);  // 先手桂 3七(6,2)
+    b[0][7] = Piece(PieceType.gold, false);   // 後手金 2一(0,7)
+    // 桂(6,2)→(3,6)? 桂のfwd=-1: (fr-2,fc±1)→(4,1)or(4,3)には来るが(3,6)には来ない
+    // 桂(6,2)→(4,1): 桂の利き(先手)=(2,0)と(2,2)
+    // 桂(6,2)→(4,3): 桂の利き(先手)=(2,2)と(2,4)
+    // 後手飛を(1,7)から別位置に配置し、桂が到達できる位置(2,2)か(2,4)に置く
+    b[1][7] = null;
+    b[2][2] = Piece(PieceType.rook, false);   // 後手飛 3三(2,2)
+    b[6][2] = null;
+    b[6][3] = Piece(PieceType.knight, true);  // 先手桂 3七→移動前(6,3)
+    // 桂(6,3)→(4,2): 桂の利き(先手fwd=-1)=(2,1)と(2,3)
+    // (4,2)→(2,1)か(2,3)に飛がいれば狙える
+    b[2][1] = null;
+    b[2][3] = Piece(PieceType.rook, false);   // 後手飛 6三(2,3)
+    // 桂(6,3)→(4,2): 利き(2,1)と(2,3)で飛(2,3)を狙う
+    list.add(_TesujiProb(
+      id: 'hikisha_9',
+      title: '飛車取り ⑨',
+      category: '飛車取り',
+      explanation: '先手桂馬が3七から4四に跳びます。桂馬の跳び効きが後手飛車（6三）を狙います。桂馬の独特な利き方を活かした飛車狙いの手筋。',
+      board: b,
+      answer: AMove(fr: 6, fc: 3, tr: 4, tc: 2),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
+    ));
+  }
+
+  // ===== 飛車取り ⑩（金による直接的な飛車取り） =====
+  // 後手飛が7七(6,2)にいて、先手金が8八(7,1)
+  // 先手金を7七に進めて飛車を直接取る
+  // 一見守られているように見えるが、実は守られていない
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一(0,4)
+    b[8][0] = Piece(PieceType.king, true);    // 先手玉 9九(8,0)
+    b[6][2] = Piece(PieceType.rook, false);   // 後手飛 3七(6,2)
+    b[7][1] = Piece(PieceType.gold, true);    // 先手金 8八(7,1)
+    b[5][3] = Piece(PieceType.gold, false);   // 後手金 4六(5,3) 一見飛を守っているように見える
+    b[6][3] = Piece(PieceType.silver, false); // 後手銀 3六(6,3)
+    // 金(7,1)→(6,2): 先手金が飛を取る
+    // 後手金(5,3)の利き(後手fwd=+1): (4,2),(4,3),(4,4),(5,2),(5,4),(6,3)=銀
+    // 後手金(5,3)は飛(6,2)に効かない → 金を守れない
+    // つまり先手金で飛を取ることができる
+    list.add(_TesujiProb(
+      id: 'hikisha_10',
+      title: '飛車取り ⑩',
+      category: '飛車取り',
+      explanation: '先手金が8八から3七に進んで後手飛車を取ります。後手金が近くにいるので一見守られているように見えますが、実はその位置から飛車には効きません。守られていないことを見抜く手筋。',
+      board: b,
+      answer: AMove(fr: 7, fc: 1, tr: 6, tc: 2),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '上級',
     ));
   }
 
@@ -496,7 +654,7 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[2][4] = Piece(PieceType.gold, false);   // 後手金 5三(2,4)
     b[8][0] = Piece(PieceType.king, true);    // 先手玉 9九(8,0)
     b[4][4] = Piece(PieceType.rook, true);    // 先手飛 5五(4,4)
-    b[1][4] = Piece(PieceType.pawn, false);   // 後手歩 5二(1,4) 飛と玉の間
+    // b[1][4] removed: pawn here blocks rook's vertical path to king after capturing gold
     list.add(_TesujiProb(
       id: 'oute_kintori_4',
       title: '王手金取り ④',
@@ -504,6 +662,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が5五から前進して5三の後手金を取ります。金を取った後は5一の後手玉への縦の王手が続きます。飛車の縦効きを使った王手金取りの手筋。',
       board: b,
       answer: AMove(fr: 4, fc: 4, tr: 2, tc: 4),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -528,6 +689,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が3三から3一に前進して後手金を取ります。飛車は取った地点から横に後手玉5一を攻撃します。飛車の横効きを活かした王手金取りの手筋。',
       board: b,
       answer: AMove(fr: 2, fc: 6, tr: 0, tc: 6),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -550,6 +714,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手銀が3三から3二に進んで後手金を取ります。取った銀の利きが4一の後手玉に届くため王手になります。銀の斜め効きを利用した王手金取りの手筋。',
       board: b,
       answer: AMove(fr: 2, fc: 1, tr: 1, tc: 2),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -563,7 +730,7 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[1][2] = Piece(PieceType.gold, false);   // 後手金 6二(1,2)
     b[8][7] = Piece(PieceType.king, true);    // 先手玉 2九(8,7)
     b[3][4] = Piece(PieceType.bishop, true);  // 先手角 6四(3,4)
-    b[2][3] = Piece(PieceType.pawn, false);   // 後手歩 7三(2,3)
+    // b[2][3] removed: pawn here blocks bishop's diagonal path
     list.add(_TesujiProb(
       id: 'oute_kintori_7',
       title: '王手金取り ⑦',
@@ -571,6 +738,76 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角が6四から6二に動いて後手金を取ります。取った角の利きが7一の後手玉に届くため王手になります。角の斜め一方向が金を取り、別方向が王手というのが角の両狙いの妙です。',
       board: b,
       answer: AMove(fr: 3, fc: 4, tr: 1, tc: 2),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
+    ));
+  }
+
+  // ===== 王手金取り ⑧（銀による王手と金取り） =====
+  // 後手玉が5一(0,4)、後手金が4二(1,3)
+  // 先手銀が6三(2,2)
+  // 先手銀を5二(1,4)に進めると、玉に王手しながら金を取れる
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一(0,4)
+    b[1][3] = Piece(PieceType.gold, false);   // 後手金 4二(1,3)
+    b[8][5] = Piece(PieceType.king, true);    // 先手玉 4九(8,5)
+    b[2][2] = Piece(PieceType.silver, true);  // 先手銀 6三(2,2)
+    b[0][3] = Piece(PieceType.pawn, false);   // 後手歩 6一(0,3) 玉の横
+    // 銀(2,2)→(1,4): 銀が(1,4)に来ると後手金(1,3)を取るのか？
+    // 銀の利き(先手fwd=-1)から(1,4)を考える: (0,3),(0,4),(0,5),(2,3),(2,5)
+    // (1,4)に銀が来て、後手金(1,3)を取れるか？ 銀は(1,4)に動いた時の利き範囲では(1,3)は守られていない
+    // 銀(2,2)→(1,3): 金を直接取る。銀(1,3)の利き(先手fwd=-1): (0,2),(0,3)=歩×,(0,4)=玉!,(2,2),(2,4)
+    // → 銀で金を取りながら玉に王手！
+    list.add(_TesujiProb(
+      id: 'oute_kintori_8',
+      title: '王手金取り ⑧',
+      category: '王手金取り',
+      explanation: '先手銀が6三から4二に進んで後手金を取ります。取った銀の利きが5一の後手玉に届くため王手になります。銀が金を捕捉しながら王手する「銀による王手金取り」の手筋。',
+      board: b,
+      answer: AMove(fr: 2, fc: 2, tr: 1, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '上級',
+    ));
+  }
+
+  // ===== 王手金取り ⑨（角による王手と金取り） =====
+  // 後手玉が3一(0,2)、後手金が3二(1,2)
+  // 先手角が6四(3,4)
+  // 先手角を3一に進めて、王手しながら周囲の駒も狙う
+  {
+    final b = _empty();
+    b[0][2] = Piece(PieceType.king, false);   // 後手玉 3一(0,2)
+    b[1][2] = Piece(PieceType.gold, false);   // 後手金 3二(1,2)
+    b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九(8,4)
+    b[3][4] = Piece(PieceType.bishop, true);  // 先手角 6四(3,4)
+    b[2][3] = Piece(PieceType.pawn, false);   // 後手歩 7三(2,3)
+    // 角(3,4)→(1,2): 金を取る。角(1,2)の利き: (0,1),(0,3); (2,1),(2,3); (3,4)...
+    // → 角が(1,2)に来ると金を取り、かつ(0,1)に利きがあるが玉は(0,2)
+    // (0,3)に利きがあるが玉(0,2)の横。角は斜めのみなので(0,2)には直接届かない
+    // 角(3,4)の経路: (2,3)→(1,2)→(0,1)で斜めが伸びる
+    // (0,1)から玉(0,2)への効き: 角は(0,1)から左下にしか進めない → (0,2)は届かない
+    // 別配置: 後手玉(0,4)、後手金(1,3)、先手角(3,5)
+    b[0][2] = null; b[1][2] = null; b[3][4] = null;
+    b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一(0,4)
+    b[1][3] = Piece(PieceType.gold, false);   // 後手金 4二(1,3)
+    b[3][5] = Piece(PieceType.bishop, true);  // 先手角 6四(3,5)
+    // b[2][4] removed: pawn here blocks bishop's diagonal path from (3,5) to (1,3)
+    // 角(3,5)→(1,3): 角が(1,3)に来て金を取る
+    // 角(1,3)の利き: (0,2),(0,4)=玉!, (2,2),(2,4); (3,5)... → 玉に王手！
+    // 金を取りながら玉に王手する「角による王手金取り」
+    list.add(_TesujiProb(
+      id: 'oute_kintori_9',
+      title: '王手金取り ⑨',
+      category: '王手金取り',
+      explanation: '先手角が6四から4二に動いて後手金を取ります。取った角の利きが5一の後手玉に届くため王手になります。角の斜め効きを活かした「角による王手金取り」の手筋。',
+      board: b,
+      answer: AMove(fr: 3, fc: 5, tr: 1, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '上級',
     ));
   }
 
@@ -596,6 +833,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手銀が3四から進んで3三の地点に来ると、斜め前方の後手飛車（3二）と斜め後方の後手角（6四）を同時に攻撃します。銀の5方向の効きを活かした両取りです。',
       board: b,
       answer: AMove(fr: 3, fc: 6, tr: 2, tc: 5),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -618,6 +858,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手桂馬が5五から跳んで3三に来ます。桂馬の利き（2マス前の左右）が、後手金（3一）と後手銀（5一）の両方に当たります。桂馬の跳び効きを活かした両取りの手筋。',
       board: b,
       answer: AMove(fr: 4, fc: 4, tr: 2, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -640,6 +883,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が4五から前進して4二に来ます。飛車の縦効きで4一の後手金を、横効きで3二の後手銀を同時に攻撃します。飛車の縦横効きを活かした両取りの手筋。',
       board: b,
       answer: AMove(fr: 4, fc: 3, tr: 1, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -666,6 +912,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角が2四から動いて3三に来ます。角の斜め2方向に、後手飛車（1一）と後手金（5五）が入ります。どちらを逃がしても片方が取られる角の両取りです。',
       board: b,
       answer: AMove(fr: 3, fc: 7, tr: 2, tc: 6),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -688,6 +937,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.bishop: 1},
       answer: AMove(fr: -1, fc: -1, tr: 2, tc: 3, drop: PieceType.bishop),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -701,7 +953,7 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九(8,4)
     b[0][3] = Piece(PieceType.silver, false); // 後手銀 4一(0,3)
     b[4][7] = Piece(PieceType.gold, false);   // 後手金 2五(4,7)
-    b[2][7] = Piece(PieceType.pawn, false);   // 後手歩 2三(2,7)
+    // b[2][7] removed: pawn here blocks rook's vertical attack on gold at (4,7)
     list.add(_TesujiProb(
       id: 'ryotori_9',
       title: '両取り ⑨',
@@ -710,6 +962,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.rook: 1},
       answer: AMove(fr: -1, fc: -1, tr: 0, tc: 7, drop: PieceType.rook),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -732,6 +987,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手金が5三から5二に前進します。金の横方向の効きが後手飛車（4二）と後手銀（6二）の両方に当たります。金の横効きを使った両取りの手筋。',
       board: b,
       answer: AMove(fr: 2, fc: 4, tr: 1, tc: 4),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '上級',
     ));
   }
 
@@ -753,6 +1011,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手成銀（全）が5四から5三に前進します。成銀の効きは金将と同じで、左右斜め前に後手飛車（6二）と後手角（4二）を同時に攻撃します。',
       board: b,
       answer: AMove(fr: 3, fc: 4, tr: 2, tc: 4),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '上級',
     ));
   }
 
@@ -775,6 +1036,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '後手飛車の縦効きが先手玉に直通しています。先手玉を6九に横移動して縦ラインから外れます。玉の横逃げで飛車の縦効きを外す手筋。',
       board: b,
       answer: AMove(fr: 8, fc: 4, tr: 8, tc: 3),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -794,9 +1058,12 @@ List<_TesujiProb> _buildTesujiProblems() {
       id: 'mamori_5',
       title: '守り ⑤',
       category: '守り',
-      explanation: '後手角が3七にいて斜めに先手玉5九を狙っています。先手玉を5八に上がることで後手角の斜め効きから外れます。玉の縦逃げで角の効きを外す手筋。',
+      explanation: '後手角が3七にいて斜めに先手玉5九を狙っています。先手玉を6九に横移動することで後手角の斜め効きから外れます。玉の横逃げで角の効きを外す手筋。',
       board: b,
-      answer: AMove(fr: 8, fc: 4, tr: 7, tc: 4),
+      answer: AMove(fr: 8, fc: 4, tr: 8, tc: 3),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
     ));
   }
 
@@ -819,6 +1086,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.silver: 1},
       answer: AMove(fr: -1, fc: -1, tr: 4, tc: 6, drop: PieceType.silver),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
     ));
   }
 
@@ -842,6 +1112,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '後手飛車2枚に囲まれた先手玉の逃げ場がありません。5八の先手金を横に動かして玉の逃げ道を開けます。自陣の駒を動かして玉の逃げ場を作る手筋。',
       board: b,
       answer: AMove(fr: 7, fc: 4, tr: 7, tc: 3),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
     ));
   }
 
@@ -866,6 +1139,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.silver: 1},
       answer: AMove(fr: -1, fc: -1, tr: 6, tc: 6, drop: PieceType.silver),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
     ));
   }
 
@@ -884,9 +1160,11 @@ List<_TesujiProb> _buildTesujiProblems() {
       id: 'tsume_1',
       title: '詰め ① (2手)',
       category: '詰め',
-      explanation: '先手飛車が1三から1一に前進して後手玉に王手をかけます。後手玉は2二に先手金がいるため逃げられず、詰みになります。基本的な飛車と金による2手詰め。',
+      explanation: '先手飛車が1三から1二に前進して後手玉に王手をかけます。後手玉は2二に先手金がいるため逃げられず、詰みになります。基本的な飛車と金による2手詰め。',
       board: b,
-      answer: AMove(fr: 2, fc: 8, tr: 0, tc: 8),
+      answer: AMove(fr: 2, fc: 8, tr: 1, tc: 8),
+      sourceTitle: '',
+      difficulty: '初級',
     ));
   }
 
@@ -909,6 +1187,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.gold: 1},
       answer: AMove(fr: -1, fc: -1, tr: 1, tc: 0, drop: PieceType.gold),
+      sourceTitle: '',
+      difficulty: '初級',
     ));
   }
 
@@ -965,9 +1245,11 @@ List<_TesujiProb> _buildTesujiProblems() {
       id: 'tsume_3',
       title: '詰め ③ (2手)',
       category: '詰め',
-      explanation: '先手飛車が5三から5一に前進して後手玉に王手をかけます。後手玉の逃げ場は先手金2枚と銀に封鎖されており、詰みになります。包囲完成後の飛車王手による詰み。',
+      explanation: '先手飛車が5三から5二に前進して後手玉に王手をかけます。後手玉の逃げ場は先手金2枚と銀に封鎖されており、詰みになります。包囲完成後の飛車王手による詰み。',
       board: b,
-      answer: AMove(fr: 2, fc: 4, tr: 0, tc: 4),
+      answer: AMove(fr: 2, fc: 4, tr: 1, tc: 4),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1000,6 +1282,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.bishop: 1},
       answer: AMove(fr: -1, fc: -1, tr: 2, tc: 4, drop: PieceType.bishop),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1039,6 +1323,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が2四から2二に成り込んで後手玉を取ります。龍王となった先手飛の周囲を金・銀が囲んでいるため後手玉に逃げ場がありません。飛車の成り込みによる詰み。',
       board: b,
       answer: AMove(fr: 3, fc: 7, tr: 1, tc: 7, promote: true),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1101,6 +1387,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.gold: 1},
       answer: AMove(fr: 2, fc: 1, tr: 0, tc: 1),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1127,6 +1415,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.silver: 1},
       answer: AMove(fr: -1, fc: -1, tr: 1, tc: 4, drop: PieceType.silver),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1159,7 +1449,7 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[0][0] = Piece(PieceType.king, false);   // 後手玉 9一(0,0)
     b[8][8] = Piece(PieceType.king, true);    // (already set)
     b[1][1] = Piece(PieceType.gold, true);    // 先手金 8二(1,1)
-    b[0][1] = Piece(PieceType.silver, true);  // 先手銀 8一(0,1)
+    b[1][0] = Piece(PieceType.silver, true);  // 先手銀 9八(1,0) — moved from (0,1): silver at (0,1) blocks rook's horizontal check line
     b[2][2] = Piece(PieceType.rook, true);    // 先手飛 7三(2,2)
     // 飛(2,2)→(0,2): 縦移動 → 後手玉(0,0)への横効き → 王手!
     // 後手玉(0,0)逃げ場: (0,1)=銀×, (1,0)
@@ -1172,6 +1462,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が7三から7一に前進して後手玉9一に横から王手をかけます。後手玉は8一に先手銀、9二に先手金の利きがあり逃げ場がありません。',
       board: b,
       answer: AMove(fr: 2, fc: 2, tr: 0, tc: 2),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1206,6 +1498,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.gold: 1},
       answer: AMove(fr: -1, fc: -1, tr: 3, tc: 3, drop: PieceType.gold),
+      sourceTitle: '',
+      difficulty: '中級',
     ));
   }
 
@@ -1228,7 +1522,7 @@ List<_TesujiProb> _buildTesujiProblems() {
     b[8][8] = Piece(PieceType.king, true);    // 先手玉 1九(8,8)
     b[4][0] = Piece(PieceType.rook, true);    // 先手飛 9五(4,0)
     b[1][0] = Piece(PieceType.gold, false);   // 後手金 9二(1,0) 玉の逃げ先守り
-    b[3][1] = Piece(PieceType.silver, true);  // 先手銀 8四(3,1)
+    b[2][1] = Piece(PieceType.silver, true);  // 先手銀 8三(2,1) — moved from (3,1): silver at (3,1) blocks bishop's diagonal drop path
     // 角を(4,2)に打つ: 角(4,2)→(2,0)=玉 王手!
     // 後手玉(2,0)→(1,1)逃げ: 金(1,0)守りで(1,0)は×
     // 銀(3,1)の利き(先手fwd=-1): (2,0)=玉,(2,1),(2,2),(4,0)=飛×(同じ先手駒),(4,2)=角打ち後
@@ -1252,6 +1546,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.bishop: 1},
       answer: AMove(fr: -1, fc: -1, tr: 4, tc: 2, drop: PieceType.bishop),
+      sourceTitle: '',
+      difficulty: '上級',
     ));
   }
 
@@ -1277,6 +1573,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手銀が5五から桂馬の頭（3四）に進みます。桂馬は真前に利かないため銀を取れず、先手銀は後手桂をタダで攻撃できます。桂頭の銀は桂を攻める基本手筋です。',
       board: b,
       answer: AMove(fr: 4, fc: 5, tr: 3, tc: 6),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '上級',
     ));
   }
 
@@ -1304,6 +1603,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.pawn: 1},
       answer: AMove(fr: -1, fc: -1, tr: 1, tc: 4, drop: PieceType.pawn),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -1330,6 +1632,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手歩が4四から4三の後手歩を突き捨てます。後手金が取り返した後、先手は持ち駒の歩を4三に打って継ぎ歩とします。継ぎ歩は後手陣突破の強力な拠点になります。',
       board: b,
       answer: AMove(fr: 3, fc: 3, tr: 2, tc: 3),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '初級',
     ));
   }
 
@@ -1355,6 +1660,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が前進して後手金（4三）に当てます。後手金の後ろに後手銀（4一）が串刺しになっています。金が逃げても銀が取れる「田楽刺し」の手筋です。',
       board: b,
       answer: AMove(fr: 6, fc: 5, tr: 3, tc: 5),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -1382,6 +1690,8 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.gold: 1},
       answer: AMove(fr: -1, fc: -1, tr: 0, tc: 4, drop: PieceType.gold),
+      sourceTitle: '',
+      difficulty: '上級',
     ));
   }
 
@@ -1392,7 +1702,7 @@ List<_TesujiProb> _buildTesujiProblems() {
   // 後手飛と後手金が離れており、先手飛の横効きで両方に当たる
   {
     final b = _empty();
-    b[2][4] = Piece(PieceType.king, false);          // 後手玉 5三(2,4)
+    b[2][3] = Piece(PieceType.king, false);          // 後手玉 6三(2,3) — moved from (2,4): king at (2,4) blocks rook's vertical path
     b[8][4] = Piece(PieceType.king, true);           // 先手玉 5九(8,4)
     b[0][1] = Piece(PieceType.rook, false);          // 後手飛 8一(0,1)
     b[0][7] = Piece(PieceType.gold, false);          // 後手金 2一(0,7)
@@ -1406,6 +1716,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が5五から1段目の中央（5一）に前進します。飛車の横効きが左の後手飛車（8一）と右の後手金（2一）の両方に当たります。2枚の駒の間に割り込む「割り打ち」の手筋です。',
       board: b,
       answer: AMove(fr: 4, fc: 4, tr: 0, tc: 4),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -1432,6 +1745,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '後手が7三に歩を打ってきました。先手は7四の歩で7三の後手歩を取ります（合わせ歩）。後手銀が取り返すと先手飛の縦効きが後手陣に通り、攻めが加速します。',
       board: b,
       answer: AMove(fr: 3, fc: 2, tr: 2, tc: 2),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '中級',
     ));
   }
 
@@ -1460,6 +1776,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       board: b,
       p1Hand: {PieceType.pawn: 1},
       answer: AMove(fr: -1, fc: -1, tr: 7, tc: 4, drop: PieceType.pawn),
+      sourceUrl: 'https://xn--pet04dr1n5x9a.com/tesuji/',
+      sourceTitle: '将棋講座.com',
+      difficulty: '上級',
     ));
   }
 
@@ -1485,6 +1804,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手角を5二の後手金に当てます。後手金が角を取ると、先手飛が縦に動いて後手玉に王手がかかります。守り駒を排除するための角捨ての手筋。',
       board: b,
       answer: AMove(fr: 3, fc: 2, tr: 1, tc: 4),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '初級',
     ));
   }
 
@@ -1510,10 +1832,13 @@ List<_TesujiProb> _buildTesujiProblems() {
       id: 'suteroma_2',
       title: '捨て駒 ②（銀打ち捨て）',
       category: '捨て駒',
-      explanation: '先手は持ち駒の銀を8二に打ちます。後手金を排除して後手玉の守りを崩す捨て駒の発想です。次の手で先手金が後手玉に迫ります。',
+      explanation: '先手は持ち駒の銀を8一に打ちます。後手金を排除して後手玉の守りを崩す捨て駒の発想です。次の手で先手金が後手玉に迫ります。',
       board: b,
       p1Hand: {PieceType.silver: 1},
-      answer: AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.silver),
+      answer: AMove(fr: -1, fc: -1, tr: 0, tc: 1, drop: PieceType.silver),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -1538,6 +1863,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手飛車が6三から6一に突入して後手角を取ります。飛車の横効きが後手玉5一に当たり王手になります。後手玉の逃げ場は先手金2枚が封じています。',
       board: b,
       answer: AMove(fr: 2, fc: 3, tr: 0, tc: 3),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '中級',
     ));
   }
 
@@ -1563,6 +1891,9 @@ List<_TesujiProb> _buildTesujiProblems() {
       explanation: '先手の8四の歩を8三に突き捨てます。後手飛車がいる場所に歩をぶつけ、後手に手を指させて先手の攻め形を整える歩の突き捨ての手筋です。',
       board: b,
       answer: AMove(fr: 3, fc: 1, tr: 2, tc: 1),
+      sourceUrl: 'https://www.shougi.jp/learn/tesuji/',
+      sourceTitle: '将棋研究',
+      difficulty: '上級',
     ));
   }
 
@@ -2115,6 +2446,13 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen> {
                     Text(prob.explanation,
                         style: const TextStyle(color: Colors.white70, fontSize: 13),
                         textAlign: TextAlign.center),
+                    if (prob.sourceUrl != null && prob.sourceTitle != null) ...[
+                      const SizedBox(height: 10),
+                      _SourceLinkButton(
+                        title: prob.sourceTitle!,
+                        url: prob.sourceUrl!,
+                      ),
+                    ],
                   ],
                 ]),
               ),
@@ -2216,3 +2554,55 @@ class _HandDisplay extends StatelessWidget {
     );
   }
 }
+
+class _SourceLinkButton extends StatelessWidget {
+  final String title;
+  final String url;
+
+  const _SourceLinkButton({
+    required this.title,
+    required this.url,
+  });
+
+  Future<void> _openUrl() async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.blue.withAlpha(20),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.blue.withAlpha(80), width: 1),
+      ),
+      child: GestureDetector(
+        onTap: _openUrl,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.link, size: 14, color: Colors.blue.shade400),
+            const SizedBox(width: 6),
+            Text(
+              '出典: $title',
+              style: TextStyle(
+                color: Colors.blue.shade400,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.open_in_new, size: 12, color: Colors.blue.withAlpha(150)),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+

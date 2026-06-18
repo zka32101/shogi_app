@@ -82,6 +82,7 @@ class WeaknessAnalysisScreen extends StatefulWidget {
   final VoidCallback? onGoToTesuji;
   final VoidCallback? onGoToJoseki;
   final VoidCallback? onGoToAiGame;
+  final VoidCallback? onGoToKifu;
 
   const WeaknessAnalysisScreen({
     Key? key,
@@ -89,6 +90,7 @@ class WeaknessAnalysisScreen extends StatefulWidget {
     this.onGoToTesuji,
     this.onGoToJoseki,
     this.onGoToAiGame,
+    this.onGoToKifu,
   }) : super(key: key);
 
   @override
@@ -792,7 +794,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
       'title': '過去の対局を振り返ろう',
       'body': '負けた対局の敗因を分析することで、同じミスを繰り返さなくなります。週1回の振り返りを習慣に。',
       'action': '対局履歴へ',
-      'onTap': widget.onGoToAiGame,
+      'onTap': widget.onGoToKifu ?? widget.onGoToAiGame,
     });
 
     return result;

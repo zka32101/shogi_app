@@ -40,6 +40,14 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
     _themeConfig = boardThemeConfig(widget.theme);
   }
 
+  @override
+  void didUpdateWidget(NetworkBoardWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.theme != widget.theme) {
+      _themeConfig = boardThemeConfig(widget.theme);
+    }
+  }
+
   // 自分の持ち駒
   Map<PieceType, int> get myHand =>
       widget.isPlayer1 ? widget.state.p1Hand : widget.state.p2Hand;

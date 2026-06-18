@@ -137,7 +137,7 @@ class _StatsScreenState extends State<StatsScreen> {
   final Map<String, int> _modeP2Wins  = {};
 
   // レーティング（全体・AI別・ネット別）
-  int _rating    = 1000;
+  int _rating    = 700;
   int _ratingAi  = 700;
   int _ratingNet = 700;
   List<_RatingRecord> _ratingHistory = [];
@@ -163,7 +163,9 @@ class _StatsScreenState extends State<StatsScreen> {
     bool hasKifuData = false;
     try {
       final kifuRaw = prefs.getString('kifu_records') ?? '[]';
-      final kifuList = (jsonDecode(kifuRaw) as List).cast<Map<String, dynamic>>();
+      final kifuList = (jsonDecode(kifuRaw) as List)
+          .whereType<Map<String, dynamic>>()
+          .toList();
       for (final r in kifuList) {
         final result = r['result'] as String? ?? '';
         if (result.isEmpty || result == '不明' || result.contains('未完') ||
@@ -322,6 +324,22 @@ class _StatsScreenState extends State<StatsScreen> {
                       child: _StreakCard(history: hist),
                     ),
                   if (hist.isNotEmpty) const SizedBox(height: 16),
+
+                  // ── 週次成長比較 ──
+                  if (hist.isNotEmpty)
+                    _StatCard(
+                      title: '週次成長',
+                      child: _WeeklyGrowthCard(history: hist),
+                    ),
+                  if (hist.isNotEmpty) const SizedBox(height: 16),
+
+                  // ── 弱点分析 ──
+                  if (hist.length >= 3)
+                    _StatCard(
+                      title: '弱点分析',
+                      child: _WeaknessCard(history: hist),
+                    ),
+                  if (hist.length >= 3) const SizedBox(height: 16),
 
                   // ── AIレベル別内訳（AI対局時のみ） ──
                   if (hist.isNotEmpty && (_modeFilter == _GameModeFilter.all || _modeFilter == _GameModeFilter.ai))
@@ -930,4 +948,152 @@ class _WinRateBar extends StatelessWidget {
       ),
     ]);
   }
+}
+
+// ── 週次成長カード ────────────────────────────────────────
+class _WeeklyGrowthCard extends StatelessWidget {
+  final List<_RatingRecord> history;
+  const _WeeklyGrowthCard({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final twoWeekAgo = now.subtract(const Duration(days: 14));
+
+    int thisWins = 0, thisTotal = 0;
+    int prevWins = 0, prevTotal = 0;
+
+    for (final rec in history) {
+      DateTime? dt;
+      try { dt = DateTime.parse(rec.date); } catch (_) {}
+      if (dt == null) continue;
+
+      if (dt.isAfter(weekAgo)) {
+        thisTotal++;
+        if (rec.delta > 0) thisWins++;
+      } else if (dt.isAfter(twoWeekAgo)) {
+        prevTotal++;
+        if (rec.delta > 0) prevWins++;
+      }
+    }
+
+    final thisRate = thisTotal > 0 ? thisWins / thisTotal : null;
+    final prevRate = prevTotal > 0 ? prevWins / prevTotal : null;
+
+    final diff = (thisRate != null && prevRate != null) ? thisRate - prevRate : null;
+    final diffText = diff == null ? '-'
+        : diff > 0 ? '▲${(diff * 100).toStringAsFixed(1)}%'
+        : diff < 0 ? '▼${(diff.abs() * 100).toStringAsFixed(1)}%'
+        : '±0%';
+    final diffColor = diff == null ? Colors.white38
+        : diff > 0 ? Colors.greenAccent
+        : diff < 0 ? Colors.redAccent
+        : Colors.white54;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      children: [
+        _WeekBlock('今週', thisTotal, thisRate),
+        Container(width: 1, height: 40, color: Colors.white12),
+        _WeekBlock('先週', prevTotal, prevRate),
+        Container(width: 1, height: 40, color: Colors.white12),
+        Column(children: [
+          Text(diffText, style: TextStyle(color: diffColor, fontSize: 18, fontWeight: FontWeight.bold)),
+          const Text('成長', style: TextStyle(color: Colors.white38, fontSize: 11)),
+        ]),
+      ],
+    );
+  }
+}
+
+class _WeekBlock extends StatelessWidget {
+  final String label;
+  final int total;
+  final double? rate;
+  const _WeekBlock(this.label, this.total, this.rate);
+
+  @override
+  Widget build(BuildContext context) {
+    final pct = rate != null ? '${(rate! * 100).toStringAsFixed(0)}%' : '-';
+    return Column(children: [
+      Text(pct, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+      Text('勝率 ($total局)', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+      Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+    ]);
+  }
+}
+
+// ── 弱点分析カード ────────────────────────────────────────
+class _WeaknessCard extends StatelessWidget {
+  final List<_RatingRecord> history;
+  const _WeaknessCard({required this.history});
+
+  @override
+  Widget build(BuildContext context) {
+    // 最近20局を分析
+    final recent = history.length > 20 ? history.sublist(history.length - 20) : history;
+    final total = recent.length;
+    if (total == 0) return const SizedBox.shrink();
+
+    final wins = recent.where((r) => r.delta > 0).length;
+    final losses = recent.where((r) => r.delta < 0).length;
+
+    // 序盤弱い？（連敗が集中している場合）
+    int loseStreak = 0, maxLoseStreak = 0, tmp = 0;
+    for (final r in recent) {
+      if (r.delta < 0) { tmp++; if (tmp > maxLoseStreak) maxLoseStreak = tmp; }
+      else tmp = 0;
+    }
+
+    // 成績に基づくアドバイス
+    final winRate = wins / total;
+    final advices = <String>[];
+
+    if (winRate < 0.3) {
+      advices.add('💡 詰将棋で終盤力を鍛えましょう');
+      advices.add('💡 1ランク下のAIで基礎を確認してみては？');
+    } else if (winRate < 0.5) {
+      advices.add('💡 もう一息！中盤の駒得を意識しましょう');
+    } else if (winRate > 0.7) {
+      advices.add('✨ 好調！難しいAIに挑戦してみましょう');
+    } else {
+      advices.add('✨ 安定した成績です。このまま継続！');
+    }
+
+    if (maxLoseStreak >= 3) {
+      advices.add('📌 ${maxLoseStreak}連敗のパターンあり。休憩も大切です');
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [
+          _MiniStat('${(winRate * 100).toStringAsFixed(0)}%', '直近勝率',
+              winRate >= 0.5 ? Colors.greenAccent : Colors.orangeAccent),
+          const SizedBox(width: 24),
+          _MiniStat('$maxLoseStreak', '最長連敗', maxLoseStreak >= 3 ? Colors.redAccent : Colors.white54),
+          const SizedBox(width: 24),
+          _MiniStat('$total', '直近対局', Colors.white70),
+        ]),
+        const SizedBox(height: 12),
+        ...advices.map((a) => Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Text(a, style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.4)),
+        )),
+      ],
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final String value, label;
+  final Color color;
+  const _MiniStat(this.value, this.label, this.color);
+
+  @override
+  Widget build(BuildContext context) => Column(children: [
+    Text(value, style: TextStyle(color: color, fontSize: 20, fontWeight: FontWeight.bold)),
+    Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
+  ]);
 }

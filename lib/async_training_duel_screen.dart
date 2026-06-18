@@ -890,10 +890,39 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
   late Timer _timer;
   int _opponentStartedAt = 0;
   bool _opponentStarted = false;
+  int? _selectedAnswer;   // 選択中の選択肢
+  bool? _answerResult;    // true=正解 false=不正解
+
+  // 選択肢（正解1つ＋ダミー2つ）を問題ごとに生成
+  late List<List<String>> _choices;
+  late List<int> _correctIndices;
+
+  void _initChoices() {
+    _choices = [];
+    _correctIndices = [];
+    for (final q in widget.duel.questions) {
+      final sol = q.solution;
+      String correctMove = sol.isNotEmpty
+          ? '${9 - sol[0].tc}${_rowKanji[sol[0].tr]}へ'
+          : '5五金打';
+      final dummies = ['3三銀打', '7七桂成', '4四飛引', '2二角成', '6六歩成'];
+      final options = [correctMove];
+      for (final d in dummies) {
+        if (!options.contains(d)) options.add(d);
+        if (options.length == 3) break;
+      }
+      options.shuffle();
+      _correctIndices.add(options.indexOf(correctMove));
+      _choices.add(options);
+    }
+  }
+
+  static const _rowKanji = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
 
   @override
   void initState() {
     super.initState();
+    _initChoices();
     _stopwatch = Stopwatch()..start();
     _timer = Timer.periodic(const Duration(milliseconds: 100), (_) {
       setState(() {});
@@ -917,7 +946,23 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
     );
   }
 
+  void _answerQuestion(int choiceIndex) {
+    if (_answerResult != null) return; // already answered
+    final isCorrect = choiceIndex == _correctIndices[_currentQuestionIndex];
+    setState(() {
+      _selectedAnswer = choiceIndex;
+      _answerResult = isCorrect;
+    });
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      if (mounted) _nextQuestion();
+    });
+  }
+
   void _nextQuestion() {
+    setState(() {
+      _selectedAnswer = null;
+      _answerResult = null;
+    });
     if (_currentQuestionIndex < widget.duel.questions.length - 1) {
       setState(() {
         _currentQuestionIndex++;
@@ -1055,28 +1100,59 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
               ),
             ),
           ),
-          // ボタン
+          // 解答選択肢
           Padding(
-            padding: const EdgeInsets.all(12),
-            child: SizedBox(
-              width: double.infinity,
-              height: 48,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.orange,
-                ),
-                onPressed: _nextQuestion,
-                child: Text(
-                  _currentQuestionIndex == widget.duel.questions.length - 1
-                      ? '完了'
-                      : '次へ',
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (_answerResult != null)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    decoration: BoxDecoration(
+                      color: _answerResult! ? Colors.green.withAlpha(40) : Colors.red.withAlpha(40),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      _answerResult! ? '✓ 正解！' : '✗ 不正解',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _answerResult! ? Colors.greenAccent : Colors.redAccent,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                ...List.generate(_choices[_currentQuestionIndex].length, (i) {
+                  final choice = _choices[_currentQuestionIndex][i];
+                  final isCorrect = i == _correctIndices[_currentQuestionIndex];
+                  Color btnColor = Colors.orange;
+                  if (_answerResult != null) {
+                    if (isCorrect) btnColor = Colors.green;
+                    else if (i == _selectedAnswer) btnColor = Colors.red.shade700;
+                    else btnColor = Colors.grey.shade700;
+                  }
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: btnColor,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      onPressed: _answerResult != null ? null : () => _answerQuestion(i),
+                      child: Text(
+                        choice,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
             ),
           ),
         ],

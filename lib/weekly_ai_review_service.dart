@@ -42,11 +42,17 @@ class WeeklyAiReviewService {
       final weekKey =
           '${weekStart.year}-W${(weekStart.day / 7).ceil()}';
 
-      // Cloud Functions呼び出し（generate-weekly-review）
-      final result = await _firestore.ref('users/$uid/functions/generateWeeklyReview')
-          .transaction((transaction) async {
-        return await transaction.get();
-      }).catch((_) => null);
+      // Firestoreから週次レビューを取得（Cloud Functionsが事前に生成）
+      Map<String, dynamic>? result;
+      try {
+        final doc = await _firestore
+            .collection(_reviewCollection)
+            .doc('${uid}_$weekKey')
+            .get();
+        if (doc.exists) result = doc.data();
+      } catch (_) {
+        result = null;
+      }
 
       if (result == null) {
         // ローカル生成フォールバック

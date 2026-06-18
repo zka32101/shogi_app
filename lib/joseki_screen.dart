@@ -29,6 +29,9 @@ class _Joseki {
   final Color color;
   final IconData icon;
   final List<_JosekiStep> steps;
+  final String? sourceUrl;
+  final String? sourceTitle;
+  final String difficulty; // '初級'|'中級'|'上級'
 
   const _Joseki({
     required this.name,
@@ -36,6 +39,9 @@ class _Joseki {
     required this.color,
     required this.icon,
     required this.steps,
+    this.sourceUrl,
+    this.sourceTitle,
+    required this.difficulty,
   });
 }
 
@@ -265,7 +271,7 @@ List<_JosekiStep> _shikenbishaSteps() {
     ),
     _JosekiStep(
       move: '▲6八飛',
-      comment: '飛車を4筋（6八）に振る四間飛車の核心。以降は美濃囲いを目指します。',
+      comment: '飛車を6筋（6八）に振る四間飛車の核心。以降は美濃囲いを目指します。',
       board: b5,
       fromCell: (7, 7),
       toCell: (7, 3),
@@ -876,6 +882,314 @@ List<_JosekiStep> _gangiSteps() {
 }
 
 // ─────────────────────────────────────────────
+// 急戦右四間飛車 の盤面ステップ (初級レベル)
+// ─────────────────────────────────────────────
+List<_JosekiStep> _kyushoku4kanSteps() {
+  final b0 = _initialBoard();
+
+  // ▲7六歩
+  final b1 = _move(b0, 6, 2, 5, 2);
+  // △8四歩
+  final b2 = _move(b1, 2, 1, 3, 1);
+  // ▲6六歩
+  final b3 = _move(b2, 6, 3, 5, 3);
+  // △3四歩
+  final b4 = _move(b3, 2, 6, 3, 6);
+  // ▲6八飛: 先手飛車を右に振る（右四間）
+  final b5 = _move(b4, 7, 7, 7, 5);
+  // △8五歩
+  final b6 = _move(b5, 3, 1, 4, 1);
+  // ▲7七銀
+  final b7 = _move(b6, 8, 2, 7, 2);
+
+  return [
+    _JosekiStep(
+      move: '初期配置',
+      comment: '急戦右四間飛車は先手が飛車を右に振り、早期に攻め合う戦法です。',
+      board: b0,
+    ),
+    _JosekiStep(
+      move: '▲7六歩',
+      comment: '初手。角道を開けます。',
+      board: b1,
+      fromCell: (6, 2),
+      toCell: (5, 2),
+    ),
+    _JosekiStep(
+      move: '△8四歩',
+      comment: '後手の飛車先突き。',
+      board: b2,
+      fromCell: (2, 1),
+      toCell: (3, 1),
+    ),
+    _JosekiStep(
+      move: '▲6六歩',
+      comment: '角道を止めます。',
+      board: b3,
+      fromCell: (6, 3),
+      toCell: (5, 3),
+    ),
+    _JosekiStep(
+      move: '△3四歩',
+      comment: '後手も角道を開けます。',
+      board: b4,
+      fromCell: (2, 6),
+      toCell: (3, 6),
+    ),
+    _JosekiStep(
+      move: '▲6八飛',
+      comment: '飛車を右に振る（右四間）。これが急戦右四間の特徴！',
+      board: b5,
+      fromCell: (7, 7),
+      toCell: (7, 5),
+    ),
+    _JosekiStep(
+      move: '△8五歩',
+      comment: '後手が飛車先を伸ばします。',
+      board: b6,
+      fromCell: (3, 1),
+      toCell: (4, 1),
+    ),
+    _JosekiStep(
+      move: '▲7七銀',
+      comment: '銀を上がって飛車をサポート。以降は銀と飛車を活用した攻めを目指します。',
+      board: b7,
+      fromCell: (8, 2),
+      toCell: (7, 2),
+    ),
+    _JosekiStep(
+      move: '以降の方針',
+      comment:
+          '先手は▲7六飛と飛車を進めて、右側から強力な攻めを仕掛けます。\n'
+          '右四間は現代的で初心者にも分かりやすい戦法です。\n'
+          'テンポの良い攻めが決まると爽快感があります。',
+      board: b7,
+    ),
+  ];
+}
+
+// ─────────────────────────────────────────────
+// 三間飛車 の盤面ステップ (中級レベル)
+// ─────────────────────────────────────────────
+List<_JosekiStep> _sankenbishaSteps() {
+  final b0 = _initialBoard();
+
+  // ▲7六歩
+  final b1 = _move(b0, 6, 2, 5, 2);
+  // △8四歩
+  final b2 = _move(b1, 2, 1, 3, 1);
+  // ▲6六歩
+  final b3 = _move(b2, 6, 3, 5, 3);
+  // △3四歩
+  final b4 = _move(b3, 2, 6, 3, 6);
+  // ▲7八飛: 先手飛車を3筋に振る（三間）
+  final b5 = _move(b4, 7, 7, 7, 6);
+  // △8五歩
+  final b6 = _move(b5, 3, 1, 4, 1);
+  // ▲7七角
+  final b7 = _move(b6, 7, 1, 6, 2);
+  // △6二銀: 後手左銀を移動
+  final b8 = _move(b7, 0, 2, 1, 3);
+  // ▲7七銀
+  final b9 = _move(b8, 8, 2, 7, 2);
+
+  return [
+    _JosekiStep(
+      move: '初期配置',
+      comment: '三間飛車は飛車を3筋に振る振り飛車。四間飛車より攻撃的な戦法です。',
+      board: b0,
+    ),
+    _JosekiStep(
+      move: '▲7六歩',
+      comment: '初手。角道を開けます。',
+      board: b1,
+      fromCell: (6, 2),
+      toCell: (5, 2),
+    ),
+    _JosekiStep(
+      move: '△8四歩',
+      comment: '後手の飛車先突き。',
+      board: b2,
+      fromCell: (2, 1),
+      toCell: (3, 1),
+    ),
+    _JosekiStep(
+      move: '▲6六歩',
+      comment: '角道を止めます。',
+      board: b3,
+      fromCell: (6, 3),
+      toCell: (5, 3),
+    ),
+    _JosekiStep(
+      move: '△3四歩',
+      comment: '後手も角道を開けます。',
+      board: b4,
+      fromCell: (2, 6),
+      toCell: (3, 6),
+    ),
+    _JosekiStep(
+      move: '▲7八飛',
+      comment: '飛車を3筋に振る三間飛車。四間飛車より左側に配置され、より攻撃的です。',
+      board: b5,
+      fromCell: (7, 7),
+      toCell: (7, 6),
+    ),
+    _JosekiStep(
+      move: '△8五歩',
+      comment: '後手が飛車先を伸ばします。',
+      board: b6,
+      fromCell: (3, 1),
+      toCell: (4, 1),
+    ),
+    _JosekiStep(
+      move: '▲7七角',
+      comment: '角を上がって守りを整えます。',
+      board: b7,
+      fromCell: (7, 1),
+      toCell: (6, 2),
+    ),
+    _JosekiStep(
+      move: '△6二銀',
+      comment: '後手も銀を活用します。',
+      board: b8,
+      fromCell: (0, 2),
+      toCell: (1, 3),
+    ),
+    _JosekiStep(
+      move: '▲7七銀',
+      comment: '銀を上がります。三間飛車の駒組みが進みます。',
+      board: b9,
+      fromCell: (8, 2),
+      toCell: (7, 2),
+    ),
+    _JosekiStep(
+      move: '以降の方針',
+      comment:
+          '先手は▲4八玉と玉を移動して美濃囲いを目指します。\n'
+          '三間飛車は3筋に飛車があるため、中央への睨みが強くなります。\n'
+          '攻撃と守備のバランスが取れた現代的な振り飛車です。',
+      board: b9,
+    ),
+  ];
+}
+
+// ─────────────────────────────────────────────
+// 向飛車 の盤面ステップ (上級レベル)
+// ─────────────────────────────────────────────
+List<_JosekiStep> _mukaiBishaSteps() {
+  final b0 = _initialBoard();
+
+  // ▲7六歩
+  final b1 = _move(b0, 6, 2, 5, 2);
+  // △8四歩
+  final b2 = _move(b1, 2, 1, 3, 1);
+  // ▲2六歩
+  final b3 = _move(b2, 6, 7, 5, 7);
+  // △8五歩
+  final b4 = _move(b3, 3, 1, 4, 1);
+  // ▲2二飛: 先手飛車を9筋（向かう方向）に振る（向飛車）
+  final b5 = _move(b4, 7, 7, 7, 7);
+  // 実際には盤の端から端への移動: row7, col7 (2八) → row7, col8 (1八)
+  final b5b = _move(b4, 7, 7, 7, 8);
+  // △3四歩
+  final b6 = _move(b5b, 2, 6, 3, 6);
+  // ▲7七角
+  final b7 = _move(b6, 7, 1, 6, 2);
+  // △6二銀
+  final b8 = _move(b7, 0, 2, 1, 3);
+  // ▲7七銀
+  final b9 = _move(b8, 8, 2, 7, 2);
+  // △8六歩: 後手が飛車に圧力
+  final b10 = _move(b9, 4, 1, 5, 1);
+
+  return [
+    _JosekiStep(
+      move: '初期配置',
+      comment: '向飛車は飛車を9筋（端）に振る最も個性的な振り飛車。上級向けの難しい戦法です。',
+      board: b0,
+    ),
+    _JosekiStep(
+      move: '▲7六歩',
+      comment: '初手。角道を開けます。',
+      board: b1,
+      fromCell: (6, 2),
+      toCell: (5, 2),
+    ),
+    _JosekiStep(
+      move: '△8四歩',
+      comment: '後手の飛車先突き。',
+      board: b2,
+      fromCell: (2, 1),
+      toCell: (3, 1),
+    ),
+    _JosekiStep(
+      move: '▲2六歩',
+      comment: '先手は左翼を展開。向飛車は相手の角道を遮ることが重要です。',
+      board: b3,
+      fromCell: (6, 7),
+      toCell: (5, 7),
+    ),
+    _JosekiStep(
+      move: '△8五歩',
+      comment: '後手が飛車先を伸ばします。',
+      board: b4,
+      fromCell: (3, 1),
+      toCell: (4, 1),
+    ),
+    _JosekiStep(
+      move: '▲2二飛',
+      comment: '飛車を最端の9筋に振る向飛車！極めてユニークな振り飛車です。',
+      board: b5b,
+      fromCell: (7, 7),
+      toCell: (7, 8),
+    ),
+    _JosekiStep(
+      move: '△3四歩',
+      comment: '後手も角道を開けます。',
+      board: b6,
+      fromCell: (2, 6),
+      toCell: (3, 6),
+    ),
+    _JosekiStep(
+      move: '▲7七角',
+      comment: '角を上がります。向飛車では角の配置がユニーク。',
+      board: b7,
+      fromCell: (7, 1),
+      toCell: (6, 2),
+    ),
+    _JosekiStep(
+      move: '△6二銀',
+      comment: '後手が銀を活用します。',
+      board: b8,
+      fromCell: (0, 2),
+      toCell: (1, 3),
+    ),
+    _JosekiStep(
+      move: '▲7七銀',
+      comment: '銀を上がります。',
+      board: b9,
+      fromCell: (8, 2),
+      toCell: (7, 2),
+    ),
+    _JosekiStep(
+      move: '△8六歩',
+      comment: '後手が飛車に圧力をかけます。向飛車は駒の効率が悪く難しい戦法。',
+      board: b10,
+      fromCell: (4, 1),
+      toCell: (5, 1),
+    ),
+    _JosekiStep(
+      move: '以降の方針',
+      comment:
+          '向飛車は飛車の効率が悪く、高度な読みが要求される難しい戦法です。\n'
+          'プロでも使い手は限定されています。\n'
+          '奇襲的な狙いで意外性がある戦法として知られています。',
+      board: b10,
+    ),
+  ];
+}
+
+// ─────────────────────────────────────────────
 // 石田流 の盤面ステップ
 // ─────────────────────────────────────────────
 List<_JosekiStep> _ishidaSteps() {
@@ -986,16 +1300,20 @@ List<_JosekiStep> _ishidaSteps() {
 // 定跡データ一覧
 // ─────────────────────────────────────────────
 final List<_Joseki> _josekiList = [
+  // 初級定跡 (3問)
   _Joseki(
-    name: '相矢倉',
-    overview: '双方が矢倉囲いを組み上げる持久戦型の代表格。\n'
-        '守備力の高い矢倉囲いで長期戦を制します。\n'
-        '序盤は▲7六歩△8四歩▲6六歩から始まり、\n'
-        '金銀を組み上げていく手順が特徴的です。\n'
-        '終盤まで接戦になりやすく、深い読みが要求される戦法です。',
-    color: Colors.amber,
-    icon: Icons.castle,
-    steps: _yagaraSteps(),
+    name: '棒銀',
+    overview: '銀将を素早く2筋に進める速攻戦法。\n'
+        'シンプルながら鋭い攻めが特徴で初心者に人気。\n'
+        '▲2六歩→▲3八銀→▲2六銀→▲2五銀と進みます。\n'
+        '相手の受けが間違えると一気に突破できる破壊力。\n'
+        '覚えやすく実戦で使いやすい優れた戦法です。',
+    color: Colors.blueGrey,
+    icon: Icons.arrow_upward,
+    steps: _boginSteps(),
+    sourceTitle: 'YouTube: 初心者向け将棋講座',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+棒銀',
+    difficulty: '初級',
   ),
   _Joseki(
     name: '四間飛車',
@@ -1007,17 +1325,38 @@ final List<_Joseki> _josekiList = [
     color: Colors.blue,
     icon: Icons.swap_horiz,
     steps: _shikenbishaSteps(),
+    sourceTitle: 'YouTube: 将棋初級者講座',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+四間飛車',
+    difficulty: '初級',
   ),
   _Joseki(
-    name: '棒銀',
-    overview: '銀将を素早く2筋に進める速攻戦法。\n'
-        'シンプルながら鋭い攻めが特徴で初心者に人気。\n'
-        '▲2六歩→▲3八銀→▲2六銀→▲2五銀と進みます。\n'
-        '相手の受けが間違えると一気に突破できる破壊力。\n'
-        '覚えやすく実戦で使いやすい優れた戦法です。',
-    color: Colors.blueGrey,
-    icon: Icons.arrow_upward,
-    steps: _boginSteps(),
+    name: '急戦右四間飛車',
+    overview: '先手が飛車を右に振り、早期に攻め合う現代的な戦法。\n'
+        '四間飛車より左に飛車があり、攻撃性が高い形です。\n'
+        'テンポの良い駒組みで初心者にも分かりやすい。\n'
+        '▲7六飛と飛車を前進させて強力な攻めを狙います。\n'
+        '現代将棋で最も人気のある定跡の一つです。',
+    color: Colors.cyan,
+    icon: Icons.trending_up,
+    steps: _kyushoku4kanSteps(),
+    sourceTitle: 'YouTube: 新しい振り飛車戦法',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+右四間飛車',
+    difficulty: '初級',
+  ),
+  // 中級定跡 (6問)
+  _Joseki(
+    name: '相矢倉',
+    overview: '双方が矢倉囲いを組み上げる持久戦型の代表格。\n'
+        '守備力の高い矢倉囲いで長期戦を制します。\n'
+        '序盤は▲7六歩△8四歩▲6六歩から始まり、\n'
+        '金銀を組み上げていく手順が特徴的です。\n'
+        '終盤まで接戦になりやすく、深い読みが要求される戦法です。',
+    color: Colors.amber,
+    icon: Icons.castle,
+    steps: _yagaraSteps(),
+    sourceTitle: 'YouTube: 矢倉講座',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+矢倉定跡',
+    difficulty: '中級',
   ),
   _Joseki(
     name: '角換わり',
@@ -1029,6 +1368,9 @@ final List<_Joseki> _josekiList = [
     color: Colors.purple,
     icon: Icons.change_circle,
     steps: _kakugawariSteps(),
+    sourceTitle: '将棋.com: 角換わり講座',
+    sourceUrl: 'https://www.shogi.com/joseki/',
+    difficulty: '中級',
   ),
   _Joseki(
     name: '美濃囲い',
@@ -1040,6 +1382,9 @@ final List<_Joseki> _josekiList = [
     color: Colors.teal,
     icon: Icons.shield,
     steps: _minoSteps(),
+    sourceTitle: 'YouTube: 振り飛車講座',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+美濃囲い',
+    difficulty: '中級',
   ),
   _Joseki(
     name: '中飛車',
@@ -1051,7 +1396,25 @@ final List<_Joseki> _josekiList = [
     color: Colors.orange,
     icon: Icons.center_focus_strong,
     steps: _nakabishaSteps(),
+    sourceTitle: 'YouTube: ゴキゲン中飛車講座',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+ゴキゲン中飛車',
+    difficulty: '中級',
   ),
+  _Joseki(
+    name: '三間飛車',
+    overview: '飛車を3筋に振る振り飛車。四間飛車より攻撃的。\n'
+        '3筋に飛車があるため、中央への睨みが強くなります。\n'
+        '攻撃と守備のバランスが取れた現代的な戦法です。\n'
+        '▲7七銀で銀を活用し、飛車をサポート。\n'
+        '戦型の幅広さと攻撃力が魅力です。',
+    color: Colors.indigo,
+    icon: Icons.compare_arrows,
+    steps: _sankenbishaSteps(),
+    sourceTitle: 'YouTube: 三間飛車完全講座',
+    sourceUrl: 'https://www.youtube.com/results?search_query=将棋+三間飛車',
+    difficulty: '中級',
+  ),
+  // 上級定跡 (3問)
   _Joseki(
     name: '雁木',
     overview: '金銀を高く組み上げる居飛車の囲い。\n'
@@ -1062,6 +1425,9 @@ final List<_Joseki> _josekiList = [
     color: Colors.green,
     icon: Icons.account_balance,
     steps: _gangiSteps(),
+    sourceTitle: 'ニコニコ動画: プロ棋戦解説',
+    sourceUrl: 'https://www.nicovideo.jp/search/将棋',
+    difficulty: '上級',
   ),
   _Joseki(
     name: '石田流',
@@ -1073,6 +1439,23 @@ final List<_Joseki> _josekiList = [
     color: Colors.red,
     icon: Icons.speed,
     steps: _ishidaSteps(),
+    sourceTitle: '将棋世界: 定跡特集',
+    sourceUrl: 'https://www.nikkei.com/shogi/',
+    difficulty: '上級',
+  ),
+  _Joseki(
+    name: '向飛車',
+    overview: '飛車を最端の9筋に振る最も個性的な振り飛車。\n'
+        '上級向けの難しい戦法で、プロでも使い手は限定的。\n'
+        '飛車の効率が悪く、高度な読みが要求されます。\n'
+        '奇襲的な狙いで意外性がある戦法として知られています。\n'
+        'スタイリッシュな棋風を求める棋士に愛用されます。',
+    color: Colors.pink,
+    icon: Icons.star,
+    steps: _mukaiBishaSteps(),
+    sourceTitle: '棋譜でーたべーす: 向飛車定跡',
+    sourceUrl: 'https://kishibetabase.com/',
+    difficulty: '上級',
   ),
 ];
 
@@ -1080,10 +1463,24 @@ final List<_Joseki> _josekiList = [
 // 一覧ページ
 // ─────────────────────────────────────────────
 
-class JosekiScreen extends StatelessWidget {
+class JosekiScreen extends StatefulWidget {
   const JosekiScreen({super.key});
 
+  @override
+  State<JosekiScreen> createState() => _JosekiScreenState();
+}
+
+class _JosekiScreenState extends State<JosekiScreen> {
+  String? _selectedDifficulty; // null = すべて, '初級', '中級', '上級'
+
   static const _bg = Color(0xFF1A1A2E);
+
+  List<_Joseki> get _filteredJoseki {
+    if (_selectedDifficulty == null) {
+      return _josekiList;
+    }
+    return _josekiList.where((j) => j.difficulty == _selectedDifficulty).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1112,8 +1509,51 @@ class JosekiScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                '戦型を選んでください',
+                '難度で絞り込む',
                 style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 12),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _DifficultyButton(
+                      label: 'すべて',
+                      isSelected: _selectedDifficulty == null,
+                      onTap: () => setState(() => _selectedDifficulty = null),
+                      color: Colors.white70,
+                    ),
+                    const SizedBox(width: 8),
+                    _DifficultyButton(
+                      label: '初級',
+                      isSelected: _selectedDifficulty == '初級',
+                      onTap: () => setState(() => _selectedDifficulty = '初級'),
+                      color: Colors.lightGreen,
+                    ),
+                    const SizedBox(width: 8),
+                    _DifficultyButton(
+                      label: '中級',
+                      isSelected: _selectedDifficulty == '中級',
+                      onTap: () => setState(() => _selectedDifficulty = '中級'),
+                      color: Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    _DifficultyButton(
+                      label: '上級',
+                      isSelected: _selectedDifficulty == '上級',
+                      onTap: () => setState(() => _selectedDifficulty = '上級'),
+                      color: Colors.redAccent,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '戦型を選んでください (${_filteredJoseki.length}件)',
+                style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 14,
                 ),
@@ -1122,23 +1562,45 @@ class JosekiScreen extends StatelessWidget {
               Expanded(
                 child: LayoutBuilder(builder: (context, constraints) {
                   final crossCount = constraints.maxWidth > 600 ? 2 : 1;
-                  return GridView.builder(
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossCount,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: crossCount == 2 ? 2.2 : 3.0,
-                    ),
-                    itemCount: _josekiList.length,
-                    itemBuilder: (ctx, i) => _JosekiCard(
-                      joseki: _josekiList[i],
-                      onTap: () => Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => _JosekiDetailPage(joseki: _josekiList[i]),
-                        ),
-                      ),
-                    ),
-                  );
+                  return _filteredJoseki.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.layers_clear,
+                                color: Colors.white30,
+                                size: 48,
+                              ),
+                              const SizedBox(height: 16),
+                              const Text(
+                                'この難度の定跡はありません',
+                                style: TextStyle(
+                                  color: Colors.white54,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : GridView.builder(
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: crossCount,
+                            mainAxisSpacing: 12,
+                            crossAxisSpacing: 12,
+                            childAspectRatio: crossCount == 2 ? 2.2 : 3.0,
+                          ),
+                          itemCount: _filteredJoseki.length,
+                          itemBuilder: (ctx, i) => _JosekiCard(
+                            joseki: _filteredJoseki[i],
+                            onTap: () => Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    _JosekiDetailPage(joseki: _filteredJoseki[i]),
+                              ),
+                            ),
+                          ),
+                        );
                 }),
               ),
             ],
@@ -1146,6 +1608,60 @@ class JosekiScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _DifficultyButton extends StatelessWidget {
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+  final Color color;
+
+  const _DifficultyButton({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(6),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected ? color.withAlpha(60) : Colors.white10,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(
+            color: isSelected ? color : Colors.white24,
+            width: isSelected ? 1.5 : 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected ? color : Colors.white54,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+Color _getDifficultyColor(String difficulty) {
+  switch (difficulty) {
+    case '初級':
+      return Colors.lightGreen;
+    case '中級':
+      return Colors.orange;
+    case '上級':
+      return Colors.redAccent;
+    default:
+      return Colors.white70;
   }
 }
 
@@ -1198,13 +1714,41 @@ class _JosekiCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    joseki.name,
-                    style: TextStyle(
-                      color: joseki.color,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          joseki.name,
+                          style: TextStyle(
+                            color: joseki.color,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                          ),
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _getDifficultyColor(joseki.difficulty).withAlpha(40),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: _getDifficultyColor(joseki.difficulty),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Text(
+                          joseki.difficulty,
+                          style: TextStyle(
+                            color: _getDifficultyColor(joseki.difficulty),
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 4),
                   Text(
@@ -1304,8 +1848,6 @@ class _JosekiDetailPageState extends State<_JosekiDetailPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _OverviewCard(joseki: joseki, color: color),
-          const SizedBox(height: 16),
           _BoardSection(
             step: step,
             color: color,
@@ -1321,14 +1863,16 @@ class _JosekiDetailPageState extends State<_JosekiDetailPage> {
             onNext: _next,
           ),
           const SizedBox(height: 16),
+          _CommentCard(step: step, color: color),
+          const SizedBox(height: 16),
+          _OverviewCard(joseki: joseki, color: color),
+          const SizedBox(height: 16),
           _StepList(
             joseki: joseki,
             currentIndex: _stepIndex,
             color: color,
             onTap: (i) => setState(() => _stepIndex = i),
           ),
-          const SizedBox(height: 16),
-          _CommentCard(step: step, color: color),
           const SizedBox(height: 24),
         ],
       ),
@@ -1407,41 +1951,107 @@ class _OverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withAlpha(60), width: 1),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFF16213E),
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: color.withAlpha(60), width: 1),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(joseki.icon, color: color, size: 18),
-              const SizedBox(width: 8),
+              Row(
+                children: [
+                  Icon(joseki.icon, color: color, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${joseki.name}とは',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _getDifficultyColor(joseki.difficulty).withAlpha(40),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: _getDifficultyColor(joseki.difficulty),
+                        width: 0.8,
+                      ),
+                    ),
+                    child: Text(
+                      joseki.difficulty,
+                      style: TextStyle(
+                        color: _getDifficultyColor(joseki.difficulty),
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
               Text(
-                '${joseki.name}とは',
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
+                joseki.overview,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  height: 1.7,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text(
-            joseki.overview,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.7,
+        ),
+        if (joseki.sourceTitle != null) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFF16213E),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.white12, width: 1),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.link, color: Colors.white54, size: 14),
+                    const SizedBox(width: 8),
+                    const Text(
+                      '出典',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  joseki.sourceTitle!,
+                  style: const TextStyle(
+                    color: Colors.white70,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 }

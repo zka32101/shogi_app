@@ -78,6 +78,19 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
               ),
               const SizedBox(height: 12),
 
+              // クラブ対戦ボタン
+              ElevatedButton.icon(
+                onPressed: _isLoading ? null : () => _startClubMatch(context),
+                icon: const Icon(Icons.groups),
+                label: const Text('クラブ対戦'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.indigo.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                ),
+              ),
+              const SizedBox(height: 12),
+
               // ランキングボタン
               ElevatedButton.icon(
                 onPressed: () => Navigator.push(context,
@@ -351,6 +364,119 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
         setState(() => _isLoading = false);
       }
     }
+  }
+
+  /// クラブ対戦（同クラブ優先マッチング）
+  Future<void> _startClubMatch(BuildContext context) async {
+    setState(() => _isLoading = true);
+    try {
+      final currentUser = _networkService.currentUser;
+      if (currentUser == null) throw Exception('ログインが必要です');
+
+      final isBanned = await _networkService.isUserBanned(currentUser.uid);
+      if (isBanned) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('アカウント停止'),
+              content: const Text('このアカウントは停止されています。'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる')),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      final userProfile = await _networkService.getUserProfile(currentUser.uid);
+      if (userProfile == null) throw Exception('ユーザー情報が見つかりません');
+
+      // クラブ限定マッチング（ratingRange広め: ±300）
+      final queueId = await _matchingService.joinMatchingQueue(
+        currentUser.uid,
+        userProfile,
+        300,
+        clubMatchOnly: true,
+      );
+
+      setState(() => _queueId = queueId);
+      if (mounted) {
+        _showClubMatchingWaitDialog(context, queueId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// クラブマッチング待機ダイアログ
+  void _showClubMatchingWaitDialog(BuildContext context, String queueId) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('クラブメンバーを探索中...', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              '同クラブのメンバーを待っています\n（最大5分）',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white70),
+            ),
+            const SizedBox(height: 24),
+            StreamBuilder<dynamic>(
+              stream: _matchingService.watchMatchingQueue(queueId),
+              builder: (context, snapshot) {
+                if (snapshot.hasData && snapshot.data != null) {
+                  final queue = snapshot.data;
+                  if (queue.isMatched && queue.matchId != null) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.pop(context);
+                      Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => MatchScreen(matchId: queue.matchId, isPlayer1: true),
+                      ));
+                    });
+                  }
+                  if (queue.isCancelled) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Navigator.pop(context);
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('クラブメンバーが見つかりませんでした')),
+                      );
+                      if (mounted) setState(() => _isLoading = false);
+                    });
+                  }
+                }
+                return ElevatedButton(
+                  onPressed: () async {
+                    await _matchingService.cancelMatchingQueue(queueId);
+                    if (mounted) {
+                      Navigator.pop(context);
+                      setState(() => _isLoading = false);
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+                  child: const Text('キャンセル'),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// マッチング待機ダイアログ

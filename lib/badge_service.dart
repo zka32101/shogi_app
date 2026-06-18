@@ -343,17 +343,38 @@ const _kStreakDays     = 'badge_streak_days';    // int
 class BadgeService {
   /// 解除済みバッジIDセット（キャッシュなし、毎回 prefs から）
   static Future<Set<BadgeId>> unlockedIds(SharedPreferences prefs) async {
-    final raw = prefs.getString(_kUnlocked) ?? '[]';
-    final list = (jsonDecode(raw) as List).cast<String>();
-    return list.map((s) => BadgeId.values.firstWhere((e) => e.name == s)).toSet();
+    try {
+      final raw = prefs.getString(_kUnlocked) ?? '[]';
+      final list = (jsonDecode(raw) as List).whereType<String>().toList();
+      final result = <BadgeId>{};
+      for (final s in list) {
+        try {
+          result.add(BadgeId.values.firstWhere((e) => e.name == s));
+        } catch (_) {}
+      }
+      return result;
+    } catch (_) {
+      return {};
+    }
   }
 
   /// 解除日マップ
   static Map<BadgeId, String> unlockDates(SharedPreferences prefs) {
-    final raw = prefs.getString(_kDates) ?? '{}';
-    final map = (jsonDecode(raw) as Map).cast<String, String>();
-    return map.map((k, v) =>
-        MapEntry(BadgeId.values.firstWhere((e) => e.name == k), v));
+    try {
+      final raw = prefs.getString(_kDates) ?? '{}';
+      final map = (jsonDecode(raw) as Map);
+      final result = <BadgeId, String>{};
+      map.forEach((k, v) {
+        if (k is! String || v is! String) return;
+        try {
+          final id = BadgeId.values.firstWhere((e) => e.name == k);
+          result[id] = v;
+        } catch (_) {}
+      });
+      return result;
+    } catch (_) {
+      return {};
+    }
   }
 
   /// ゲーム終了後に呼ぶ。新たに解除されたバッジリストを返す。
@@ -507,7 +528,8 @@ class BadgeService {
     // ── 棋譜研究 ─────────────────────────────────────────────
     // kifu_records: 保存棋譜数（JSON list の length）
     final kifuRaw = prefs.getString('kifu_records') ?? '[]';
-    final kifuCount = (jsonDecode(kifuRaw) as List).length;
+    int kifuCount = 0;
+    try { kifuCount = (jsonDecode(kifuRaw) as List).length; } catch (_) {}
     if (kifuCount >= 10) await tryUnlock(BadgeId.teachingMode);
 
     // ── 特殊勝利 ─────────────────────────────────────────────

@@ -27,12 +27,21 @@ class MatchingService {
 
   /// マッチング待機キューに参加
   /// [ratingRange]: 対戦相手レーティング許容範囲（±100等）
+  /// [clubMatchOnly]: trueの場合、同クラブ限定マッチング
   Future<String> joinMatchingQueue(
     String userId,
     UserProfile userProfile,
-    int ratingRange,
-  ) async {
+    int ratingRange, {
+    bool clubMatchOnly = false,
+  }) async {
     try {
+      // ユーザーの所属クラブを取得
+      List<String> clubIds = [];
+      try {
+        final userDoc = await _firestore.collection('users').doc(userId).get();
+        clubIds = (userDoc.data()?['club_ids'] as List?)?.cast<String>() ?? [];
+      } catch (_) {}
+
       final queueRef = _firestore.collection('matching_queue').doc();
       final minRating = (userProfile.rating - ratingRange).clamp(0, 3500);
       final maxRating = userProfile.rating + ratingRange;
@@ -46,9 +55,18 @@ class MatchingService {
         maxRatingRange: maxRating,
         queuedAt: DateTime.now(),
         status: 'waiting',
+        clubIds: clubIds,
+        clubMatchOnly: clubMatchOnly,
       );
 
-      await queueRef.set(queue.toJson());
+      await queueRef.set({
+        ...queue.toJson(),
+        'expires_at': Timestamp.fromDate(
+            DateTime.now().add(const Duration(minutes: 10))),
+      });
+
+      // 古いエントリを非同期でクリーンアップ（Cloud Functionもあるが念のため）
+      Future.microtask(_cleanupExpiredEntries);
 
       // マッチング試行（即座に相手を探す）
       await _tryMatchmaking(queue);
@@ -73,7 +91,7 @@ class MatchingService {
 
   // ── 自動マッチング ────────────────────────────
 
-  /// マッチメイキング試行
+  /// マッチメイキング試行（同クラブ優先）
   Future<void> _tryMatchmaking(MatchingQueue queue) async {
     try {
       // 待機中の他ユーザーを検索
@@ -81,23 +99,48 @@ class MatchingService {
           .collection('matching_queue')
           .where('status', isEqualTo: 'waiting')
           .where('user_id', isNotEqualTo: queue.userId)
+          .orderBy('created_at') // uses the composite index from firestore.indexes.json
+          .limit(50)             // limit to prevent full table scan
           .get();
 
-      // 相互にレーティング範囲内のユーザーを探す
+      final candidates = <MatchingQueue>[];
       for (final doc in otherQueues.docs) {
         final otherQueue = MatchingQueue.fromJson(doc.data());
-
         // 双方向でレーティング範囲内か確認
         if (queue.canMatch(otherQueue.rating) &&
             otherQueue.canMatch(queue.rating)) {
-          // マッチング成立
-          await _createMatch(queue, otherQueue);
-          return;
+          // 相手がクラブ限定の場合、共通クラブが必要
+          if (otherQueue.clubMatchOnly && !queue.shareClub(otherQueue)) continue;
+          candidates.add(otherQueue);
         }
       }
 
-      // 相手が見つからない場合、タイムアウトリスナーを設定
-      _setMatchingTimeout(queue.id);
+      if (candidates.isEmpty) {
+        // クラブ限定モードで見つからない場合もタイムアウトを設定
+        _setMatchingTimeout(queue.id);
+        return;
+      }
+
+      // 同クラブメンバーを優先（共通クラブがある相手を先に試す）
+      candidates.sort((a, b) {
+        final aShares = queue.shareClub(a) ? 0 : 1;
+        final bShares = queue.shareClub(b) ? 0 : 1;
+        return aShares.compareTo(bShares);
+      });
+
+      // 自分がクラブ限定の場合は同クラブのみ
+      if (queue.clubMatchOnly) {
+        final clubMatch = candidates.where((c) => queue.shareClub(c)).toList();
+        if (clubMatch.isNotEmpty) {
+          await _createMatch(queue, clubMatch.first);
+          return;
+        }
+        _setMatchingTimeout(queue.id);
+        return;
+      }
+
+      // 通常マッチング（同クラブ優先）
+      await _createMatch(queue, candidates.first);
     } catch (e) {
       print('Try matchmaking error: $e');
     }
@@ -166,6 +209,24 @@ class MatchingService {
     } catch (e) {
       print('Create match error: $e');
     }
+  }
+
+  /// 期限切れのキューエントリをexpiredに更新
+  Future<void> _cleanupExpiredEntries() async {
+    try {
+      final now = Timestamp.now();
+      final stale = await _firestore
+          .collection('matching_queue')
+          .where('status', isEqualTo: 'waiting')
+          .where('expires_at', isLessThan: now)
+          .limit(20)
+          .get();
+      final batch = _firestore.batch();
+      for (final doc in stale.docs) {
+        batch.update(doc.reference, {'status': 'expired'});
+      }
+      if (stale.docs.isNotEmpty) await batch.commit();
+    } catch (_) {}
   }
 
   /// マッチングタイムアウト設定（5分待機して見つからない場合キャンセル）

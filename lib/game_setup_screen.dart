@@ -10,6 +10,7 @@ import 'theme_config.dart';
 import 'character_icons.dart';
 import 'ai_personality.dart';
 import 'screens/premium_screen.dart';
+import 'piece.dart';
 
 class GameSetupScreen extends StatefulWidget {
   final GameMode mode; // pvp or vsAI
@@ -28,6 +29,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   int _fischerIncrementSec = 0;
   Handicap _handicap = Handicap.none;
   PieceTheme _theme = PieceTheme.standard;
+  PieceLabelStyle _labelStyle = PieceLabelStyle.kanji;
   VariantType _variant = VariantType.normal;
   bool _aiRated = true;
 
@@ -42,9 +44,78 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   // 対戦相手キャラクター
   String? _opponentCharacterId;
 
+  // オープニング局面
+  String? _selectedOpeningId;
+
   // 持ち時間の選択肢
   static const _timeOptions = <int?>[null, 180, 300, 600, 900, 1800];
   static const _timeLabels = ['なし', '3分', '5分', '10分', '15分', '30分'];
+
+  static const _openingMoves = {
+    'shiken': [[6,2,5,2],[7,7,7,5],[2,1,3,1],[6,4,5,4]],
+    'chuuhi': [[6,2,5,2],[7,7,7,4],[2,1,3,1],[2,7,3,7]],
+    'bogin':  [[6,2,5,2],[6,7,5,7],[5,7,4,7],[2,1,3,1],[8,6,7,6],[2,6,3,6]],
+    'yagura': [[6,2,5,2],[8,2,7,3],[7,3,6,2],[6,3,5,3],[2,1,3,1],[0,2,1,3]],
+  };
+
+  List<List<Piece?>> _buildOpeningBoard(String id) {
+    final b = initShogiBoard();
+    final moves = _openingMoves[id];
+    if (moves == null) return b;
+    for (final m in moves) {
+      final p = b[m[0]][m[1]];
+      if (p == null) continue;
+      b[m[2]][m[3]] = p;
+      b[m[0]][m[1]] = null;
+    }
+    return b;
+  }
+
+  Widget _openingSection() {
+    const options = [
+      ('none', '初期局面', '通常の初期配置'),
+      ('shiken', '四間飛車形', '飛車を4筋に振る'),
+      ('chuuhi', '中飛車形', '飛車を5筋(中央)に'),
+      ('bogin', '棒銀形', '銀を前線へ繰り出す'),
+      ('yagura', '矢倉形', '銀・歩で矢倉の形'),
+    ];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 6,
+      children: options.map((o) {
+        final (id, label, desc) = o;
+        final selected = (id == 'none' ? null : id) == _selectedOpeningId;
+        return GestureDetector(
+          onTap: () => setState(() => _selectedOpeningId = id == 'none' ? null : id),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected ? Colors.brown.shade800 : const Color(0xFF0F3460),
+              border: Border.all(
+                color: selected ? Colors.amber.shade600 : Colors.white24,
+                width: selected ? 1.5 : 1,
+              ),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(label,
+                    style: TextStyle(
+                      color: selected ? Colors.amber : Colors.white70,
+                      fontSize: 12,
+                      fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+                    )),
+                const SizedBox(height: 2),
+                Text(desc,
+                    style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              ],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   Future<void> _startGame() async {
     // ローカル対局の場合、無料プラン対戦5回制限をチェック
@@ -101,6 +172,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       byoyomiSec: _byoyomiSec,
       fischerIncrementSec: _fischerIncrementSec,
       theme: _theme,
+      labelStyle: _labelStyle,
       handicap: _handicap,
       variant: _variant,
       aiRated: _aiRated,
@@ -110,10 +182,18 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       coachMode: _coachMode,
       opponentCharacterId: _opponentCharacterId,
     );
+    final openingBoard = _selectedOpeningId != null
+        ? _buildOpeningBoard(_selectedOpeningId!)
+        : null;
     if (mounted) {
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => GameScreen(settings: settings)),
+        MaterialPageRoute(
+          builder: (_) => GameScreen(
+            settings: settings,
+            initialBoard: openingBoard,
+          ),
+        ),
       );
     }
   }
@@ -214,6 +294,12 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   const SizedBox(height: 20),
                 ],
 
+                // ── 共通: オープニング局面 ──────────────────
+                _sectionHeader(Icons.play_circle_outline, 'オープニング局面'),
+                const SizedBox(height: 10),
+                _openingSection(),
+                const SizedBox(height: 20),
+
                 // ── 共通: 持ち時間 ──────────────────
                 _sectionHeader(Icons.timer, '持ち時間'),
                 const SizedBox(height: 10),
@@ -260,11 +346,23 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   }
 
   // ── AI難易度カード ──────────────────────────────────────
+  // 弱い順に並べた表示用リスト
+  static const _aiLevelOrder = [
+    AILevel.random,
+    AILevel.beginner,
+    AILevel.easy,
+    AILevel.elementary,
+    AILevel.medium,
+    AILevel.upperMedium,
+    AILevel.hard,
+    AILevel.expert,
+  ];
+
   Widget _aiLevelSection() {
     return Wrap(
       spacing: 8,
       runSpacing: 8,
-      children: AILevel.values.map((lv) {
+      children: _aiLevelOrder.map((lv) {
         final sel = _aiLevel == lv;
         return GestureDetector(
           onTap: () => setState(() => _aiLevel = lv),
@@ -289,18 +387,20 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                   lv.rankLabel,
                   style: TextStyle(
                     color: sel ? Colors.amber : Colors.white70,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  lv.rankDesc.split(' · ').first,
-                  style: TextStyle(
-                    color: sel ? Colors.amber.shade200 : Colors.white38,
-                    fontSize: 10,
-                  ),
-                  textAlign: TextAlign.center,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: List.generate(4, (i) => Icon(
+                    i * 2 < lv.stars ? Icons.star : Icons.star_border,
+                    size: 9,
+                    color: sel
+                        ? Colors.amber.withAlpha(i * 2 < lv.stars ? 220 : 80)
+                        : Colors.white38.withAlpha(i * 2 < lv.stars ? 160 : 60),
+                  )),
                 ),
               ],
             ),

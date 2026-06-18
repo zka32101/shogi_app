@@ -59,10 +59,38 @@ class _MatchScreenState extends State<MatchScreen> {
   // 盤面テーマ
   PieceTheme _theme = PieceTheme.standard;
 
+  // 最新の盤面状態キャッシュ（毎回Firestore読まずに使用）
+  NetworkBoardState? _latestBoardState;
+
+  // 時計: 30秒毎にRTDB同期
+  Timer? _clockSyncTimer;
+  int _clockSyncIntervalSec = 0;
+  bool _clockInitialized = false;
+
   @override
   void initState() {
     super.initState();
-    _boardStream = _boardSync.watchBoardState(widget.matchId);
+    _boardStream = _boardSync.watchBoardState(widget.matchId).map((state) {
+      _latestBoardState = state;
+      // RTDBからの初回時計同期（lastTickMsが0でなければ現在残り時間を再計算）
+      if (state != null && state.lastTickMs > 0 && !_clockInitialized) {
+        _clockInitialized = true;
+        final nowMs = DateTime.now().millisecondsSinceEpoch;
+        final elapsedMs = nowMs - state.lastTickMs;
+        final p1Remaining = (state.p1Ms - (state.lastTurn == 1 ? elapsedMs : 0))
+            .clamp(0, state.p1Ms);
+        final p2Remaining = (state.p2Ms - (state.lastTurn == 2 ? elapsedMs : 0))
+            .clamp(0, state.p2Ms);
+        _myTimeRemaining       = ((widget.isPlayer1 ? p1Remaining : p2Remaining) / 1000).ceil();
+        _opponentTimeRemaining = ((widget.isPlayer1 ? p2Remaining : p1Remaining) / 1000).ceil();
+      }
+      // 試合終了を検知してクロックを止める
+      if (state?.status == 'finished') {
+        _clockTimer?.cancel();
+        _clockSyncTimer?.cancel();
+      }
+      return state;
+    });
     _startClock();
     _initBoardIfNeeded();
     _loadCharIcon();
@@ -72,6 +100,7 @@ class _MatchScreenState extends State<MatchScreen> {
   @override
   void dispose() {
     _clockTimer?.cancel();
+    _clockSyncTimer?.cancel();
     super.dispose();
   }
 
@@ -102,17 +131,8 @@ class _MatchScreenState extends State<MatchScreen> {
       if (doc.exists && doc['board'] == null) {
         await _boardSync.initMatchBoard(widget.matchId);
       }
-      // 初期タイムを取得
-      if (doc.exists) {
-        setState(() {
-          _myTimeRemaining = widget.isPlayer1
-              ? (doc['player1_time'] as int? ?? 600)
-              : (doc['player2_time'] as int? ?? 600);
-          _opponentTimeRemaining = widget.isPlayer1
-              ? (doc['player2_time'] as int? ?? 600)
-              : (doc['player1_time'] as int? ?? 600);
-        });
-      }
+      // 初期タイムはRTDBストリームの初回イベントで設定される（_clockInitializedフラグ）
+      // Firestoreの時刻フィールドは使わない
     } catch (e) {
       print('Init board error: $e');
     }
@@ -126,58 +146,69 @@ class _MatchScreenState extends State<MatchScreen> {
         Timer.periodic(const Duration(seconds: 1), (_) => _tickClock());
   }
 
-  Future<void> _tickClock() async {
-    try {
-      final doc =
-          await _firestore.collection('matches').doc(widget.matchId).get();
-      if (!doc.exists) return;
-      final data = doc.data()!;
-      if (data['status'] == 'finished') {
-        _clockTimer?.cancel();
-        return;
+  void _tickClock() {
+    // ゲーム終了済みなら何もしない
+    if (_latestBoardState?.status == 'finished') return;
+
+    final currentTurn = _latestBoardState?.currentTurn ?? 1;
+    final isMyTurn = (currentTurn == 1) == widget.isPlayer1;
+
+    if (!mounted) return;
+    setState(() {
+      if (isMyTurn) {
+        _myTimeRemaining = (_myTimeRemaining - 1).clamp(0, 99999);
+      } else {
+        _opponentTimeRemaining = (_opponentTimeRemaining - 1).clamp(0, 99999);
       }
+    });
 
-      final currentTurn = data['current_turn'] as int? ?? 1;
-      final isMyTurn = (currentTurn == 1) == widget.isPlayer1;
-
-      final p1Time = data['player1_time'] as int? ?? 600;
-      final p2Time = data['player2_time'] as int? ?? 600;
-
-      if (mounted) {
-        setState(() {
-          _myTimeRemaining =
-              widget.isPlayer1 ? p1Time : p2Time;
-          _opponentTimeRemaining =
-              widget.isPlayer1 ? p2Time : p1Time;
-        });
-      }
-
-      // 自分のターンで時間切れ
-      if (isMyTurn && _myTimeRemaining <= 0) {
-        _clockTimer?.cancel();
-        await _handleTimeout();
-      } else if (isMyTurn) {
-        // 自分の残り時間を 1 秒デクリメント
-        final myKey =
-            widget.isPlayer1 ? 'player1_time' : 'player2_time';
-        await _firestore
-            .collection('matches')
-            .doc(widget.matchId)
-            .update({myKey: _myTimeRemaining - 1});
-      }
-    } catch (e) {
-      print('Clock tick error: $e');
+    // タイムアウト検知（自分の時間切れのみ処理）
+    if (isMyTurn && _myTimeRemaining <= 0) {
+      _clockTimer?.cancel();
+      _clockSyncTimer?.cancel();
+      _handleTimeout();
+      return;
     }
+
+    // 30秒毎にRTDBへ同期（Firestoreには書かない）
+    _clockSyncIntervalSec++;
+    if (_clockSyncIntervalSec >= 30) {
+      _clockSyncIntervalSec = 0;
+      _syncClockToRtdb();
+    }
+  }
+
+  void _syncClockToRtdb() {
+    final p1Ms = (widget.isPlayer1
+        ? _myTimeRemaining
+        : _opponentTimeRemaining) * 1000;
+    final p2Ms = (widget.isPlayer1
+        ? _opponentTimeRemaining
+        : _myTimeRemaining) * 1000;
+    final currentTurn = _latestBoardState?.currentTurn ?? 1;
+    _boardSync.syncClock(
+      matchId: widget.matchId,
+      p1Ms: p1Ms,
+      p2Ms: p2Ms,
+      currentTurn: currentTurn,
+    ).catchError((_) {});
   }
 
   Future<void> _handleTimeout() async {
     try {
-      final doc =
-          await _firestore.collection('matches').doc(widget.matchId).get();
-      if (!doc.exists) return;
-      final opponentId = widget.isPlayer1
-          ? doc['player2_id'] as String
-          : doc['player1_id'] as String;
+      // opponentIdをRTDB盤面状態から取得（Firestoreを読まない）
+      final state = _latestBoardState;
+      String? opponentId;
+      if (state != null) {
+        // RTDBにplayer IDが入っていない場合はFirestoreからフォールバック
+        opponentId = widget.isPlayer1
+            ? (_latestBoardState == null
+                ? null
+                : await _getOpponentIdFromFirestore())
+            : await _getOpponentIdFromFirestore();
+      }
+      opponentId ??= await _getOpponentIdFromFirestore();
+      if (opponentId == null) return;
 
       await _networkService.finishMatchWithRating(
           widget.matchId, opponentId, 'timeout');
@@ -194,6 +225,18 @@ class _MatchScreenState extends State<MatchScreen> {
     }
   }
 
+  Future<String?> _getOpponentIdFromFirestore() async {
+    try {
+      final doc = await _firestore.collection('matches').doc(widget.matchId).get();
+      if (!doc.exists) return null;
+      return widget.isPlayer1
+          ? doc['player2_id'] as String?
+          : doc['player1_id'] as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
   // ── 指し手 ─────────────────────────────────────────────────
 
   Future<void> _onMove(KifuMove move) async {
@@ -201,33 +244,35 @@ class _MatchScreenState extends State<MatchScreen> {
     setState(() => _isMakingMove = true);
 
     try {
-      // 現在の盤面を取得
-      final doc =
-          await _firestore.collection('matches').doc(widget.matchId).get();
-      if (!doc.exists) return;
-      final data = doc.data()!;
+      // キャッシュ済み盤面を使用（Firestoreを毎回読まない）
+      final cached = _latestBoardState;
+      if (cached == null) return;
 
-      final board = BoardSyncService.boardFromJson(data['board'] as List);
-      final p1Hand = BoardSyncService.handFromJson(
-          (data['p1_hand'] as Map?)?.cast<String, dynamic>());
-      final p2Hand = BoardSyncService.handFromJson(
-          (data['p2_hand'] as Map?)?.cast<String, dynamic>());
+      final board  = cached.board;
+      final p1Hand = Map<PieceType, int>.from(cached.p1Hand);
+      final p2Hand = Map<PieceType, int>.from(cached.p2Hand);
 
-      // Firestore に指し手を適用
-      await _boardSync.applyMove(
-        matchId: widget.matchId,
-        currentBoard: board,
-        p1Hand: p1Hand,
-        p2Hand: p2Hand,
-        move: move,
-        isPlayer1Turn: widget.isPlayer1,
-      );
-
-      // 指した後の盤面で詰みチェック
-      final newBoard = GL.copy(board);
+      // 指し手適用後の盤面を計算
+      final newBoard  = GL.copy(board);
       final newP1Hand = Map<PieceType, int>.from(p1Hand);
       final newP2Hand = Map<PieceType, int>.from(p2Hand);
       GL.applyKifuMove(newBoard, newP1Hand, newP2Hand, move);
+
+      final nextTurn = widget.isPlayer1 ? 2 : 1;
+      final remainingMs = _myTimeRemaining * 1000;
+
+      // RTDBにアトミックに書き込む
+      await _boardSync.applyMove(
+        matchId: widget.matchId,
+        newBoard: newBoard,
+        newP1Hand: newP1Hand,
+        newP2Hand: newP2Hand,
+        nextTurn: nextTurn,
+        move: move,
+        remainingMsForCurrentPlayer: remainingMs,
+      );
+
+      // 指した後の盤面で詰みチェック（上で計算済み）
 
       final opponentIsP1 = !widget.isPlayer1;
       final isCheckmate = _boardSync.isCheckmate(

@@ -1,6 +1,7 @@
 // lib/services/fcm_service.dart
 // FCM プッシュ通知管理
 
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
@@ -38,6 +39,10 @@ class FcmService {
   // コールバック（UIで受け取るため）
   Function(RemoteMessage)? onForegroundMessage;
 
+  StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedAppSub;
+  StreamSubscription<String>? _onTokenRefreshSub;
+
   // ── 初期化 ───────────────────────────────────────────────────
 
   Future<void> initialize() async {
@@ -57,19 +62,19 @@ class FcmService {
 
     debugPrint('FCM permission: ${settings.authorizationStatus}');
 
-    // フォアグラウンドメッセージ
-    FirebaseMessaging.onMessage.listen((message) {
+    // フォアグラウンドメッセージ（重複登録防止）
+    _onMessageSub ??= FirebaseMessaging.onMessage.listen((message) {
       debugPrint('FCM Foreground: ${message.notification?.title}');
       onForegroundMessage?.call(message);
     });
 
     // アプリ起動時（通知タップから）
-    FirebaseMessaging.onMessageOpenedApp.listen((message) {
+    _onMessageOpenedAppSub ??= FirebaseMessaging.onMessageOpenedApp.listen((message) {
       _handleNotificationTap(message);
     });
 
     // トークン更新時の自動保存
-    _fcm.onTokenRefresh.listen((token) => _saveTokenToFirestore(token));
+    _onTokenRefreshSub ??= _fcm.onTokenRefresh.listen((token) => _saveTokenToFirestore(token));
 
     // 初回トークン保存
     await saveCurrentToken();

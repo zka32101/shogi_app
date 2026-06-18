@@ -12,6 +12,8 @@ class MatchingQueue {
   final String? status; // 'waiting', 'matched', 'cancelled'
   final String? matchedWith; // マッチ相手の UID
   final String? matchId; // 対局 ID
+  final List<String> clubIds; // 所属クラブID（同クラブ優先マッチング用）
+  final bool clubMatchOnly; // 同クラブ限定マッチング
 
   MatchingQueue({
     required this.id,
@@ -24,6 +26,8 @@ class MatchingQueue {
     this.status = 'waiting',
     this.matchedWith,
     this.matchId,
+    this.clubIds = const [],
+    this.clubMatchOnly = false,
   });
 
   bool get isWaiting => status == 'waiting';
@@ -33,6 +37,12 @@ class MatchingQueue {
   /// レーティング範囲をチェック（自分のレートが相手の範囲内か）
   bool canMatch(int otherRating) {
     return otherRating >= minRatingRange && otherRating <= maxRatingRange;
+  }
+
+  /// 同クラブメンバーか確認
+  bool shareClub(MatchingQueue other) {
+    if (clubIds.isEmpty || other.clubIds.isEmpty) return false;
+    return clubIds.any((id) => other.clubIds.contains(id));
   }
 
   Map<String, dynamic> toJson() {
@@ -47,6 +57,8 @@ class MatchingQueue {
       'status': status,
       'matched_with': matchedWith,
       'match_id': matchId,
+      'club_ids': clubIds,
+      'club_match_only': clubMatchOnly,
     };
   }
 
@@ -62,6 +74,8 @@ class MatchingQueue {
       status: json['status'] as String? ?? 'waiting',
       matchedWith: json['matched_with'] as String?,
       matchId: json['match_id'] as String?,
+      clubIds: (json['club_ids'] as List?)?.cast<String>() ?? [],
+      clubMatchOnly: json['club_match_only'] as bool? ?? false,
     );
   }
 }

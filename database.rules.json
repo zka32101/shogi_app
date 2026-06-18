@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "games": {
+      "$matchId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    }
+  }
+}

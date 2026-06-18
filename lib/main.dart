@@ -1,6 +1,8 @@
 // lib/main.dart — アプリエントリ + BottomNavigation ホーム画面
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_screen.dart';
 import 'theme_config.dart';
@@ -35,8 +37,8 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'firebase_options.dart';
 import 'services/network_service.dart';
-import 'joseki_drill_screen.dart';
 import 'shodan_roadmap_screen.dart';
+import 'learning_guide_screen.dart';
 import 'next_move_screen.dart';
 import 'castle_break_screen.dart';
 import 'pro_kifu_screen.dart';
@@ -58,6 +60,7 @@ import 'camera_ocr_screen.dart';
 import 'playstyle_diagnosis_screen.dart';
 import 'ghost_service.dart';
 import 'screens/ghost_screen.dart';
+import 'services/fcm_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -78,6 +81,8 @@ void main() async {
     // 起動時: サーバーデータ取得 + オープニングブック DL（バックグラウンド）
     CloudSyncService.pullAndMerge();
     AiDataService.downloadOpeningBook();
+    // G1: プッシュ通知初期化（バックグラウンドハンドラはFirebase.initializeApp後に登録必須）
+    await FcmService().initialize();
   } catch (_) {
     // Firebase 未設定の場合はスキップ（ネットワーク対局機能は無効）
   }
@@ -129,6 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
   int? _byoyomiSec;
   int _fischerIncrementSec = 0;
   PieceTheme _theme = PieceTheme.standard;
+  PieceLabelStyle _labelStyle = PieceLabelStyle.kanji;
   bool _speechEnabled = false;
   bool _soundEnabled = true;
 
@@ -169,6 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
             byoyomiSec: _byoyomiSec,
             fischerIncrementSec: _fischerIncrementSec,
             theme: _theme,
+            labelStyle: _labelStyle,
           ),
           const _KifuTab(),
           const _StudyTab(),
@@ -177,12 +184,14 @@ class _HomeScreenState extends State<HomeScreen> {
             byoyomiSec: _byoyomiSec,
             fischerIncrementSec: _fischerIncrementSec,
             theme: _theme,
+            labelStyle: _labelStyle,
             speechEnabled: _speechEnabled,
             soundEnabled: _soundEnabled,
             onTime: (v) => setState(() => _timeLimitSec = v),
             onByoyomi: (v) => setState(() => _byoyomiSec = v),
             onFischer: (v) => setState(() => _fischerIncrementSec = v),
             onTheme: (v) => setState(() => _theme = v),
+            onLabelStyle: (v) => setState(() => _labelStyle = v),
             onSpeech: (v) {
               setState(() => _speechEnabled = v);
               SpeechService.setEnabled(v);
@@ -233,11 +242,13 @@ class _PlayTab extends StatefulWidget {
   final int? byoyomiSec;
   final int fischerIncrementSec;
   final PieceTheme theme;
+  final PieceLabelStyle labelStyle;
   const _PlayTab({
     required this.timeLimitSec,
     required this.byoyomiSec,
     required this.fischerIncrementSec,
     required this.theme,
+    required this.labelStyle,
   });
   @override
   State<_PlayTab> createState() => _PlayTabState();
@@ -245,6 +256,7 @@ class _PlayTab extends StatefulWidget {
 
 class _PlayTabState extends State<_PlayTab> {
   int _rating = 700;
+  List<int> _ratingHistory = [];
   String _rank = '10級';
   Color _rankColor = Colors.white54;
   int _ghostWins = 0;
@@ -276,6 +288,12 @@ class _PlayTabState extends State<_PlayTab> {
           _ghostLosses = record.losses;
         });
       }
+      try {
+        final raw = prefs.getString('rating_history') ?? '[]';
+        final hist = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+        final ratings = hist.map((e) => e['rating'] as int? ?? 700).toList();
+        if (mounted) setState(() => _ratingHistory = ratings.reversed.take(20).toList().reversed.toList());
+      } catch (_) {}
     } catch (_) {}
   }
 
@@ -350,6 +368,31 @@ class _PlayTabState extends State<_PlayTab> {
               ),
             ),
             const SizedBox(height: 8),
+
+            // ── レーティング推移ミニグラフ ──
+            if (_ratingHistory.length >= 3)
+              GestureDetector(
+                onTap: () => _go(context, const StatsScreen()),
+                child: Container(
+                  height: 48,
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withAlpha(5),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.white12),
+                  ),
+                  child: Row(children: [
+                    const Text('推移', style: TextStyle(color: Colors.white24, fontSize: 9, letterSpacing: 1)),
+                    const SizedBox(width: 8),
+                    Expanded(child: CustomPaint(
+                      painter: _RatingMiniGraphPainter(history: _ratingHistory, currentRating: _rating),
+                    )),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.open_in_new, color: Colors.white24, size: 12),
+                  ]),
+                ),
+              ),
 
             // ── 全ランク一覧（横スクロール） ──
             GestureDetector(
@@ -553,11 +596,23 @@ class _StudyTab extends StatelessWidget {
                   fontSize: 22,
                   fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 4),
+            // レベル凡例
+            Row(children: [
+              _levelChip('全員', Colors.green),
+              const SizedBox(width: 6),
+              _levelChip('10〜5級', Colors.blue),
+              const SizedBox(width: 6),
+              _levelChip('4級〜', Colors.orange),
+            ]),
+            const SizedBox(height: 12),
+
+            // ── 全員向けセクション ──
+            _studyLevelHeader('全員向け', Colors.greenAccent, Icons.people),
 
             // ── 初段ロードマップ ──
             GestureDetector(
-              onTap: () => _go(context, const ShodanRoadmapScreen()),
+              onTap: () => _go(context, const LearningGuideScreen()),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -570,11 +625,11 @@ class _StudyTab extends StatelessWidget {
                   border: Border.all(color: Colors.amber.withAlpha(120), width: 2),
                 ),
                 child: Row(children: [
-                  const Icon(Icons.map, color: Colors.amber, size: 32),
+                  const Icon(Icons.explore, color: Colors.amber, size: 32),
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    const Text('初段への道', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('段位別学習ロードマップ', style: TextStyle(color: Colors.amber.shade200, fontSize: 12)),
+                    const Text('学習ガイド', style: TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold)),
+                    Text('状況別おすすめ学習ルート', style: TextStyle(color: Colors.amber.shade200, fontSize: 12)),
                   ]),
                   const Spacer(),
                   const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
@@ -583,9 +638,12 @@ class _StudyTab extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
+            // ── 初級者向けセクション ──
+            _studyLevelHeader('初級者向け（10〜5級）', Colors.lightBlueAccent, Icons.school),
+
             // ── 定跡練習 ──
             GestureDetector(
-              onTap: () => _go(context, const JosekiDrillScreen()),
+              onTap: () => _go(context, const JosekiScreen()),
               child: Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -602,7 +660,7 @@ class _StudyTab extends StatelessWidget {
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('定跡練習', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('矢倉・四間飛車など4種 インタラクティブ', style: TextStyle(color: Colors.indigo.shade200, fontSize: 12)),
+                    Text('矢倉・四間飛車など8種 盤面ガイド付き', style: TextStyle(color: Colors.indigo.shade200, fontSize: 12)),
                   ]),
                   const Spacer(),
                   const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
@@ -630,7 +688,7 @@ class _StudyTab extends StatelessWidget {
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('次の一手', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('中盤・終盤の好手を見つけよう 15問', style: TextStyle(color: Colors.amber.shade200, fontSize: 12)),
+                    Text('中盤・終盤の好手を見つけよう 15問【10〜5級推奨】', style: TextStyle(color: Colors.amber.shade200, fontSize: 12)),
                   ]),
                   const Spacer(),
                   const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
@@ -638,6 +696,9 @@ class _StudyTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
+
+            // ── 中級者以上セクション ──
+            _studyLevelHeader('中級者以上（4級〜）', Colors.orangeAccent, Icons.trending_up),
 
             // ── 囲い崩し道場 ──
             GestureDetector(
@@ -658,7 +719,7 @@ class _StudyTab extends StatelessWidget {
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('囲い崩し道場', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('美濃・矢倉・穴熊の崩し方 12問', style: TextStyle(color: Colors.orange.shade200, fontSize: 12)),
+                    Text('美濃・矢倉・穴熊の崩し方 12問【4級〜推奨】', style: TextStyle(color: Colors.orange.shade200, fontSize: 12)),
                   ]),
                   const Spacer(),
                   const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
@@ -854,7 +915,7 @@ class _StudyTab extends StatelessWidget {
                   const SizedBox(width: 12),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                     const Text('手筋トレーニング', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
-                    Text('12問・4カテゴリの手筋問題', style: TextStyle(color: Colors.blueGrey.shade200, fontSize: 12)),
+                    Text('12問・4カテゴリの手筋問題【4級〜推奨】', style: TextStyle(color: Colors.blueGrey.shade200, fontSize: 12)),
                   ]),
                   const Spacer(),
                   const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
@@ -1055,17 +1116,19 @@ class _SettingsTab extends StatelessWidget {
   final int? byoyomiSec;
   final int fischerIncrementSec;
   final PieceTheme theme;
+  final PieceLabelStyle labelStyle;
   final bool speechEnabled;
   final bool soundEnabled;
   final ValueChanged<int?> onTime;
   final ValueChanged<int?> onByoyomi;
   final ValueChanged<int> onFischer;
   final ValueChanged<PieceTheme> onTheme;
+  final ValueChanged<PieceLabelStyle> onLabelStyle;
   final ValueChanged<bool> onSpeech;
   final ValueChanged<bool> onSound;
 
-  static const _timeOptions = [null, 180, 300, 600, 900];
-  static const _timeLabels = ['なし', '3分', '5分', '10分', '15分'];
+  static const _timeOptions = [null, 180, 300, 600, 900, 1800];
+  static const _timeLabels = ['なし', '3分', '5分', '10分', '15分', '30分'];
   static const _fischerOptions = [0, 5, 10, 15, 30];
   static const _fischerLabels = ['なし', '+5秒', '+10秒', '+15秒', '+30秒'];
 
@@ -1074,12 +1137,14 @@ class _SettingsTab extends StatelessWidget {
     required this.byoyomiSec,
     required this.fischerIncrementSec,
     required this.theme,
+    required this.labelStyle,
     required this.speechEnabled,
     required this.soundEnabled,
     required this.onTime,
     required this.onByoyomi,
     required this.onFischer,
     required this.onTheme,
+    required this.onLabelStyle,
     required this.onSpeech,
     required this.onSound,
   });
@@ -1107,6 +1172,12 @@ class _SettingsTab extends StatelessWidget {
             const SizedBox(height: 8),
             _buildPremiumCard(context),
             const SizedBox(height: 20),
+
+            // ── 持ち時間プリセット ──
+            _sectionLabel('持ち時間プリセット'),
+            const SizedBox(height: 8),
+            _buildTimePresets(context),
+            const SizedBox(height: 12),
 
             _settingCard([
               // ── 持ち時間 ──
@@ -1234,6 +1305,43 @@ class _SettingsTab extends StatelessWidget {
               ),
               const Divider(color: Colors.white12, height: 24),
 
+              // ── 駒ラベルスタイル ──
+              _sectionLabel('駒ラベルスタイル'),
+              const SizedBox(height: 10),
+              Row(
+                children: PieceLabelStyle.values.map((style) {
+                  final sel = labelStyle == style;
+                  final label = style == PieceLabelStyle.kanji ? '漢字' : '英字 (K/B/R...)';
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: GestureDetector(
+                      onTap: () => onLabelStyle(style),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        decoration: BoxDecoration(
+                          color: sel ? Colors.amber.withAlpha(40) : Colors.white10,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: sel ? Colors.amber : Colors.white24,
+                            width: sel ? 2 : 1,
+                          ),
+                        ),
+                        child: Text(
+                          label,
+                          style: TextStyle(
+                            color: sel ? Colors.amber : Colors.white70,
+                            fontSize: 13,
+                            fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const Divider(color: Colors.white12, height: 24),
+
               // ── 音声読み上げ ──
               _settingRow(
                 '音声読み上げ',
@@ -1310,9 +1418,82 @@ class _SettingsTab extends StatelessWidget {
               ),
             ]),
             const SizedBox(height: 24),
+
+            // ── アプリについて ──
+            _sectionLabel('アプリについて'),
+            const SizedBox(height: 8),
+            _settingCard([
+              const Text(
+                '参考資料',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _SourceLink(
+                title: '将棋講座.com',
+                subtitle: '将棋の格言・定跡・囲いの総合情報',
+                url: 'https://xn--pet04dr1n5x9a.com/',
+              ),
+              const SizedBox(height: 10),
+              _SourceLink(
+                title: '将棋研究',
+                subtitle: '定跡・戦法・手筋の詳細解説',
+                url: 'https://www.shougi.jp/',
+              ),
+            ]),
+            const SizedBox(height: 24),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTimePresets(BuildContext context) {
+    // (label, timeLimitSec, byoyomiSec)
+    const presets = [
+      ('⚡ 早指し', 180, 30),
+      ('⏱ 標準', 600, 60),
+      ('🕐 長考', 1800, 120),
+    ];
+    return Row(
+      children: presets.map((p) {
+        final active = timeLimitSec == p.$2 && byoyomiSec == p.$3;
+        return Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(right: 6),
+            child: GestureDetector(
+              onTap: () {
+                onTime(p.$2);
+                onByoyomi(p.$3);
+              },
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 180),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                decoration: BoxDecoration(
+                  color: active ? Colors.brown.shade700 : Colors.white10,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(
+                    color: active ? Colors.amber : Colors.white24,
+                    width: active ? 1.5 : 1,
+                  ),
+                ),
+                child: Text(
+                  p.$1,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: active ? Colors.amber : Colors.white70,
+                    fontSize: 13,
+                    fontWeight: active ? FontWeight.bold : FontWeight.normal,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 }
@@ -1326,6 +1507,37 @@ Widget _sectionLabel(String text) => Text(
     fontSize: 13,
     letterSpacing: 2,
     fontWeight: FontWeight.w500,
+  ),
+);
+
+// レベルバッジ: 学習機能の対象レベルを示す小さなチップ
+Widget _levelChip(String label, Color color) => Container(
+  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+  decoration: BoxDecoration(
+    color: color.withAlpha(40),
+    borderRadius: BorderRadius.circular(4),
+    border: Border.all(color: color.withAlpha(120), width: 1),
+  ),
+  child: Text(
+    label,
+    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+  ),
+);
+
+// 学習カテゴリ見出し
+Widget _studyLevelHeader(String level, Color color, IconData icon) => Padding(
+  padding: const EdgeInsets.only(top: 16, bottom: 6),
+  child: Row(
+    children: [
+      Icon(icon, color: color, size: 14),
+      const SizedBox(width: 6),
+      Text(
+        level,
+        style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1),
+      ),
+      const SizedBox(width: 8),
+      Expanded(child: Container(height: 1, color: color.withAlpha(60))),
+    ],
   ),
 );
 
@@ -1512,6 +1724,73 @@ Widget _feedbackTile(
   );
 }
 
+class _SourceLink extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String url;
+
+  const _SourceLink({
+    required this.title,
+    required this.subtitle,
+    required this.url,
+  });
+
+  Future<void> _openUrl() async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _openUrl,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.blue.withAlpha(20),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.blue.withAlpha(80), width: 1),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.link, color: Colors.blue.shade400, size: 16),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: Colors.blue.shade400,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 11,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(Icons.open_in_new, color: Colors.blue.withAlpha(150), size: 14),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ===== テーマプレビュー CustomPainter =====
 class _ThemePreviewPainter extends CustomPainter {
   final BoardThemeConfig cfg;
@@ -1545,4 +1824,50 @@ class _ThemePreviewPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ThemePreviewPainter old) => old.cfg != cfg;
+}
+
+class _RatingMiniGraphPainter extends CustomPainter {
+  final List<int> history;
+  final int currentRating;
+  const _RatingMiniGraphPainter({required this.history, required this.currentRating});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (history.length < 2) return;
+    final mn = history.reduce((a, b) => a < b ? a : b) - 50;
+    final mx = history.reduce((a, b) => a > b ? a : b) + 50;
+    final range = (mx - mn).toDouble();
+    if (range <= 0) return;
+
+    final pts = <Offset>[];
+    for (int i = 0; i < history.length; i++) {
+      final x = (i / (history.length - 1)) * size.width;
+      final y = size.height - ((history[i] - mn) / range) * size.height;
+      pts.add(Offset(x, y));
+    }
+
+    // Draw filled area
+    final path = Path()..moveTo(pts.first.dx, size.height);
+    for (final p in pts) path.lineTo(p.dx, p.dy);
+    path..lineTo(pts.last.dx, size.height)..close();
+    canvas.drawPath(path, Paint()
+      ..color = Colors.lightBlueAccent.withAlpha(20)
+      ..style = PaintingStyle.fill);
+
+    // Draw line
+    final linePaint = Paint()
+      ..color = Colors.lightBlueAccent.withAlpha(160)
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+    final linePath = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (int i = 1; i < pts.length; i++) linePath.lineTo(pts[i].dx, pts[i].dy);
+    canvas.drawPath(linePath, linePaint);
+
+    // Last point dot
+    canvas.drawCircle(pts.last, 3, Paint()..color = Colors.lightBlueAccent);
+  }
+
+  @override
+  bool shouldRepaint(_RatingMiniGraphPainter old) =>
+      old.history != history || old.currentRating != currentRating;
 }

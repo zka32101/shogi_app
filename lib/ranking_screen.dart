@@ -176,10 +176,14 @@ class _RankingScreenState extends State<RankingScreen> {
   Widget _buildList() {
     return ListView.builder(
       padding: const EdgeInsets.symmetric(vertical: 8),
-      itemCount: _entries.length,
+      itemCount: _entries.length + 1, // +1 for league card header
       itemBuilder: (context, index) {
-        final entry = _entries[index];
-        final rank  = index + 1;
+        // ヘッダー: リーグカード
+        if (index == 0) {
+          return _LeagueCard(rating: _myLocalRating);
+        }
+        final entry = _entries[index - 1];
+        final rank  = index; // 1-based after header
         final isMe  = entry.userId == _myUserId;
 
         final rankColor = ratingToColor(entry.rating);
@@ -214,6 +218,8 @@ class _RankingScreenState extends State<RankingScreen> {
                     textAlign: TextAlign.center,
                   ),
                 ),
+                // リーグバッジ
+                _LeagueBadge(rating: entry.rating),
                 const SizedBox(width: 8),
 
                 // ニックネーム
@@ -284,4 +290,134 @@ class _RankEntry {
     required this.wins,
     required this.losses,
   });
+}
+
+// ── リーグシステム ────────────────────────────────────────────
+class _League {
+  final String name;
+  final String emoji;
+  final Color color;
+  final int minRating;
+  const _League(this.name, this.emoji, this.color, this.minRating);
+}
+
+const _leagues = [
+  _League('王者',       '👑', Color(0xFFFFD700), 2000),
+  _League('ダイヤモンド', '💎', Color(0xFF00E5FF), 1600),
+  _League('プラチナ',   '🏆', Color(0xFFE0E0E0), 1300),
+  _League('ゴールド',   '🥇', Color(0xFFFFAB40), 1000),
+  _League('シルバー',   '🥈', Color(0xFFB0BEC5), 700),
+  _League('ブロンズ',   '🥉', Color(0xFFBF8E5B), 0),
+];
+
+_League _leagueOf(int rating) {
+  for (final l in _leagues) {
+    if (rating >= l.minRating) return l;
+  }
+  return _leagues.last;
+}
+
+_League? _nextLeague(int rating) {
+  for (int i = _leagues.length - 1; i >= 0; i--) {
+    if (rating < _leagues[i].minRating) return _leagues[i];
+  }
+  return null;
+}
+
+// ── リーグカード（ヘッダー） ──────────────────────────────────
+class _LeagueCard extends StatelessWidget {
+  final int rating;
+  const _LeagueCard({required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    final league = _leagueOf(rating);
+    final next = _nextLeague(rating);
+    final progress = next != null
+        ? ((rating - league.minRating) / (next.minRating - league.minRating)).clamp(0.0, 1.0)
+        : 1.0;
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            league.color.withAlpha(40),
+            const Color(0xFF16213E),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: league.color.withAlpha(100), width: 1.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Text(league.emoji, style: const TextStyle(fontSize: 32)),
+            const SizedBox(width: 12),
+            Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(
+                'あなたのリーグ',
+                style: TextStyle(color: league.color.withAlpha(160), fontSize: 11),
+              ),
+              Text(
+                '${league.name}リーグ',
+                style: TextStyle(color: league.color, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ]),
+            const Spacer(),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('$rating', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+              const Text('レーティング', style: TextStyle(color: Colors.white38, fontSize: 10)),
+            ]),
+          ]),
+          if (next != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('${next.name}まで ${next.minRating - rating}点',
+                    style: TextStyle(color: next.color.withAlpha(200), fontSize: 11)),
+                Text('${(progress * 100).toStringAsFixed(0)}%',
+                    style: TextStyle(color: next.color.withAlpha(180), fontSize: 11)),
+              ],
+            ),
+            const SizedBox(height: 4),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: progress,
+                backgroundColor: Colors.white12,
+                valueColor: AlwaysStoppedAnimation<Color>(next.color),
+                minHeight: 6,
+              ),
+            ),
+          ] else
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: Text('👑 最高リーグ達成！',
+                  style: TextStyle(color: league.color, fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── リーグバッジ（一覧行） ────────────────────────────────────
+class _LeagueBadge extends StatelessWidget {
+  final int rating;
+  const _LeagueBadge({required this.rating});
+
+  @override
+  Widget build(BuildContext context) {
+    final league = _leagueOf(rating);
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Text(league.emoji, style: const TextStyle(fontSize: 14)),
+    );
+  }
 }
