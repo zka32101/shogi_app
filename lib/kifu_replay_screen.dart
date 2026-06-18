@@ -78,6 +78,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
   /// 再生制御用フィールド
   Timer? _playTimer;
   bool _isPlaying = false;
+  double _speed = 1.0; // 再生速度 (0.5x / 1x / 2x)
 
   @override
   void initState() {
@@ -190,7 +191,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
     // 終盤判定：最後の10手か
     int movesRemaining = widget.moves.length - _step;
     bool isEndgame = movesRemaining <= 10;
-    int delayMs = isEndgame ? 2000 : 1500; // 終盤は2秒、通常は1.5秒
+    int delayMs = ((isEndgame ? 2000 : 1500) / _speed).round();
 
     _playTimer = Timer(Duration(milliseconds: delayMs), () {
       if (_isPlaying && mounted) {
@@ -484,6 +485,36 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
             onChanged: !_isPlaying && total > 0
                 ? (v) => _resetToStep(v.round())
                 : null,
+          ),
+          // 再生速度選択
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text('速度:', style: TextStyle(color: Colors.white38, fontSize: 11)),
+              const SizedBox(width: 8),
+              for (final spd in [0.5, 1.0, 2.0])
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 3),
+                  child: GestureDetector(
+                    onTap: () => setState(() => _speed = spd),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _speed == spd ? Colors.lightBlueAccent : Colors.white12,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Text(
+                        spd == 0.5 ? '0.5x' : spd == 1.0 ? '1x' : '2x',
+                        style: TextStyle(
+                          color: _speed == spd ? Colors.black : Colors.white70,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ],
       ),

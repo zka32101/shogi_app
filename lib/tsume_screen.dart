@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' show Random;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -45,7 +46,94 @@ List<List<Piece?>> _empty() =>
 // 先手(p1=true): 上向き、敵陣=row0付近
 // 後手(p2=false): 下向き、敵陣=row8付近
 
-final List<_TsumeProb> _problems = _buildProblems();
+List<_TsumeProb> _problems = _buildProblems();
+bool _extraProblemsLoaded = false;
+
+// 外部JSON問題を非同期ロード（アプリ初回起動時に一度だけ）
+Future<void> _loadExtraProblems() async {
+  if (_extraProblemsLoaded) return;
+  _extraProblemsLoaded = true;
+  try {
+    final jsonStr = await rootBundle.loadString('assets/tsume_extra.json');
+    final List<dynamic> data = json.decode(jsonStr) as List<dynamic>;
+    final extras = data
+        .map((e) => _tsumeFromJson(e as Map<String, dynamic>))
+        .whereType<_TsumeProb>()
+        // 開始局面で後手玉がすでに王手/詰みの問題を除外
+        .where((p) =>
+            !GL.inCheck(p.board, false) &&
+            GL.hasLegalMove(p.board, false, p.p2Hand, p.p1Hand))
+        .toList();
+    _problems.addAll(extras);
+  } catch (_) {
+    // ファイルがない/パースエラーは無視して内蔵問題のみ使用
+  }
+}
+
+// ── JSON → _TsumeProb 変換 ──
+// board: 81要素の文字列リスト。空="", 先手="+XX", 後手="-XX"
+// CSAコード: OU王 HI飛 KA角 KI金 GI銀 KE桂 KY香 FU歩 RY龍 UM馬 NG全 NK圭 NY杏 TO と
+_TsumeProb? _tsumeFromJson(Map<String, dynamic> j) {
+  try {
+    final rawBoard = (j['board'] as List<dynamic>).cast<String>();
+    if (rawBoard.length != 81) return null;
+    final b = _empty();
+    for (int i = 0; i < 81; i++) {
+      final s = rawBoard[i];
+      if (s.isEmpty) continue;
+      final isP1 = s[0] == '+';
+      final code = s.substring(1);
+      final type = _csaToType(code);
+      if (type != null) b[i ~/ 9][i % 9] = Piece(type, isP1);
+    }
+    Map<PieceType, int> parseHand(Map<String, dynamic>? m) {
+      if (m == null) return {};
+      return {
+        for (final e in m.entries)
+          if (_csaToType(e.key) != null) _csaToType(e.key)!: e.value as int
+      };
+    }
+    final sol = (j['solution'] as List<dynamic>).map((e) {
+      final m = e as Map<String, dynamic>;
+      return AMove(
+        fr: m['fr'] as int? ?? -1,
+        fc: m['fc'] as int? ?? -1,
+        tr: m['tr'] as int,
+        tc: m['tc'] as int,
+        drop: m['drop'] != null ? _csaToType(m['drop'] as String) : null,
+        promote: m['promote'] as bool? ?? false,
+      );
+    }).toList();
+    return _TsumeProb(
+      title: j['title'] as String,
+      moves: j['moves'] as int,
+      board: b,
+      p1Hand: parseHand(j['p1Hand'] as Map<String, dynamic>?),
+      p2Hand: parseHand(j['p2Hand'] as Map<String, dynamic>?),
+      solution: sol,
+      explanation: j['explanation'] as String? ?? '',
+    );
+  } catch (_) {
+    return null;
+  }
+}
+
+PieceType? _csaToType(String code) => const {
+  'OU': PieceType.king,
+  'HI': PieceType.rook,
+  'KA': PieceType.bishop,
+  'KI': PieceType.gold,
+  'GI': PieceType.silver,
+  'KE': PieceType.knight,
+  'KY': PieceType.lance,
+  'FU': PieceType.pawn,
+  'RY': PieceType.promotedRook,
+  'UM': PieceType.promotedBishop,
+  'NG': PieceType.promotedSilver,
+  'NK': PieceType.promotedKnight,
+  'NY': PieceType.promotedLance,
+  'TO': PieceType.promotedPawn,
+}[code];
 
 List<_TsumeProb> _buildProblems() {
   final list = <_TsumeProb>[];
@@ -74,14 +162,14 @@ List<_TsumeProb> _buildProblems() {
   }
 
   // ===== 1手詰め ② =====
-  // 持ち駒の金を打って詰める
-  // 後手玉 9一(0,8)、先手金 7一(0,6) ← 8一を塞ぐ (開始時に王手なし)
-  // 手順: 金 8二(1,7)打ち → 9一に王手、逃げ場全て塞ぎ
+  // 後手玉 9一(0,8)、先手銀 8一(0,7)、先手金 9三(2,8)
+  // 手順: 金 8二(1,7)打ち → 詰み
   {
     final b = _empty();
-    b[0][8] = Piece(PieceType.king, false);   // 後手玉 9一(0,8)
-    b[8][0] = Piece(PieceType.king, true);    // 先手玉 1九(8,0)
-    b[0][6] = Piece(PieceType.gold, true);    // 先手金 7一(0,6) ← 8一を塞ぐ
+    b[0][8] = Piece(PieceType.king,   false); // 後手玉 9一(0,8)
+    b[8][4] = Piece(PieceType.king,   true);  // 先手玉 5九(8,4)
+    b[0][7] = Piece(PieceType.silver, true);  // 先手銀 8一(0,7) ← 8一封鎖
+    b[2][8] = Piece(PieceType.gold,   true);  // 先手金 9三(2,8) ← 9二封鎖・8二守備
     list.add(_TsumeProb(
       title: '1手詰め ②',
       moves: 1,
@@ -91,7 +179,7 @@ List<_TsumeProb> _buildProblems() {
       solution: [
         AMove(fr: -1, fc: -1, tr: 1, tc: 7, drop: PieceType.gold), // 金 8二打ち(王手・詰み)
       ],
-      explanation: '持ち駒の金を8二に打ちます。8一は金が封鎖し、9二と8二は打った金で詰み。',
+      explanation: '持ち駒の金を8二に打ちます。8一は銀が封鎖し、9二は9三の金が守り、打った金自身も8二を守るため詰み。',
     ));
   }
 
@@ -120,15 +208,15 @@ List<_TsumeProb> _buildProblems() {
   }
 
   // ===== 1手詰め ④ =====
-  // 後手玉 1一(0,0)、先手角 4四(3,3)、先手銀 2二(1,1) ← 後手駒が逃げを塞ぐ、先手金 3一(0,2)
-  // 手順: 角 4四→2二(後手銀取り)で王手
+  // 後手玉 5一(0,4)、先手銀 4一(0,3)・6一(0,5)、先手龍 6三(2,5)
+  // 手順: 龍 6三→5二(1,4)で王手・詰み
   {
     final b = _empty();
-    b[0][0] = Piece(PieceType.king, false);   // 後手玉 1一(0,0)
-    b[8][8] = Piece(PieceType.king, true);    // 先手玉 9九(8,8)
-    b[3][3] = Piece(PieceType.bishop, true);  // 先手角 4四(3,3)
-    b[1][1] = Piece(PieceType.silver, false); // 後手銀 2二(1,1) ← 後手駒が逃げを塞ぐ
-    b[0][2] = Piece(PieceType.gold, true);    // 先手金 3一(0,2) ← 2一封鎖
+    b[0][4] = Piece(PieceType.king,         false); // 後手玉 5一(0,4)
+    b[8][4] = Piece(PieceType.king,         true);  // 先手玉 5九(8,4)
+    b[0][3] = Piece(PieceType.silver,       true);  // 先手銀 4一(0,3) ← 4一封鎖・5二守備
+    b[0][5] = Piece(PieceType.silver,       true);  // 先手銀 6一(0,5) ← 6一封鎖
+    b[2][5] = Piece(PieceType.promotedRook, true);  // 先手龍 6三(2,5)
     list.add(_TsumeProb(
       title: '1手詰め ④',
       moves: 1,
@@ -136,9 +224,9 @@ List<_TsumeProb> _buildProblems() {
       p1Hand: {},
       p2Hand: {},
       solution: [
-        AMove(fr: 3, fc: 3, tr: 1, tc: 1), // 角 4四→2二(後手銀取り・王手・詰み)
+        AMove(fr: 2, fc: 5, tr: 1, tc: 4), // 龍 6三→5二(王手・詰み)
       ],
-      explanation: '角を4四から2二に進めて後手銀を取りながら王手をかけます。金が2一を塞いでいるため詰み。',
+      explanation: '龍を6三から5二に移動させて5一の後手玉に王手。4一・6一は銀が塞ぎ、4二・5二・6二は龍が封鎖するため詰み。',
     ));
   }
 
@@ -213,17 +301,17 @@ List<_TsumeProb> _buildProblems() {
   }
 
   // ===== 3手詰め ① =====
-  // 飛で王手→後手玉2一逃げ→金打ち詰め
-  // 後手玉 3一(0,2)、先手飛 2四(4,2)、先手銀 2二(1,1)、先手金 4一(0,3)、先手香 1九(8,0)
-  // 手順: 飛を横に2三へ移動して縦で王手
+  // 飛で後手歩を取り王手→後手玉4一に逃げ→金5二打ち詰め
+  // 後手玉 3一(0,2)、先手飛 3五(4,2)、先手銀 2二(1,1)、先手金 4一(0,3)、後手歩 3三(2,2)
+  // 手順: 飛 3五→3三(後手歩取り、縦で王手)→後手玉4一(金取り)→金5二打ち詰み
   {
     final b = _empty();
     b[0][2] = Piece(PieceType.king, false);   // 後手玉 3一(0,2)
     b[8][8] = Piece(PieceType.king, true);    // 先手玉 9九(8,8)
-    b[4][2] = Piece(PieceType.rook, true);    // 先手飛 2五(4,2)
+    b[4][2] = Piece(PieceType.rook, true);    // 先手飛 3五(4,2)
     b[1][1] = Piece(PieceType.silver, true);  // 先手銀 2二(1,1)
     b[0][3] = Piece(PieceType.gold, true);    // 先手金 4一(0,3)
-    b[8][0] = Piece(PieceType.lance, true);   // 先手香 1九(8,0)
+    b[2][2] = Piece(PieceType.pawn, false);   // 後手歩 3三(2,2) ← 飛の王手を遮断
     list.add(_TsumeProb(
       title: '3手詰め ①',
       moves: 3,
@@ -231,28 +319,28 @@ List<_TsumeProb> _buildProblems() {
       p1Hand: {PieceType.gold: 1},
       p2Hand: {},
       solution: [
-        AMove(fr: 4, fc: 2, tr: 1, tc: 2),                           // 飛 2五→2二(王手)
-        AMove(fr: 0, fc: 2, tr: 0, tc: 1),                           // 後手玉 3一→2一(応手)
-        AMove(fr: -1, fc: -1, tr: 0, tc: 0, drop: PieceType.gold),  // 金 1一打ち(詰み)
+        AMove(fr: 4, fc: 2, tr: 2, tc: 2),                           // 飛 3五→3三(後手歩取り、王手)
+        AMove(fr: 0, fc: 2, tr: 0, tc: 3),                           // 後手玉 3一→4一(金取り、唯一の逃げ)
+        AMove(fr: -1, fc: -1, tr: 1, tc: 4, drop: PieceType.gold),  // 金 5二打ち(詰み)
       ],
-      explanation: '飛を2五から2二に進めて王手をかけ、後手玉を2一に追い込み、金を1一に打って詰めます。',
+      explanation: '飛で後手歩を取りながら王手。後手玉は銀・飛に塞がれ4一(金取り)しか逃げられません。最後に金を5二に打って詰めます。',
     ));
   }
 
   // ===== 3手詰め ② =====
-  // 龍で追い詰める3手詰め
-  // 後手玉 1一(0,0)、先手龍 3一(0,2)...wait, this also checks. Use different setup:
-  // 後手玉 1一(0,0)、先手龍 1六(5,0)、先手金 3一(0,2)
+  // 龍で後手歩を取り王手→後手玉2一に逃げ→龍1一で詰み
+  // 後手玉 1一(0,0)、先手龍 1六(5,0)、先手金 3三(2,2)、後手歩 1四(3,0)
   // 手順:
-  //   1. 龍 1六→1二(1,0) 王手
-  //   2. 後手玉 1一→2二(1,1) 逃げ
-  //   3. 龍 1二→2二(1,1) 後手玉取り(詰み)
+  //   1. 龍 1六→1四(後手歩取り、縦で王手)
+  //   2. 後手玉 1一→2一(0,1)逃げ(唯一の逃げ: 1二は龍縦・2二は金斜め封鎖)
+  //   3. 龍 1四→1一(0,0)→後手玉2一は龍隣接で詰み
   {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);          // 後手玉 1一(0,0)
     b[8][8] = Piece(PieceType.king, true);            // 先手玉 9九(8,8)
     b[5][0] = Piece(PieceType.promotedRook, true);   // 先手龍 1六(5,0)
-    b[0][2] = Piece(PieceType.gold, true);            // 先手金 3一(0,2)
+    b[2][2] = Piece(PieceType.gold, true);            // 先手金 3三(2,2)
+    b[3][0] = Piece(PieceType.pawn, false);           // 後手歩 1四(3,0) ← 龍の王手を遮断
     list.add(_TsumeProb(
       title: '3手詰め ②',
       moves: 3,
@@ -260,11 +348,11 @@ List<_TsumeProb> _buildProblems() {
       p1Hand: {},
       p2Hand: {},
       solution: [
-        AMove(fr: 5, fc: 0, tr: 1, tc: 0),  // 龍 1六→1二(王手)
-        AMove(fr: 0, fc: 0, tr: 1, tc: 1),  // 後手玉 1一→2二(応手)
-        AMove(fr: 1, fc: 0, tr: 1, tc: 1),  // 龍 1二→2二(詰み)
+        AMove(fr: 5, fc: 0, tr: 3, tc: 0),  // 龍 1六→1四(後手歩取り、縦で王手)
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),  // 後手玉 1一→2一(0,1)逃げ
+        AMove(fr: 3, fc: 0, tr: 0, tc: 0),  // 龍 1四→1一(0,0)、王を2一に追い詰め(詰み)
       ],
-      explanation: '龍で縦に王手して後手玉を2二に誘い出し、龍が横に動いて詰めます。金が逃げ道を塞いでいます。',
+      explanation: '龍で後手歩を取りながら王手。後手玉は2一に逃げるしかなく、龍が1一に入ると全逃げ道が塞がれ詰みです。',
     ));
   }
 
@@ -850,39 +938,14 @@ List<_TsumeProb> _buildProblems() {
     ));
   }
 
-  // ===== 7手詰め ① =====
-  // 後手玉 1一(0,0)、先手龍 3三(2,2)、先手金 2三(2,1)、先手金 1四(3,0)
-  // 持ち駒: 角×1
-  // 手順: 角打→龍追い→金追い×2で端玉を詰める
-  {
-    final b = _empty();
-    b[0][0] = Piece(PieceType.king, false);         // 後手玉 1一(0,0)
-    b[8][8] = Piece(PieceType.king, true);           // 先手玉 9九(8,8)
-    b[2][2] = Piece(PieceType.promotedRook, true);  // 先手龍 3三(2,2)
-    b[2][1] = Piece(PieceType.gold, true);           // 先手金 2三(2,1)
-    b[3][0] = Piece(PieceType.gold, true);           // 先手金 1四(3,0)
-    list.add(_TsumeProb(
-      title: '7手詰め ①',
-      moves: 7,
-      board: b,
-      p1Hand: {PieceType.bishop: 1},
-      p2Hand: {},
-      solution: [
-        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.bishop), // 角打 2二
-        AMove(fr: 0, fc: 0, tr: 0, tc: 1),  // 後手玉 1一→2一
-        AMove(fr: 2, fc: 2, tr: 0, tc: 2),  // 龍 3三→3一
-        AMove(fr: 0, fc: 1, tr: 1, tc: 0),  // 後手玉 2一→1二
-        AMove(fr: 2, fc: 1, tr: 1, tc: 1),  // 金 2三→2二
-        AMove(fr: 1, fc: 0, tr: 2, tc: 0),  // 後手玉 1二→1三
-        AMove(fr: 3, fc: 0, tr: 2, tc: 0),  // 金 1四→1三(詰み)
-      ],
-      explanation: '角打ちから龍と金で後手玉を1筋の奥に追い詰める7手詰めです。持ち駒の角を活用する手筋が鍵です。',
-    ));
-  }
 
   // ===== 追加問題 (⑧以降) =====
   _buildExtraProblems(list);
 
+  // 開始局面で後手玉がすでに王手または詰みの問題を除外
+  list.retainWhere((p) =>
+      !GL.inCheck(p.board, false) &&
+      GL.hasLegalMove(p.board, false, p.p2Hand, p.p1Hand));
   return list;
 }
 
@@ -1009,31 +1072,6 @@ void _buildExtraProblems(List<_TsumeProb> list) {
     ));
   }
 
-  // ── 7手詰め ② ─────────────────────────────
-  // 持ち駒の飛を使った7手詰め
-  {
-    final b = _empty();
-    b[0][0] = Piece(PieceType.king,   false); // 後手玉 1一
-    b[1][0] = Piece(PieceType.pawn,   false); // 後手歩 1二
-    b[0][1] = Piece(PieceType.silver, false); // 後手銀 2一
-    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
-    b[2][1] = Piece(PieceType.gold,   true);  // 先手金 2三
-    b[0][2] = Piece(PieceType.gold,   true);  // 先手金 3一
-    list.add(_TsumeProb(
-      title: '7手詰め ②', moves: 7, board: b,
-      p1Hand: {PieceType.rook: 1, PieceType.silver: 1}, p2Hand: {},
-      solution: [
-        AMove(fr: -1, fc: -1, tr: 2, tc: 0, drop: PieceType.rook),   // 飛1三打ち 王手
-        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                            // 後手玉1一→2一(後手銀取り)
-        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.silver),  // 銀2二打ち 王手
-        AMove(fr: 0, fc: 1, tr: 0, tc: 2),                            // 後手玉2一→3一(先手金取り)
-        AMove(fr: 2, fc: 1, tr: 1, tc: 1),                            // 金2三→2二 王手
-        AMove(fr: 0, fc: 2, tr: 1, tc: 2),                            // 後手玉3一→3二
-        AMove(fr: 2, fc: 0, tr: 1, tc: 0),                            // 飛1三→1二 詰み
-      ],
-      explanation: '飛打ちから後手玉を端に追い込む7手詰め。銀・金の協力と飛の縦効きを最大限に活かします。',
-    ));
-  }
 
   // ── 9手詰め ① ─────────────────────────────
   // 飛角銀金を使った9手詰め
@@ -1060,6 +1098,226 @@ void _buildExtraProblems(List<_TsumeProb> list) {
         AMove(fr: 2, fc: 1, tr: 0, tc: 1),                            // 飛 2三→2一 詰み
       ],
       explanation: '角打ちから始まる9手詰め。飛・角・金・香の総力戦で後手玉を1筋コーナーに封じ込める長手数の詰将棋。',
+    ));
+  }
+
+  // ── 1手詰め ⑪ ─────────────────────────────
+  // 後手玉9一(0,8), 先手飛9二(1,8), 先手金8一(0,7)
+  // 手順: 飛成り9二→9一(0,8) 王手 ... 龍で詰み
+  {
+    final b = _empty();
+    b[0][8] = Piece(PieceType.king, false);  // 後手玉 9一
+    b[8][0] = Piece(PieceType.king, true);   // 先手玉 1九
+    b[1][8] = Piece(PieceType.rook, true);   // 先手飛 9二
+    b[0][7] = Piece(PieceType.gold, true);   // 先手金 8一(8一封鎖)
+    list.add(_TsumeProb(
+      title: '1手詰め ⑪', moves: 1, board: b,
+      p1Hand: {}, p2Hand: {},
+      solution: [AMove(fr: 1, fc: 8, tr: 0, tc: 8, promote: true)], // 飛→9一成
+      explanation: '飛車を9二から9一に進めて成り、龍王にして後手玉に王手。8一に金があり詰み。',
+    ));
+  }
+
+  // ── 1手詰め ⑫ ─────────────────────────────
+  // 後手玉5一(0,4), 先手馬4二(1,3), 先手金6一(0,5)
+  // 手順: 馬 4二→5二(1,4) 王手 後手玉逃げ場なし
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king, false);           // 後手玉 5一
+    b[8][4] = Piece(PieceType.king, true);            // 先手玉 5九
+    b[1][3] = Piece(PieceType.promotedBishop, true);  // 先手馬 4二
+    b[0][5] = Piece(PieceType.gold, true);            // 先手金 6一(6一封鎖)
+    b[0][3] = Piece(PieceType.gold, true);            // 先手金 4一(4一封鎖)
+    list.add(_TsumeProb(
+      title: '1手詰め ⑫', moves: 1, board: b,
+      p1Hand: {}, p2Hand: {},
+      solution: [AMove(fr: 1, fc: 3, tr: 1, tc: 4)], // 馬 4二→5二 王手
+      explanation: '馬を5二に進めて5一の後手玉に斜め王手。4一・6一は金で封鎖され詰み。',
+    ));
+  }
+
+  // ── 3手詰め ⑪ ─────────────────────────────
+  // 先手金打ち→玉逃げ→金打ち詰め
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king, false);  // 後手玉 1一
+    b[8][8] = Piece(PieceType.king, true);   // 先手玉 9九
+    b[0][2] = Piece(PieceType.silver, true); // 先手銀 3一(2一封鎖)
+    list.add(_TsumeProb(
+      title: '3手詰め ⑪', moves: 3, board: b,
+      p1Hand: {PieceType.gold: 2}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.gold), // 金2二打ち 王手
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                          // 玉1一→2一
+        AMove(fr: -1, fc: -1, tr: 0, tc: 0, drop: PieceType.gold), // 金1一打ち 詰み
+      ],
+      explanation: '金を2二に打って1一の後手玉に王手。玉は2一に逃げるが、1一に金を打って詰み。',
+    ));
+  }
+
+  // ── 3手詰め ⑫ ─────────────────────────────
+  // 桂打ち王手→玉9二逃げ→金8二打ち詰め
+  // 後手玉 9一(0,8)、先手龍 7三(2,6)、先手金 7二(1,6)、先手金 9四(3,8)
+  // 手順: 桂8三打ち(9一に効く)→後手玉9二→金7二→8二(横で王手+詰み)
+  {
+    final b = _empty();
+    b[0][8] = Piece(PieceType.king,         false); // 後手玉 9一(0,8)
+    b[8][0] = Piece(PieceType.king,         true);  // 先手玉 1九(8,0)
+    b[2][6] = Piece(PieceType.promotedRook, true);  // 先手龍 7三(2,6)
+    b[1][6] = Piece(PieceType.gold,         true);  // 先手金 7二(1,6)
+    b[3][8] = Piece(PieceType.gold,         true);  // 先手金 9四(3,8) ← 9三逃げ封鎖
+    list.add(_TsumeProb(
+      title: '3手詰め ⑫', moves: 3, board: b,
+      p1Hand: {PieceType.knight: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 2, tc: 7, drop: PieceType.knight), // 桂8三打ち(9一に跳ね王手)
+        AMove(fr: 0, fc: 8, tr: 1, tc: 8),                            // 後手玉 9一→9二(唯一の逃げ)
+        AMove(fr: 1, fc: 6, tr: 1, tc: 7),                            // 金 7二→8二(横で王手=詰み)
+      ],
+      explanation: '桂を8三に打って9一の後手玉に王手。9二に逃げるしかないところを金が8二に寄って詰み。龍と金が逃げ道を完全封鎖します。',
+    ));
+  }
+
+  // ── 5手詰め ⑦ ─────────────────────────────
+  // 飛打ち→取り→龍成り→逃げ→金打ち
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,   false); // 後手玉 1一
+    b[1][0] = Piece(PieceType.gold,   false); // 後手金 1二(盾)
+    b[0][1] = Piece(PieceType.silver, false); // 後手銀 2一(横逃げ封鎖)
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[0][2] = Piece(PieceType.gold,   true);  // 先手金 3一(2一取りで2一封鎖)
+    list.add(_TsumeProb(
+      title: '5手詰め ⑦', moves: 5, board: b,
+      p1Hand: {PieceType.rook: 1, PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 2, tc: 0, drop: PieceType.rook),  // 飛1三打ち 王手
+        AMove(fr: 1, fc: 0, tr: 2, tc: 0),                           // 後手金 1二→1三(飛取り)
+        AMove(fr: -1, fc: -1, tr: 1, tc: 0, drop: PieceType.rook),  // 飛1二打ち 王手
+        AMove(fr: 0, fc: 0, tr: 1, tc: 0),                           // 後手玉 1一→1二(飛取り)
+        AMove(fr: -1, fc: -1, tr: 0, tc: 0, drop: PieceType.gold),  // 金1一打ち 詰み
+      ],
+      explanation: '飛打ちで後手金を誘い出してから再度飛打ち。後手玉を1二に引き上げて1一に金を打ち詰み。捨て駒が鍵。',
+    ));
+  }
+
+  // ── 5手詰め ⑧ ─────────────────────────────
+  // 角打ち王手→玉逃げ→金打ち→玉逃げ→飛成り詰め
+  {
+    final b = _empty();
+    b[0][2] = Piece(PieceType.king,   false); // 後手玉 3一
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[1][1] = Piece(PieceType.rook,   true);  // 先手飛 2二(横効き)
+    b[0][0] = Piece(PieceType.silver, true);  // 先手銀 1一(1一封鎖)
+    list.add(_TsumeProb(
+      title: '5手詰め ⑧', moves: 5, board: b,
+      p1Hand: {PieceType.bishop: 1, PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 1, tc: 3, drop: PieceType.bishop), // 角4二打ち 王手(斜め3一に効く)
+        AMove(fr: 0, fc: 2, tr: 0, tc: 1),                            // 後手玉 3一→2一
+        AMove(fr: -1, fc: -1, tr: 1, tc: 0, drop: PieceType.gold),   // 金1二打ち 王手
+        AMove(fr: 0, fc: 1, tr: 0, tc: 2),                            // 後手玉 2一→3一
+        AMove(fr: 1, fc: 1, tr: 0, tc: 1, promote: true),             // 飛 2二→2一成(龍) 詰み
+      ],
+      explanation: '角打ちで後手玉を2一に誘い、金打ちで3一に戻らせる。最後に飛を成って2一に龍を作り詰み。',
+    ));
+  }
+
+  // ── 1手詰め ⑬ ─────────────────────────────
+  // 後手玉3一(0,2), 持ち駒金、先手銀2二(1,1), 先手飛4二(1,3)
+  {
+    final b = _empty();
+    b[0][2] = Piece(PieceType.king,   false); // 後手玉 3一
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[1][1] = Piece(PieceType.silver, true);  // 先手銀 2二(2二→3一の王手封鎖+2一封鎖)
+    b[1][3] = Piece(PieceType.rook,   true);  // 先手飛 4二(縦4一・横効き)
+    list.add(_TsumeProb(
+      title: '1手詰め ⑬', moves: 1, board: b,
+      p1Hand: {PieceType.gold: 1}, p2Hand: {},
+      solution: [AMove(fr: -1, fc: -1, tr: 0, tc: 1, drop: PieceType.gold)], // 金2一打ち
+      explanation: '金を2一に打って3一の後手玉に王手。4一は飛の縦効き、4二は飛、2二は銀、2一は今打った金で詰み。',
+    ));
+  }
+
+  // ── 3手詰め ⑬ ─────────────────────────────
+  // 角で王手→逃げ→金打ち詰め（3筋玉の詰め）
+  {
+    final b = _empty();
+    b[0][6] = Piece(PieceType.king,   false); // 後手玉 7一
+    b[8][8] = Piece(PieceType.king,   true);  // 先手玉 9九
+    b[2][8] = Piece(PieceType.bishop, true);  // 先手角 9三(斜め7一に効く)
+    b[0][5] = Piece(PieceType.gold,   true);  // 先手金 6一(6一封鎖)
+    b[0][7] = Piece(PieceType.gold,   true);  // 先手金 8一(8一封鎖)
+    list.add(_TsumeProb(
+      title: '3手詰め ⑬', moves: 3, board: b,
+      p1Hand: {PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: 2, fc: 8, tr: 1, tc: 7),                           // 角 9三→8二 王手(斜め7一に効く)
+        AMove(fr: 0, fc: 6, tr: 0, tc: 5),                           // 後手玉 7一→6一(先手金取り)
+        AMove(fr: -1, fc: -1, tr: 0, tc: 6, drop: PieceType.gold),  // 金7一打ち 詰み
+      ],
+      explanation: '角を8二に進めて7一の後手玉に斜め王手。玉は6一に逃げるが、7一に金を打って詰み。金の捨て手が伏線。',
+    ));
+  }
+
+  // ── 5手詰め ⑨ ─────────────────────────────
+  // 銀捨て→龍引き→銀打ち→逃げ→金打ち詰め
+  {
+    final b = _empty();
+    b[0][0] = Piece(PieceType.king,         false); // 後手玉 1一
+    b[1][1] = Piece(PieceType.silver,       false); // 後手銀 2二(盾)
+    b[8][8] = Piece(PieceType.king,         true);  // 先手玉 9九
+    b[2][0] = Piece(PieceType.promotedRook, true);  // 先手龍 1三
+    b[0][2] = Piece(PieceType.gold,         true);  // 先手金 3一(2一封鎖)
+    list.add(_TsumeProb(
+      title: '5手詰め ⑨', moves: 5, board: b,
+      p1Hand: {PieceType.silver: 1, PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: -1, fc: -1, tr: 1, tc: 0, drop: PieceType.silver), // 銀1二打ち 王手
+        AMove(fr: 1, fc: 1, tr: 1, tc: 0),                            // 後手銀 2二→1二(先手銀取り)
+        AMove(fr: 2, fc: 0, tr: 1, tc: 0),                            // 龍 1三→1二(後手銀取り) 王手
+        AMove(fr: 0, fc: 0, tr: 0, tc: 1),                            // 後手玉 1一→2一
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.gold),   // 金2二打ち 詰み
+      ],
+      explanation: '銀を捨てて後手銀を1二へ誘い出し、龍で取りながら王手。後手玉は2一に逃げるが金打ちで詰み。',
+    ));
+  }
+
+
+  // ── 1手詰め ⑭ ─────────────────────────────
+  // 後手玉9九(8,8), 先手金8八(7,7), 先手飛1九(8,0)
+  {
+    final b = _empty();
+    b[8][8] = Piece(PieceType.king,  false); // 後手玉 9九
+    b[0][0] = Piece(PieceType.king,  true);  // 先手玉 1一
+    b[7][7] = Piece(PieceType.gold,  true);  // 先手金 8八(斜め封鎖)
+    b[8][0] = Piece(PieceType.rook,  true);  // 先手飛 1九(横王手)
+    b[7][8] = Piece(PieceType.silver,true);  // 先手銀 9八(8九封鎖)
+    list.add(_TsumeProb(
+      title: '1手詰め ⑭', moves: 1, board: b,
+      p1Hand: {PieceType.gold: 1}, p2Hand: {},
+      solution: [AMove(fr: -1, fc: -1, tr: 7, tc: 8, drop: PieceType.gold)], // 金9八打ち
+      explanation: '金を9八に打って9九の後手玉に王手。8八は金、9八は今打った金、8九は銀で封鎖され詰み。',
+    ));
+  }
+
+  // ── 3手詰め ⑭ ─────────────────────────────
+  // と金+金の連携
+  {
+    final b = _empty();
+    b[0][4] = Piece(PieceType.king,          false); // 後手玉 5一
+    b[8][4] = Piece(PieceType.king,          true);  // 先手玉 5九
+    b[1][4] = Piece(PieceType.promotedPawn,  true);  // 先手と 5二(直下で王手可)
+    b[0][5] = Piece(PieceType.gold,          true);  // 先手金 6一(6一封鎖)
+    list.add(_TsumeProb(
+      title: '3手詰め ⑭', moves: 3, board: b,
+      p1Hand: {PieceType.gold: 1}, p2Hand: {},
+      solution: [
+        AMove(fr: 1, fc: 4, tr: 0, tc: 4),                          // と 5二→5一 王手
+        AMove(fr: 0, fc: 4, tr: 0, tc: 3),                          // 後手玉 5一→4一
+        AMove(fr: -1, fc: -1, tr: 1, tc: 3, drop: PieceType.gold), // 金4二打ち 詰み
+      ],
+      explanation: 'と金で5一に王手して後手玉を4一に誘い、4二に金を打って詰み。と金と金の連携。',
     ));
   }
 }
@@ -1349,7 +1607,7 @@ class DailyTsumeScreen extends StatefulWidget {
 
 class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
   static const _bg = Color(0xFF1A1A2E);
-  static const _maxAttempts = 3;
+  static const _maxAttempts = 999;  // 無制限（実質上限）
 
   late final _TsumeProb _prob;
   late final int _probIdx;
@@ -2014,12 +2272,103 @@ class _TsumeScreenState extends State<TsumeScreen>
     _cleared = List.filled(_problems.length, false);
     _loadCleared();
     _loadStreak();
+    // 外部JSON問題を非同期ロード（初回のみ）
+    _loadExtraProblems().then((_) {
+      if (mounted) {
+        setState(() {
+          // 外部問題追加後に _cleared を拡張
+          if (_cleared.length < _problems.length) {
+            _cleared = List.filled(_problems.length, false);
+            _loadCleared();
+          }
+        });
+      }
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  // ── タイムランキング表示 ──
+  Future<void> _showTimeRanking() async {
+    final prefs = await SharedPreferences.getInstance();
+    // 解決済み問題のベストタイムを収集
+    final entries = <({String title, int moves, int bestSec, int idx})>[];
+    for (int i = 0; i < _problems.length; i++) {
+      final best = prefs.getInt('tsume_best_time_$i');
+      if (best != null) {
+        entries.add((title: _problems[i].title, moves: _problems[i].moves, bestSec: best, idx: i));
+      }
+    }
+    // ベストタイム昇順でソート
+    entries.sort((a, b) {
+      if (a.moves != b.moves) return a.moves.compareTo(b.moves);
+      return a.bestSec.compareTo(b.bestSec);
+    });
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Row(children: [
+          Icon(Icons.emoji_events, color: Colors.amber, size: 22),
+          SizedBox(width: 8),
+          Text('タイムランキング', style: TextStyle(color: Colors.white, fontSize: 16)),
+        ]),
+        content: SizedBox(
+          width: 320,
+          child: entries.isEmpty
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Text('まだ解いた問題がありません', style: TextStyle(color: Colors.white54), textAlign: TextAlign.center),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  itemCount: entries.length,
+                  separatorBuilder: (_, __) => const Divider(color: Colors.white12, height: 8),
+                  itemBuilder: (_, i) {
+                    final e = entries[i];
+                    final fmtTime = e.bestSec < 60
+                        ? '${e.bestSec}秒'
+                        : '${e.bestSec ~/ 60}分${e.bestSec % 60}秒';
+                    final medals = ['🥇', '🥈', '🥉'];
+                    final medal = i < 3 ? medals[i] : '${i + 1}.';
+                    return Row(children: [
+                      Text(medal, style: const TextStyle(fontSize: 16)),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(e.title,
+                            style: const TextStyle(color: Colors.white, fontSize: 13)),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withAlpha(30),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(fmtTime,
+                            style: TextStyle(
+                              color: i == 0 ? Colors.amber : Colors.white70,
+                              fontSize: 12,
+                              fontWeight: i == 0 ? FontWeight.bold : FontWeight.normal,
+                            )),
+                      ),
+                    ]);
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('閉じる'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── ストリーク読み込み ──
@@ -2144,6 +2493,35 @@ class _TsumeScreenState extends State<TsumeScreen>
   }
 
   // ── デイリー問題カード ──
+  Widget _timeAttackCard(BuildContext ctx) {
+    return Card(
+      color: const Color(0xFF16213E),
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.deepOrange.withAlpha(100), width: 1),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        leading: Container(
+          width: 44, height: 44,
+          decoration: BoxDecoration(
+            color: Colors.deepOrange.shade900.withAlpha(120),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Icon(Icons.timer, color: Colors.deepOrange, size: 26),
+        ),
+        title: const Text('タイムアタック',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
+        subtitle: const Text('3分間で何問解けるか挑戦！',
+            style: TextStyle(color: Colors.white54, fontSize: 12)),
+        trailing: const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
+        onTap: () => Navigator.push(
+          ctx, MaterialPageRoute(builder: (_) => const TsumeTimeAttackScreen())),
+      ),
+    );
+  }
+
   Widget _dailyCard() {
     final idx = _dailyIdx;
     final prob = _problems[idx];
@@ -2289,6 +2667,12 @@ class _TsumeScreenState extends State<TsumeScreen>
         title: const Text('詰将棋', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          // タイムランキング
+          IconButton(
+            icon: const Icon(Icons.emoji_events_outlined, color: Colors.amber),
+            tooltip: 'タイムランキング',
+            onPressed: _showTimeRanking,
+          ),
           // ストリークバッジ
           if (_streak > 0)
             Padding(
@@ -2359,13 +2743,16 @@ class _TsumeScreenState extends State<TsumeScreen>
             )
           : ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: filtered.length + (_filterMoves == 0 ? 1 : 0), // +1 for daily card
+        itemCount: filtered.length + (_filterMoves == 0 ? 2 : 0), // +2 for daily + time attack cards
         itemBuilder: (context, listIdx) {
           // デイリー問題カード（全てタブのみ・先頭）
           if (_filterMoves == 0 && listIdx == 0) {
             return _dailyCard();
           }
-          final realIdx = _filterMoves == 0 ? listIdx - 1 : listIdx;
+          if (_filterMoves == 0 && listIdx == 1) {
+            return _timeAttackCard(context);
+          }
+          final realIdx = _filterMoves == 0 ? listIdx - 2 : listIdx;
           final (origIdx, prob) = filtered[realIdx];
           final cleared = origIdx < _cleared.length && _cleared[origIdx];
           return Card(
@@ -2467,6 +2854,7 @@ class _SolvePageState extends State<_SolvePage> {
   (int, int)? _lastFrom;
   (int, int)? _lastTo;
   PieceType? _selectedHandPiece;
+  int _hintLevel = 0;
 
   // ── タイマー ──
   final _stopwatch = Stopwatch();
@@ -2550,7 +2938,7 @@ class _SolvePageState extends State<_SolvePage> {
   // ===== 盤面タップ =====
 
   void _onBoardTap(int row, int col) {
-    if (_solved || !_p1Turn || _verifying || _startInCheck) return;
+    if (_solved || !_p1Turn || _verifying) return;
 
     if (_selectedHandPiece != null) {
       _tryDrop(row, col); // async - fire and forget OK
@@ -2654,7 +3042,7 @@ class _SolvePageState extends State<_SolvePage> {
     await _verifyAndApplyMove([mv]);
   }
 
-  /// 候補手を順番に検証し、詰み手なら適用する
+  /// 候補手を順番に検証し、正解なら適用・不正解なら一時表示後に戻す
   Future<void> _verifyAndApplyMove(List<AMove> candidates) async {
     setState(() => _verifying = true);
 
@@ -2676,17 +3064,53 @@ class _SolvePageState extends State<_SolvePage> {
     }
 
     if (!mounted) return;
+
+    if (validMove == null) {
+      // 不正解: 盤面に手を表示してから元に戻す
+      final mv = candidates.first;
+      final savedBoard = List.generate(9, (r) => List<Piece?>.from(_board[r]));
+      final savedP1Hand = Map<PieceType, int>.from(_p1Hand);
+      final savedP2Hand = Map<PieceType, int>.from(_p2Hand);
+
+      // 視覚的に手を適用（_verifyingはtrueのまま入力ブロック）
+      if (mv.drop != null) {
+        _execDrop(mv.drop!, mv.tr, mv.tc, isP1: true);
+      } else {
+        _execMove(mv.fr, mv.fc, mv.tr, mv.tc, mv.promote);
+      }
+      setState(() {
+        _selected = null;
+        _legalDots = {};
+        _selectedHandPiece = null;
+      });
+
+      _showWrong();
+
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+
+      // 盤面を元に戻す
+      for (int r = 0; r < 9; r++) {
+        for (int c = 0; c < 9; c++) {
+          _board[r][c] = savedBoard[r][c];
+        }
+      }
+      _p1Hand.clear(); _p1Hand.addAll(savedP1Hand);
+      _p2Hand.clear(); _p2Hand.addAll(savedP2Hand);
+      setState(() {
+        _lastFrom = null;
+        _lastTo = null;
+        _verifying = false;
+      });
+      return;
+    }
+
     setState(() {
       _verifying = false;
       _selected = null;
       _legalDots = {};
       _selectedHandPiece = null;
     });
-
-    if (validMove == null) {
-      _showWrong();
-      return;
-    }
 
     // 正解手を適用
     if (validMove.drop != null) {
@@ -2747,12 +3171,11 @@ class _SolvePageState extends State<_SolvePage> {
           2,     // 深さ2（十分高速・高品質）
         ));
 
-        // フォールバック: AI が手を見つけられない場合はスクリプト手
-        if (defMove == null && _solutionIdx < sol.length) {
-          defMove = sol[_solutionIdx];
+        if (defMove == null) {
+          // AI が手を見つけられない = 詰み確定
+          if (mounted) _onSolved();
+          return;
         }
-
-        if (!mounted || defMove == null) return;
 
         setState(() {
           if (defMove!.drop != null) {
@@ -2884,15 +3307,13 @@ class _SolvePageState extends State<_SolvePage> {
   }
 
   void _showWrong() {
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('もう一度考えてみましょう'),
-          backgroundColor: Colors.redAccent,
-          duration: Duration(seconds: 2),
-        ),
-      );
-    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('✗ その手では詰みません'),
+        duration: Duration(milliseconds: 700),
+        backgroundColor: Colors.redAccent,
+      ),
+    );
   }
 
   // ===== 持ち駒ウィジェット =====
@@ -3142,6 +3563,90 @@ class _SolvePageState extends State<_SolvePage> {
                 ),
                 const SizedBox(height: 16),
 
+                // ヒントボタン
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    TextButton.icon(
+                      icon: Icon(
+                        _hintLevel == 0 ? Icons.lightbulb_outline : Icons.lightbulb,
+                        color: _hintLevel > 0 ? Colors.amber : Colors.white54,
+                        size: 16,
+                      ),
+                      label: Text(
+                        _hintLevel == 0 ? 'ヒント' : _hintLevel == 1 ? 'ヒント (駒種)' : 'ヒント (移動先)',
+                        style: TextStyle(
+                          color: _hintLevel > 0 ? Colors.amber : Colors.white54,
+                          fontSize: 13,
+                        ),
+                      ),
+                      onPressed: !_solved ? () {
+                        setState(() => _hintLevel = (_hintLevel + 1) % 3);
+                      } : null,
+                    ),
+                    if (_hintLevel > 0)
+                      TextButton(
+                        onPressed: () => setState(() => _hintLevel = 0),
+                        child: const Text('リセット', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                      ),
+                  ],
+                ),
+                if (_hintLevel > 0 && !_solved) Builder(builder: (ctx) {
+                  final sol = widget.prob.solution;
+                  if (sol.isEmpty) return const SizedBox.shrink();
+                  final firstMove = sol[0];
+
+                  if (_hintLevel == 1) {
+                    // Level 1: 駒の種類のみ
+                    Piece? piece;
+                    if (firstMove.drop != null) {
+                      piece = Piece(firstMove.drop!, true);
+                    } else if (firstMove.fr >= 0 && firstMove.fr < 9) {
+                      piece = _board[firstMove.fr][firstMove.fc];
+                    }
+                    final pieceName = piece?.label ?? '?';
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withAlpha(20),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withAlpha(80)),
+                      ),
+                      child: Text('ヒント: $pieceName を動かす',
+                          style: const TextStyle(color: Colors.amber, fontSize: 12),
+                          textAlign: TextAlign.center),
+                    );
+                  } else {
+                    // Level 2: 移動先も表示
+                    Piece? piece;
+                    if (firstMove.drop != null) {
+                      piece = Piece(firstMove.drop!, true);
+                    } else if (firstMove.fr >= 0 && firstMove.fr < 9) {
+                      piece = _board[firstMove.fr][firstMove.fc];
+                    }
+                    final pieceName = piece?.label ?? '?';
+                    const cols = ['9','8','7','6','5','4','3','2','1'];
+                    const rows = ['一','二','三','四','五','六','七','八','九'];
+                    final tr = firstMove.tr;
+                    final tc = firstMove.tc;
+                    final dest = (tr >= 0 && tr < 9 && tc >= 0 && tc < 9)
+                        ? '${cols[tc]}${rows[tr]}' : '?';
+                    return Container(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withAlpha(30),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.amber.withAlpha(120)),
+                      ),
+                      child: Text('ヒント: $pieceName → $dest',
+                          style: const TextStyle(color: Colors.amber, fontSize: 13, fontWeight: FontWeight.bold),
+                          textAlign: TextAlign.center),
+                    );
+                  }
+                }),
+                const SizedBox(height: 8),
                 // 操作ガイド
                 Container(
                   padding: const EdgeInsets.all(12),

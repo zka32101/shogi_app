@@ -106,7 +106,8 @@ class LocalNetworkService {
     ws.listen(
       (data) {
         try {
-          final json = jsonDecode(data as String) as Map<String, dynamic>;
+          if (data is! String) return;
+          final json = jsonDecode(data) as Map<String, dynamic>;
           if (json['type'] == 'resign') {
             _statusCtrl.add(NetworkStatus.opponentResigned);
           } else {

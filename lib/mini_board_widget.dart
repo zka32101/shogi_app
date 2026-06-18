@@ -37,9 +37,9 @@ class MiniBoardWidget extends StatelessWidget {
   Color _pieceColor(Piece p) {
     final effectiveP1 = boardFlipped ? !p.isPlayer1 : p.isPlayer1;
     if (effectiveP1) {
-      return p.isPromoted ? const Color(0xFF1565C0) : Colors.black87;
+      return p.isPromoted ? const Color(0xFF1565C0) : Colors.black;
     } else {
-      return p.isPromoted ? Colors.red.shade700 : Colors.red.shade800;
+      return p.isPromoted ? Colors.red.shade700 : Colors.red.shade900;
     }
   }
 

@@ -3,6 +3,8 @@ import 'package:intl/intl.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'mini_board_widget.dart';
+import 'piece.dart';
 
 class MicroTrainingScreen extends StatefulWidget {
   const MicroTrainingScreen({Key? key}) : super(key: key);
@@ -440,40 +442,42 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
     }
   }
 
+  // 問題インデックスに応じたサンプル盤面を生成
+  List<List<Piece?>> _buildSampleBoard(int problemIndex) {
+    final board = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    // 共通: 両玉
+    board[0][0] = Piece(PieceType.king, false); // 後手玉
+    board[8][8] = Piece(PieceType.king, true);  // 先手玉
+    switch (problemIndex % 3) {
+      case 0: // 詰将棋タイプ
+        board[1][0] = Piece(PieceType.gold, true);
+        board[2][1] = Piece(PieceType.rook, true);
+        board[0][1] = Piece(PieceType.silver, false);
+        break;
+      case 1: // 手筋タイプ
+        board[3][3] = Piece(PieceType.bishop, true);
+        board[2][2] = Piece(PieceType.gold, false);
+        board[4][4] = Piece(PieceType.pawn, true);
+        board[1][1] = Piece(PieceType.pawn, false);
+        break;
+      case 2: // 次の一手タイプ
+        board[4][4] = Piece(PieceType.rook, true);
+        board[3][3] = Piece(PieceType.gold, true);
+        board[2][5] = Piece(PieceType.silver, false);
+        board[3][6] = Piece(PieceType.gold, false);
+        break;
+    }
+    return board;
+  }
+
   Widget _buildBoardArea() {
-    // Placeholder: In a real app, render actual shogi board
-    return Container(
+    final board = _buildSampleBoard(currentProblemIndex);
+    return SizedBox(
       width: 280,
-      height: 280,
-      decoration: BoxDecoration(
-        color: Color(0xFF2A2A2A),
-        border: Border.all(color: Colors.amber[700]!, width: 2),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.grid_on, size: 80, color: Colors.amber[700]!),
-            SizedBox(height: 12),
-            Text(
-              '将棋盤',
-              style: TextStyle(
-                fontSize: 16,
-                color: Colors.amber[700],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            SizedBox(height: 8),
-            Text(
-              '(盤面表示)',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.white30,
-              ),
-            ),
-          ],
-        ),
+      child: MiniBoardWidget(
+        board: board,
+        showLabels: true,
+        size: 280,
       ),
     );
   }

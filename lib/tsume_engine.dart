@@ -224,7 +224,8 @@ class TsumeEngine {
     if (cached == _TsumeTTVal.noMate) return TsumeResult.no;
     if (cached == _TsumeTTVal.mate)   return const TsumeResult(isMate: true);
 
-    final defenses = GL.hasLegalMove(b, defenderIsP1, defHand)
+    final atkHand = attackerIsP1 ? p1h : p2h;
+    final defenses = GL.hasLegalMove(b, defenderIsP1, defHand, atkHand)
         ? AI.allMoves(b, defenderIsP1, p1h, p2h)
         : <AMove>[];
 

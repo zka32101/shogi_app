@@ -4,12 +4,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'kifu_replay_screen.dart';
 import 'kif_utils.dart';
 import 'kansousen_screen.dart';
 import 'game_screen.dart' show initShogiBoard, PieceTheme;
+import 'services/kifu_backup_service.dart';
 
 class KifuHistoryScreen extends StatefulWidget {
   /// タブに埋め込む場合は false（戻るボタンを非表示）
@@ -25,11 +27,13 @@ enum _FilterResult { all, p1Win, p2Win, draw, favorite }
 class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   List<Map<String, dynamic>> _records = [];
   bool _loading = true;
+  bool _cloudBusy = false;
 
   // ── フィルター・ソート ──
   _SortMode _sortMode = _SortMode.dateDesc;
   _FilterResult _filterResult = _FilterResult.all;
   String _searchQuery = '';
+  String _tagFilter = '';
   bool _showFilter = false;
   final TextEditingController _searchCtrl = TextEditingController();
 
@@ -56,8 +60,16 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
         final mode   = (r['mode']   as String? ?? '').toLowerCase();
         final date   = (r['date']   as String? ?? '').toLowerCase();
         final comment = (r['comment'] as String? ?? '').toLowerCase();
+        final tags = ((r['tags'] as List<dynamic>?)?.whereType<String>().toList() ?? []).join(' ').toLowerCase();
         return result.contains(q) || mode.contains(q) ||
-               date.contains(q)   || comment.contains(q);
+               date.contains(q)   || comment.contains(q) || tags.contains(q);
+      }).toList();
+    }
+    // タグフィルター
+    if (_tagFilter.isNotEmpty) {
+      list = list.where((r) {
+        final tags = (r['tags'] as List<dynamic>?)?.whereType<String>().toList() ?? [];
+        return tags.contains(_tagFilter);
       }).toList();
     }
     // ソート
@@ -92,7 +104,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     try {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('kifu_records') ?? '[]';
-      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      final list = (jsonDecode(raw) as List).whereType<Map<String, dynamic>>().toList();
       setState(() { _records = list; _loading = false; });
       final beforeLen = _records.length;
       _autoCleanRecords();
@@ -212,7 +224,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   // ── KIF エクスポート ──────────────────────────────
   void _exportKif(Map<String, dynamic> r) {
     try {
-      final rawMoves = (r['moves'] as List).cast<Map<String, dynamic>>();
+      final rawMoves = (r['moves'] as List).whereType<Map<String, dynamic>>().toList();
       final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
       final date = r['date'] as String? ?? '';
       final result = r['result'] as String? ?? '';
@@ -233,35 +245,36 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     }
   }
 
-  // ── シェア（base64urlエンコード） ────────────────────
-  void _shareKifu(Map<String, dynamic> r) {
+  // ── シェア ────────────────────────────────────────
+  Future<void> _shareKifu(Map<String, dynamic> r) async {
     try {
-      final data = <String, dynamic>{
-        'date':      r['date'],
-        'result':    r['result'],
-        'moveCount': r['moveCount'],
-        'moves':     r['moves'],
-      };
-      final jsonStr = jsonEncode(data);
-      final encoded = base64Url.encode(utf8.encode(jsonStr));
-      final shareText =
-          '将棋棋譜 (${r['date']}, ${r['moveCount']}手, ${r['result']})\n'
-          '棋譜データ: $encoded';
-      Clipboard.setData(ClipboardData(text: shareText));
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('シェア用テキストをコピーしました'),
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      final moves = r['moves'] as List? ?? [];
+      final kifText = _buildKifText(r, moves);
+      final subject = '将棋棋譜 ${r['date'] ?? ''} ${r['moveCount']}手 ${r['result'] ?? ''}';
+      await Share.share(kifText, subject: subject);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('シェア失敗: $e')));
       }
     }
+  }
+
+  String _buildKifText(Map<String, dynamic> r, List moves) {
+    final buf = StringBuffer();
+    buf.writeln('# 効棋 将棋棋譜');
+    buf.writeln('日時: ${r['date'] ?? ''}');
+    buf.writeln('手数: ${r['moveCount'] ?? moves.length}');
+    buf.writeln('結果: ${r['result'] ?? ''}');
+    buf.writeln('---');
+    for (int i = 0; i < moves.length; i++) {
+      final m = moves[i];
+      if (m is Map) {
+        final notation = m['notation'] as String? ?? '${i + 1}手目';
+        buf.writeln('${i + 1}. $notation');
+      }
+    }
+    return buf.toString();
   }
 
   // ── コードから復元 ────────────────────────────────
@@ -337,7 +350,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
 
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('kifu_records') ?? '[]';
-      final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+      final list = (jsonDecode(raw) as List).whereType<Map<String, dynamic>>().toList();
       list.insert(0, record);
       await prefs.setString('kifu_records', jsonEncode(list));
       setState(() => _records = list);
@@ -413,7 +426,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
       try {
         final prefs = await SharedPreferences.getInstance();
         final raw = prefs.getString('kifu_records') ?? '[]';
-        final list = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+        final list = (jsonDecode(raw) as List).whereType<Map<String, dynamic>>().toList();
         list.insert(0, record);
         await prefs.setString('kifu_records', jsonEncode(list));
         setState(() => _records = list);
@@ -433,7 +446,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   // ── 棋譜再生 ──────────────────────────────
   void _openReplay(Map<String, dynamic> record) {
     try {
-      final rawMoves = (record['moves'] as List).cast<Map<String, dynamic>>();
+      final rawMoves = (record['moves'] as List).whereType<Map<String, dynamic>>().toList();
       final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
       final title = '棋譜 (${record['date'] ?? ''})';
       final handicap = record['handicap'] as String? ?? '平手';
@@ -474,7 +487,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
       return;
     }
     try {
-      final rawMoves = (record['moves'] as List).cast<Map<String, dynamic>>();
+      final rawMoves = (record['moves'] as List).whereType<Map<String, dynamic>>().toList();
       final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
       final title = '感想戦 (${record['date'] ?? ''})';
       // テーマ復元
@@ -520,6 +533,96 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     );
   }
 
+  // ── クラウドバックアップ ─────────────────
+  Future<void> _showCloudBackupDialog() async {
+    final svc = KifuBackupService();
+    final info = await svc.getBackupInfo();
+    if (!mounted) return;
+
+    final dateStr = info.backedUpAt != null
+        ? '${info.backedUpAt!.year}/${info.backedUpAt!.month.toString().padLeft(2,'0')}/${info.backedUpAt!.day.toString().padLeft(2,'0')} '
+          '${info.backedUpAt!.hour.toString().padLeft(2,'0')}:${info.backedUpAt!.minute.toString().padLeft(2,'0')}'
+        : 'なし';
+
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: const Color(0xFF16213E),
+        title: const Text('クラウドバックアップ', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('最終バックアップ: $dateStr',
+                style: const TextStyle(color: Colors.white70, fontSize: 13)),
+            Text('クラウド棋譜数: ${info.count}件',
+                style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            const SizedBox(height: 16),
+            const Text('ローカル棋譜をクラウドに保存、または\nクラウドからローカルに復元できます。',
+                style: TextStyle(color: Colors.white54, fontSize: 12)),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('閉じる', style: TextStyle(color: Colors.white54)),
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.cloud_download, size: 16),
+            label: const Text('リストア'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.teal.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _cloudBusy = true);
+              final count = await svc.restoreAll();
+              if (mounted) {
+                setState(() => _cloudBusy = false);
+                if (count >= 0) {
+                  await _load();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(count > 0 ? '$count件の棋譜をリストアしました' : 'クラウドに棋譜がありません')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('リストアに失敗しました（ネットワークを確認してください）')),
+                  );
+                }
+              }
+            },
+          ),
+          ElevatedButton.icon(
+            icon: const Icon(Icons.cloud_upload, size: 16),
+            label: const Text('バックアップ'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.indigo.shade700,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () async {
+              Navigator.pop(context);
+              setState(() => _cloudBusy = true);
+              final count = await svc.backupAll();
+              if (mounted) {
+                setState(() => _cloudBusy = false);
+                if (count >= 0) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$count件の棋譜をバックアップしました')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('バックアップに失敗しました（ログイン・ネットワークを確認）')),
+                  );
+                }
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   // ── UI ──────────────────────────────
   @override
   Widget build(BuildContext context) {
@@ -541,7 +644,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
           IconButton(
             icon: Icon(
               Icons.filter_list,
-              color: (_filterResult != _FilterResult.all || _searchQuery.isNotEmpty)
+              color: (_filterResult != _FilterResult.all || _searchQuery.isNotEmpty || _tagFilter.isNotEmpty)
                   ? Colors.amber
                   : Colors.white70,
             ),
@@ -557,6 +660,16 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
             icon: const Icon(Icons.file_upload_outlined, color: Colors.white70),
             tooltip: 'KIFファイルを読み込む',
             onPressed: _importKif,
+          ),
+          IconButton(
+            icon: _cloudBusy
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white54),
+                  )
+                : const Icon(Icons.cloud_sync, color: Colors.white70),
+            tooltip: 'クラウドバックアップ',
+            onPressed: _cloudBusy ? null : _showCloudBackupDialog,
           ),
         ],
       ),
@@ -592,7 +705,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
           controller: _searchCtrl,
           style: const TextStyle(color: Colors.white, fontSize: 13),
           decoration: InputDecoration(
-            hintText: '日付・結果・メモで検索...',
+            hintText: '日付・結果・タグ・メモで検索...',
             hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
             prefixIcon: const Icon(Icons.search, color: Colors.white38, size: 18),
             suffixIcon: _searchQuery.isNotEmpty
@@ -674,6 +787,38 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
                     e.value,
                     style: TextStyle(
                       color: sel ? Colors.lightBlue : Colors.white54,
+                      fontSize: 11, fontWeight: sel ? FontWeight.bold : FontWeight.normal,
+                    ),
+                  ),
+                ),
+              );
+            }),
+          ]),
+        ),
+        const SizedBox(height: 6),
+        // タグフィルター
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            const Text('タグ: ', style: TextStyle(color: Colors.white54, fontSize: 11)),
+            ...['', '居飛車', '四間飛車', '中飛車', '棒銀', '矢倉', '美濃', '穴熊', '舟囲い'].map((tag) {
+              final sel = _tagFilter == tag;
+              final label = tag.isEmpty ? 'すべて' : tag;
+              return GestureDetector(
+                onTap: () => setState(() => _tagFilter = tag),
+                child: Container(
+                  margin: const EdgeInsets.only(right: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: sel ? Colors.green.withAlpha(60) : Colors.transparent,
+                    border: Border.all(
+                      color: sel ? Colors.green.shade400 : Colors.white24, width: 0.8),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: sel ? Colors.green.shade300 : Colors.white54,
                       fontSize: 11, fontWeight: sel ? FontWeight.bold : FontWeight.normal,
                     ),
                   ),
@@ -843,6 +988,50 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
                 ],
               ),
             ),
+          // ── タグ表示 ──
+          Builder(builder: (_) {
+            final tags = (r['tags'] as List<dynamic>?)?.whereType<String>().toList() ?? [];
+            if (tags.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Wrap(
+                spacing: 4,
+                runSpacing: 2,
+                children: tags.map((tag) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withAlpha(20),
+                    border: Border.all(color: Colors.green.shade800, width: 0.8),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(tag, style: TextStyle(color: Colors.green.shade300, fontSize: 10)),
+                )).toList(),
+              ),
+            );
+          }),
+          // ── 自動生成コメント ──
+          Builder(builder: (_) {
+            final autoComment = r['autoComment'] as String? ?? '';
+            if (autoComment.isEmpty) return const SizedBox.shrink();
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.auto_awesome, size: 12, color: Colors.amber.shade400),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: Text(
+                      autoComment,
+                      style: TextStyle(color: Colors.amber.shade200, fontSize: 11),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
           // ── アクションボタン行 ──
           Padding(
             padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),

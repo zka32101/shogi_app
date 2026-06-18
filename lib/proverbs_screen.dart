@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'widgets/source_link_widget.dart';
 
 // ===== カテゴリ定義 =====
 enum _ProverbCategory {
@@ -125,6 +126,8 @@ class _ProverbData {
   final List<List<Piece?>> board;
   final Set<(int, int)> highlightSquares;
   final _ProverbCategory category;
+  final String? sourceUrl;
+  final String? sourceTitle;
 
   const _ProverbData({
     required this.proverb,
@@ -132,6 +135,8 @@ class _ProverbData {
     required this.board,
     this.highlightSquares = const {},
     required this.category,
+    this.sourceUrl,
+    this.sourceTitle,
   });
 }
 
@@ -182,6 +187,16 @@ class _ProverbCard extends StatelessWidget {
                 showLabels: false,
               ),
             ),
+            if (data.sourceUrl != null && data.sourceTitle != null) ...[
+              const SizedBox(height: 12),
+              Center(
+                child: SourceLinkWidget(
+                  sourceTitle: data.sourceTitle!,
+                  sourceUrl: data.sourceUrl!,
+                  padding: EdgeInsets.zero,
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -221,6 +236,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(7, 3), (7, 4), (7, 5)},
         category: _ProverbCategory.defense,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/金の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -238,6 +255,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(0, 3), (0, 4), (0, 5), (1, 3), (1, 5), (2, 3), (2, 4), (2, 5)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/玉の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -256,6 +275,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(4, 4), (3, 4)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -274,6 +295,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(2, 4)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -291,6 +314,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(4, 3), (3, 3)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/桂の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -310,6 +335,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(6, 4), (7, 4)},
         category: _ProverbCategory.defense,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -332,6 +359,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(6, 4), (6, 3), (6, 5)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -355,6 +384,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(4, 7), (7, 1), (5, 5), (6, 3)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -373,6 +404,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(6, 0), (2, 0)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -388,6 +421,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(1, 1), (2, 2), (3, 3), (5, 5), (6, 6), (7, 7), (1, 7), (2, 6), (3, 5), (5, 3), (6, 2), (7, 1)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/角の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -407,6 +442,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(3, 4), (2, 4), (5, 3)},
         category: _ProverbCategory.general,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -425,6 +462,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(7, 4), (8, 3), (5, 5), (4, 4)},
         category: _ProverbCategory.defense,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/銀の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -444,6 +483,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(8, 4), (8, 7)},
         category: _ProverbCategory.defense,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/玉の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -462,6 +503,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(3, 4), (3, 5), (4, 4), (4, 5)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -480,6 +523,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(5, 7), (6, 7)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/銀の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -497,6 +542,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(7, 1), (4, 4), (3, 5), (2, 6)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/角の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -514,6 +561,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(1, 7), (0, 7), (0, 6), (0, 8)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/飛の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -532,6 +581,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(3, 5), (1, 4), (1, 6)},
         category: _ProverbCategory.pieces,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/桂の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -554,6 +605,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(8, 7), (8, 6), (7, 7), (7, 8), (8, 8)},
         category: _ProverbCategory.defense,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -572,6 +625,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(2, 4), (0, 5), (0, 3), (0, 4)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -595,6 +650,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(4, 4), (4, 5), (3, 3)},
         category: _ProverbCategory.general,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -612,6 +669,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(2, 4), (1, 4)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -630,6 +689,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(4, 4), (3, 4), (5, 4)},
         category: _ProverbCategory.attack,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -649,6 +710,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(2, 4), (2, 3), (2, 5)},
         category: _ProverbCategory.general,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
 
@@ -668,6 +731,8 @@ List<_ProverbData> _buildAllProverbs() {
         board: b,
         highlightSquares: {(6, 8), (7, 8), (8, 7)},
         category: _ProverbCategory.defense,
+        sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/金の格言一覧.html',
+        sourceTitle: '将棋講座.com',
       );
     }(),
   ];

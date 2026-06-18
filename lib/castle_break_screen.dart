@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'logic.dart';
 
 // ──────────────────────────────────────────────
 // Data model
@@ -17,6 +18,9 @@ class _CBProb {
   final Map<PieceType, int> p1Hand; // 先手の持ち駒
   final AMove answer; // correct answer move
   final String explanation;
+  final String? sourceUrl;
+  final String? sourceTitle;
+  final int difficulty; // 1=初級, 2=中級, 3=上級
   const _CBProb({
     required this.id,
     required this.title,
@@ -26,6 +30,9 @@ class _CBProb {
     required this.p1Hand,
     required this.answer,
     required this.explanation,
+    this.sourceUrl,
+    this.sourceTitle,
+    required this.difficulty,
   });
 }
 
@@ -253,6 +260,9 @@ List<_CBProb> _buildProblems() {
       // 香(3,0)を9四(2,0)へ前進
       answer: AMove(fr: 3, fc: 0, tr: 2, tc: 0),
       explanation: '9四香と前進！後手の9三歩を攻め、美濃の端から崩すのが急所。飛車との連携で端を突破しよう。美濃囲いは端が弱点なので、香・飛の連携で端を攻めるのが定跡の攻め筋。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 1,
     ),
     _CBProb(
       id: 'mino_2',
@@ -264,6 +274,9 @@ List<_CBProb> _buildProblems() {
       // 桂(5,3)を(3,4)に跳ねる: isPlayer1=true → fr-2=3, fc+1=4
       answer: AMove(fr: 5, fc: 3, tr: 3, tc: 4),
       explanation: '桂馬を跳ねて後手の囲いに迫る！美濃の急所である8二の金を狙い、飛車との連携で攻めを組み立てよう。桂は美濃崩しの重要な駒で、跳ねた桂が金に当たると効果的。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
     _CBProb(
       id: 'mino_3',
@@ -275,6 +288,9 @@ List<_CBProb> _buildProblems() {
       // 銀(3,1)を(2,0)=9三へ前進
       answer: AMove(fr: 3, fc: 1, tr: 2, tc: 0),
       explanation: '銀を9三に進出！後手の9三歩を取って美濃の端に銀が侵入する。飛車の横利きと合わせて後手玉を追い詰めよう。銀が囲いに食い込むと守りが崩れやすくなる。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
 
     // ── 矢倉 ──
@@ -288,6 +304,9 @@ List<_CBProb> _buildProblems() {
       // 歩(4,5)を(3,5)=4四へ前進
       answer: AMove(fr: 4, fc: 5, tr: 3, tc: 5),
       explanation: '4四歩と前進！矢倉の4五の歩を突いて後手の銀の動きを制限する。飛車との連携で攻めを続けよう。矢倉崩しの基本は中央からの圧力で、4五歩突破は代表的な攻め筋。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 1,
     ),
     _CBProb(
       id: 'yagura_2',
@@ -299,6 +318,9 @@ List<_CBProb> _buildProblems() {
       // 歩(4,6)を(3,6)=3四へ前進
       answer: AMove(fr: 4, fc: 6, tr: 3, tc: 6),
       explanation: '3四歩と前進！矢倉の横から攻めを組み立て、銀の活用と合わせて後手の守りを崩していこう。矢倉は正面だけでなく横からの攻めも有効で、3五歩突破は重要な攻め筋。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
     _CBProb(
       id: 'yagura_3',
@@ -310,6 +332,9 @@ List<_CBProb> _buildProblems() {
       // 桂(6,5)を(4,4)に跳ねる: isPlayer1=true → fr-2=4, fc-1=4
       answer: AMove(fr: 6, fc: 5, tr: 4, tc: 4),
       explanation: '桂馬を4三方向へ跳ねて矢倉の金銀に当てる！角との連携で矢倉の守りを瓦解させよう。矢倉は縦の連携が強い囲いだが、斜めからの角と桂の連携には弱い。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
 
     // ── 穴熊 ──
@@ -323,6 +348,9 @@ List<_CBProb> _buildProblems() {
       // 桂(4,2)を(2,1)=8三へ跳ねる: fr-2=2, fc-1=1
       answer: AMove(fr: 4, fc: 2, tr: 2, tc: 1),
       explanation: '桂馬を8三に跳ねて後手の桂頭を攻撃！穴熊の急所である桂頭への攻めは強力。飛車と連携して一気に崩そう。穴熊は強固な囲いだが、桂頭を攻めると金銀が動かざるを得ない。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
     _CBProb(
       id: 'anaguma_2',
@@ -334,6 +362,9 @@ List<_CBProb> _buildProblems() {
       // 銀(3,1)を(2,0)=9三へ前進
       answer: AMove(fr: 3, fc: 1, tr: 2, tc: 0),
       explanation: '銀を9三へ！香車との連携で後手の9三歩を攻め、穴熊の端から崩すのが有効な攻め。穴熊は端の守りが薄くなりがちで、銀香連携の端攻めは穴熊崩しの基本。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
     _CBProb(
       id: 'anaguma_3',
@@ -345,6 +376,9 @@ List<_CBProb> _buildProblems() {
       // 飛車(4,0)を(2,0)=9三へ前進
       answer: AMove(fr: 4, fc: 0, tr: 2, tc: 0),
       explanation: '飛車を9三に突撃！穴熊の端歩を破り、後手玉へのコースを開く強烈な一手。飛車の突進で端の歩を取り、一気に後手玉に迫ろう。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 3,
     ),
 
     // ── 居飛車穴熊 ──
@@ -358,6 +392,9 @@ List<_CBProb> _buildProblems() {
       // 飛車(5,4)を(2,4)=5二へ前進
       answer: AMove(fr: 5, fc: 4, tr: 2, tc: 4),
       explanation: '飛車を5二に突撃！居飛車穴熊の守りを中央から崩し、角との連携で後手玉を追い詰めよう。居飛車穴熊は中央の守りを飛車で突き崩すのが効果的。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
     _CBProb(
       id: 'ibisha_2',
@@ -369,6 +406,9 @@ List<_CBProb> _buildProblems() {
       // 銀(3,2)を(2,1)=8三へ前進
       answer: AMove(fr: 3, fc: 2, tr: 2, tc: 1),
       explanation: '銀を8三に進出！角との連携で後手の守りに風穴を開ける。居飛車穴熊は角銀の連携攻めが効果的で、銀が囲いに食い込むと急速に崩れる。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 2,
     ),
     _CBProb(
       id: 'ibisha_3',
@@ -380,6 +420,202 @@ List<_CBProb> _buildProblems() {
       // 桂(4,2)を(2,1)=8三へ跳ねる: fr-2=2, fc-1=1
       answer: AMove(fr: 4, fc: 2, tr: 2, tc: 1),
       explanation: '桂馬を8三へ！香車との連携で後手の守りを突破する。居飛車穴熊には桂頭への攻めが急所になることが多く、桂香連携で端から崩すのが定跡的な攻め筋。',
+      sourceUrl: 'https://www.shogi.or.jp/',
+      sourceTitle: '日本将棋連盟',
+      difficulty: 3,
+    ),
+
+    // ── 新規10問 ──
+    // 美濃拡張
+    _CBProb(
+      id: 'mino_4',
+      title: '美濃④：飛角連携',
+      castle: '美濃',
+      description: '先手番。飛角の連携で美濃の守りを崩せ！\n飛車と角を活かして攻めよう。',
+      board: _empty()
+        ..map((r) => r).toList()..[0][0] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][0] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[2][0] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][1] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][2] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[4][3] = Piece(PieceType.bishop, true)
+        ..map((r) => r).toList()..[5][4] = Piece(PieceType.rook, true)
+        ..map((r) => r).toList()..[8][8] = Piece(PieceType.king, true),
+      p1Hand: const {},
+      answer: AMove(fr: 4, fc: 3, tr: 1, tc: 0),
+      explanation: '角を8二に打ち込む決定的一手！飛車との連携で美濃の金銀を蹴散らす。飛角連携は囲い崩しの最も効果的な攻め筋の一つ。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 3,
+    ),
+    _CBProb(
+      id: 'mino_5',
+      title: '美濃⑤：歩の突き',
+      castle: '美濃',
+      description: '先手番。地道に歩を前進させて美濃を追い詰めよ！',
+      board: _empty()
+        ..map((r) => r).toList()..[0][0] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][0] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[2][0] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][1] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][2] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[3][2] = Piece(PieceType.pawn, true)
+        ..map((r) => r).toList()..[5][4] = Piece(PieceType.rook, true)
+        ..map((r) => r).toList()..[8][8] = Piece(PieceType.king, true),
+      p1Hand: const {},
+      answer: AMove(fr: 3, fc: 2, tr: 2, tc: 2),
+      explanation: '歩を7二に進める！歩が到達すると美濃の銀が支えられなくなり、連続した攻めが実現する。小さい駒でも積み重ねが効く例。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 1,
+    ),
+
+    // 矢倉拡張
+    _CBProb(
+      id: 'yagura_4',
+      title: '矢倉④：飛打ち',
+      castle: '矢倉',
+      description: '先手番。飛車を持ち駒から打ち込んで矢倉を破壊せよ！\n持ち駒から飛を5二に打つ！',
+      board: _empty()
+        ..map((r) => r).toList()..[0][4] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][3] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[0][5] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][3] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][5] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[2][3] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][4] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][5] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[8][4] = Piece(PieceType.king, true),
+      p1Hand: const {PieceType.rook: 1},
+      answer: AMove(fr: -1, fc: -1, tr: 2, tc: 4),
+      explanation: '飛を5二に打ち込む！矢倉の急所に飛を打つことで即座に詰みまたは大損になる。打ち込み攻撃は矢倉崩しの強力な武器。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 2,
+    ),
+    _CBProb(
+      id: 'yagura_5',
+      title: '矢倉⑤：銀打ち',
+      castle: '矢倉',
+      description: '先手番。銀を打ち込んで矢倉を瓦解させよ！\n持ち駒の銀を8二に打つ！',
+      board: _empty()
+        ..map((r) => r).toList()..[0][4] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][3] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[0][5] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][3] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][5] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[2][3] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][4] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][5] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[5][4] = Piece(PieceType.rook, true)
+        ..map((r) => r).toList()..[8][4] = Piece(PieceType.king, true),
+      p1Hand: const {PieceType.silver: 1},
+      answer: AMove(fr: -1, fc: -1, tr: 1, tc: 1),
+      explanation: '銀を8二に打ち込む！銀が8二に入ると、矢倉の金銀が身動き取れなくなり、飛車との連携で致命傷となる。打ち込み攻撃の精妙さを学ぶ問題。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 3,
+    ),
+
+    // 穴熊拡張
+    _CBProb(
+      id: 'anaguma_4',
+      title: '穴熊④：馬の侵入',
+      castle: '穴熊',
+      description: '先手番。飛車を成駒にして馬を作り、穴熊の玉に襲いかかれ！\n飛車を進めて成馬にしよう。',
+      board: _empty()
+        ..map((r) => r).toList()..[0][0] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[0][2] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][0] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][2] = Piece(PieceType.knight, false)
+        ..map((r) => r).toList()..[2][0] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][1] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][2] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[4][0] = Piece(PieceType.rook, true)    // 先手飛車 9五
+        ..map((r) => r).toList()..[8][8] = Piece(PieceType.king, true),
+      p1Hand: const {},
+      answer: AMove(fr: 4, fc: 0, tr: 0, tc: 0),
+      explanation: '飛車を9一に突撃させて成馬に！馬の強力な動きで穴熊の玉に対して決定的な攻撃となる。成駒による後続攻撃の価値を認識する問題。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 2,
+    ),
+    _CBProb(
+      id: 'anaguma_5',
+      title: '穴熊⑤：角金交換',
+      castle: '穴熊',
+      description: '先手番。角で金を取り、穴熊の守りを削ぎ落とせ！\n角で金を捕捉しよう。',
+      board: _empty()
+        ..map((r) => r).toList()..[0][0] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[0][2] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][0] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][2] = Piece(PieceType.knight, false)
+        ..map((r) => r).toList()..[2][0] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][1] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][2] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[4][3] = Piece(PieceType.bishop, true)
+        ..map((r) => r).toList()..[8][8] = Piece(PieceType.king, true),
+      p1Hand: const {},
+      answer: AMove(fr: 4, fc: 3, tr: 0, tc: 2),
+      explanation: '角で7一の金を取る！穴熊の金銀は連携して玉を守るため、その一つを取るだけで守備力が劇的に低下する。駒の質を活かした攻撃の重要性を学ぶ。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 1,
+    ),
+
+    // 居飛車穴熊拡張
+    _CBProb(
+      id: 'ibisha_4',
+      title: '居飛車穴熊④：歩打ちの妙',
+      castle: '居飛車穴熊',
+      description: '先手番。歩を打ち込んで居飛車穴熊のバランスを崩せ！\n持ち駒の歩を9二に打つ！',
+      board: _empty()
+        ..map((r) => r).toList()..[0][0] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[0][2] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][0] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][2] = Piece(PieceType.knight, false)
+        ..map((r) => r).toList()..[2][0] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][1] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][2] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[5][4] = Piece(PieceType.rook, true)
+        ..map((r) => r).toList()..[8][8] = Piece(PieceType.king, true),
+      p1Hand: const {PieceType.pawn: 1},
+      answer: AMove(fr: -1, fc: -1, tr: 2, tc: 0),
+      explanation: '歩を9二に打ち込む！一見小さい手ですが、これが後続の大きな攻撃を誘発する。歩打ちの精密さを理解する上級者向け問題。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 3,
+    ),
+    _CBProb(
+      id: 'ibisha_5',
+      title: '居飛車穴熊⑤：二枚飛び',
+      castle: '居飛車穴熊',
+      description: '先手番。飛角両打で居飛車穴熊を粉砕せよ！\n飛角で同時に威力を発揮する位置に配置しよう。',
+      board: _empty()
+        ..map((r) => r).toList()..[0][0] = Piece(PieceType.king, false)
+        ..map((r) => r).toList()..[0][1] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[0][2] = Piece(PieceType.gold, false)
+        ..map((r) => r).toList()..[1][0] = Piece(PieceType.silver, false)
+        ..map((r) => r).toList()..[1][2] = Piece(PieceType.knight, false)
+        ..map((r) => r).toList()..[2][0] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][1] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[2][2] = Piece(PieceType.pawn, false)
+        ..map((r) => r).toList()..[4][3] = Piece(PieceType.bishop, true)
+        ..map((r) => r).toList()..[5][4] = Piece(PieceType.rook, true)
+        ..map((r) => r).toList()..[8][8] = Piece(PieceType.king, true),
+      p1Hand: const {},
+      answer: AMove(fr: 4, fc: 3, tr: 1, tc: 0),
+      explanation: '角を8二に配置し、飛車5二と合わせて居飛車穴熊を完全に支配する。飛角連携による決定的な攻撃パターンを習得する最上級問題。',
+      sourceUrl: 'https://www.shogi-chess.jp/',
+      sourceTitle: '将棋ガイド',
+      difficulty: 3,
     ),
   ];
 }
@@ -490,7 +726,7 @@ class _CastleBreakScreenState extends State<CastleBreakScreen>
 // ──────────────────────────────────────────────
 // Tab View (problem list for one castle type)
 // ──────────────────────────────────────────────
-class _CastleTabView extends StatelessWidget {
+class _CastleTabView extends StatefulWidget {
   final String castle;
   final List<_CBProb> problems;
   final Set<String> cleared;
@@ -504,18 +740,212 @@ class _CastleTabView extends StatelessWidget {
   });
 
   @override
+  State<_CastleTabView> createState() => _CastleTabViewState();
+}
+
+class _CastleTabViewState extends State<_CastleTabView> {
+  int _selectedDifficulty = 0; // 0=全て, 1=初級, 2=中級, 3=上級
+  String _selectedSource = 'all'; // 'all' or source title
+
+  List<_CBProb> get _filteredProblems {
+    var filtered = widget.problems;
+
+    // Difficulty filter
+    if (_selectedDifficulty > 0) {
+      filtered = filtered.where((p) => p.difficulty == _selectedDifficulty).toList();
+    }
+
+    // Source filter
+    if (_selectedSource != 'all') {
+      filtered = filtered.where((p) => p.sourceTitle == _selectedSource).toList();
+    }
+
+    return filtered;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final uniqueSources = widget.problems.map((p) => p.sourceTitle).toSet().toList();
+    uniqueSources.sort();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _CastleHeader(castle: castle),
+        _CastleHeader(castle: widget.castle),
         const SizedBox(height: 12),
-        ...problems.map((p) => _ProblemCard(
+
+        // Difficulty Filter
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F3460).withAlpha(150),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '難度選択',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _DifficultyChip(
+                    label: '全て',
+                    value: 0,
+                    selected: _selectedDifficulty == 0,
+                    onTap: () => setState(() => _selectedDifficulty = 0),
+                  ),
+                  _DifficultyChip(
+                    label: '初級',
+                    value: 1,
+                    selected: _selectedDifficulty == 1,
+                    onTap: () => setState(() => _selectedDifficulty = 1),
+                  ),
+                  _DifficultyChip(
+                    label: '中級',
+                    value: 2,
+                    selected: _selectedDifficulty == 2,
+                    onTap: () => setState(() => _selectedDifficulty = 2),
+                  ),
+                  _DifficultyChip(
+                    label: '上級',
+                    value: 3,
+                    selected: _selectedDifficulty == 3,
+                    onTap: () => setState(() => _selectedDifficulty = 3),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Source Filter
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0F3460).withAlpha(150),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                '出典サイト',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  _SourceChip(
+                    label: '全て',
+                    value: 'all',
+                    selected: _selectedSource == 'all',
+                    onTap: () => setState(() => _selectedSource = 'all'),
+                  ),
+                  ...uniqueSources.map((source) => _SourceChip(
+                    label: source ?? '不明',
+                    value: source ?? 'unknown',
+                    selected: _selectedSource == (source ?? 'unknown'),
+                    onTap: () => setState(() => _selectedSource = source ?? 'unknown'),
+                  )),
+                ],
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Problem count
+        Text(
+          '${_filteredProblems.length}問を表示',
+          style: const TextStyle(color: Colors.white60, fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+
+        // Problem list
+        ..._filteredProblems.map((p) => _ProblemCard(
               prob: p,
-              isCleared: cleared.contains(p.id),
-              onTap: () => onTapProblem(p),
+              isCleared: widget.cleared.contains(p.id),
+              onTap: () => widget.onTapProblem(p),
             )),
       ],
+    );
+  }
+}
+
+class _DifficultyChip extends StatelessWidget {
+  final String label;
+  final int value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _DifficultyChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      backgroundColor: Colors.transparent,
+      selectedColor: Colors.amber.shade600,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : Colors.white70,
+        fontSize: 12,
+      ),
+      side: BorderSide(
+        color: selected ? Colors.amber : Colors.white30,
+      ),
+    );
+  }
+}
+
+class _SourceChip extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SourceChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FilterChip(
+      label: Text(label),
+      selected: selected,
+      onSelected: (_) => onTap(),
+      backgroundColor: Colors.transparent,
+      selectedColor: Colors.green.shade600,
+      labelStyle: TextStyle(
+        color: selected ? Colors.white : Colors.white70,
+        fontSize: 12,
+      ),
+      side: BorderSide(
+        color: selected ? Colors.green : Colors.white30,
+      ),
     );
   }
 }
@@ -581,6 +1011,32 @@ class _ProblemCard extends StatelessWidget {
     required this.onTap,
   });
 
+  String get _difficultyLabel {
+    switch (prob.difficulty) {
+      case 1:
+        return '初級';
+      case 2:
+        return '中級';
+      case 3:
+        return '上級';
+      default:
+        return '';
+    }
+  }
+
+  Color get _difficultyColor {
+    switch (prob.difficulty) {
+      case 1:
+        return Colors.green;
+      case 2:
+        return Colors.orange;
+      case 3:
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -599,13 +1055,13 @@ class _ProblemCard extends StatelessWidget {
                   : Colors.white.withAlpha(30),
             ),
           ),
-          child: Row(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
                       prob.title,
                       style: const TextStyle(
                         color: Color(0xDEFFFFFF),
@@ -613,39 +1069,71 @@ class _ProblemCard extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      prob.description.split('\n').first,
+                  ),
+                  const SizedBox(width: 8),
+                  // Difficulty badge
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _difficultyColor.withAlpha(150),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      _difficultyLabel,
                       style: const TextStyle(
-                        color: Colors.white60,
-                        fontSize: 12,
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
+                  ),
+                  if (isCleared) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade700,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Text(
+                        '正解済',
+                        style: TextStyle(
+                          color: Color(0xDEFFFFFF),
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    const SizedBox(width: 8),
+                    const Icon(Icons.chevron_right, color: Colors.white54, size: 20),
                   ],
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                prob.description.split('\n').first,
+                style: const TextStyle(
+                  color: Colors.white60,
+                  fontSize: 12,
                 ),
               ),
-              const SizedBox(width: 8),
-              if (isCleared)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
+              if (prob.sourceTitle != null) ...[
+                const SizedBox(height: 6),
+                Text(
+                  '出典：${prob.sourceTitle}',
+                  style: const TextStyle(
+                    color: Colors.white38,
+                    fontSize: 10,
                   ),
-                  decoration: BoxDecoration(
-                    color: Colors.green.shade700,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text(
-                    '正解済',
-                    style: TextStyle(
-                      color: Color(0xDEFFFFFF),
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                )
-              else
-                const Icon(Icons.chevron_right, color: Colors.white54),
+                ),
+              ],
             ],
           ),
         ),
@@ -781,6 +1269,8 @@ class _SolveScreenState extends State<_SolveScreen> {
 
     // 正解の手を盤面に適用
     final ans = widget.prob.answer;
+    final capturedC = _currentBoard[ans.tr][ans.tc];
+    if (capturedC != null) _p1Hand[capturedC.baseType] = (_p1Hand[capturedC.baseType] ?? 0) + 1;
     _currentBoard[ans.tr][ans.tc] = _currentBoard[ans.fr][ans.fc];
     _currentBoard[ans.fr][ans.fc] = null;
     _p1Turn = false; // 後手の番に
@@ -832,6 +1322,8 @@ class _SolveScreenState extends State<_SolveScreen> {
 
     // ランダムに応手を選択
     final move = moves[(moves.length * 0.5).toInt()]; // 中央値を選択（戦略的な応手）
+    final capturedD = _currentBoard[move.$3][move.$4];
+    if (capturedD != null) _p2Hand[capturedD.baseType] = (_p2Hand[capturedD.baseType] ?? 0) + 1;
     _currentBoard[move.$3][move.$4] = _currentBoard[move.$1][move.$2];
     _currentBoard[move.$1][move.$2] = null;
     _p1Turn = true;

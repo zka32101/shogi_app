@@ -320,7 +320,7 @@ class GL {
     List<List<Piece?>> b,
     bool p1,
     Map<PieceType, int> hand,
-    [Map<PieceType, int>? oppHand],
+    [Map<PieceType, int>? oppHand]
   ) {
     oppHand ??= {};
     for (int r = 0; r < 9; r++)
@@ -921,8 +921,8 @@ class AI {
       if (improved) {
         bestScore = score;
         best      = mv;
-      } else if (score == bestScore && _rand.nextDouble() < 0.05) {
-        // 同スコア時に5%の確率で差し替え（微小なランダム性）
+      } else if (score == bestScore && _rand.nextDouble() < 0.25) {
+        // 同スコア時に25%の確率で差し替え（多様な手順を生成）
         best = mv;
       }
     }

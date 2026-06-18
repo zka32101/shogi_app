@@ -1,14 +1,5 @@
 // lib/firebase_options.dart
-// ──────────────────────────────────────────────────────────────────────────────
-// ⚠️  TODO: 本番リリース前に自分の Firebase プロジェクト設定に置き換えてください
-//
-// 設定方法:
-//   1. https://console.firebase.google.com/ でプロジェクトを作成
-//   2. Realtime Database を有効化（アジアリージョン推奨）
-//   3. `npm install -g firebase-tools` → `flutterfire configure` で自動生成
-//
-// または手動で各値を書き換えてください。
-// ──────────────────────────────────────────────────────────────────────────────
+// 本番環境設定（petit-works-apps-9029a）
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
@@ -22,41 +13,38 @@ class DefaultFirebaseOptions {
       case TargetPlatform.iOS:
         return ios;
       default:
-        return web; // fallback
+        return web;
     }
   }
 
   // ─── Web ───────────────────────────────────────────────────────────────────
-  // TODO: Firebase コンソール → プロジェクト設定 → マイアプリ → ウェブ の値に変更
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey:            'YOUR_WEB_API_KEY',
-    appId:             'YOUR_WEB_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId:         'YOUR_PROJECT_ID',
-    databaseURL:       'https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
+    apiKey:            'AIzaSyCkIt1e0hN8K3dl7HN2CoH_h95ztkNrgmg',
+    appId:             '1:216377882454:web:c9d4f1f5e8b7a4c2',
+    messagingSenderId: '216377882454',
+    projectId:         'petit-works-apps-9029a',
+    databaseURL:       'https://petit-works-apps-9029a-default-rtdb.asia-northeast1.firebasedatabase.app',
+    storageBucket:     'petit-works-apps-9029a.firebasestorage.app',
   );
 
   // ─── Android ───────────────────────────────────────────────────────────────
-  // TODO: google-services.json をダウンロードして android/app/ に配置 + 以下も更新
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey:            'YOUR_ANDROID_API_KEY',
-    appId:             'YOUR_ANDROID_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId:         'YOUR_PROJECT_ID',
-    databaseURL:       'https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
+    apiKey:            'AIzaSyCkIt1e0hN8K3dl7HN2CoH_h95ztkNrgmg',
+    appId:             '1:216377882454:android:67072520090e4812d108f7',
+    messagingSenderId: '216377882454',
+    projectId:         'petit-works-apps-9029a',
+    databaseURL:       'https://petit-works-apps-9029a-default-rtdb.asia-northeast1.firebasedatabase.app',
+    storageBucket:     'petit-works-apps-9029a.firebasestorage.app',
   );
 
   // ─── iOS ───────────────────────────────────────────────────────────────────
-  // TODO: GoogleService-Info.plist をダウンロードして ios/Runner/ に配置 + 以下も更新
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey:            'YOUR_IOS_API_KEY',
-    appId:             'YOUR_IOS_APP_ID',
-    messagingSenderId: 'YOUR_SENDER_ID',
-    projectId:         'YOUR_PROJECT_ID',
-    databaseURL:       'https://YOUR_PROJECT_ID-default-rtdb.asia-southeast1.firebasedatabase.app',
-    storageBucket:     'YOUR_PROJECT_ID.appspot.com',
-    iosBundleId:       'com.yourcompany.shogiApp',
+    apiKey:            'AIzaSyCkIt1e0hN8K3dl7HN2CoH_h95ztkNrgmg',
+    appId:             '1:216377882454:ios:67072520090e4812',
+    messagingSenderId: '216377882454',
+    projectId:         'petit-works-apps-9029a',
+    databaseURL:       'https://petit-works-apps-9029a-default-rtdb.asia-northeast1.firebasedatabase.app',
+    storageBucket:     'petit-works-apps-9029a.firebasestorage.app',
+    iosBundleId:       'com.petitWorks.shogiApp',
   );
 }

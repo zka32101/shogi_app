@@ -2,6 +2,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'stats_screen.dart';
+import 'tsume_screen.dart';
+import 'weakness_analysis_screen.dart';
+import 'game_setup_screen.dart';
+import 'game_screen.dart' show GameMode;
 
 // ── 段位ステージ定義 ──────────────────────────────────────
 class _Stage {
@@ -42,7 +46,7 @@ const _stages = [
     advice: 'まずは駒の動きを完全に覚えましょう。毎日1手詰めを5問解くだけで棋力が伸びます。',
     skills: [
       _Skill(label: '駒の動きを覚える',    detail: '全9種類の駒の動き・成りを完璧に', icon: Icons.book),
-      _Skill(label: '1手詰めを解く',       detail: '毎日5問。まず王手に慣れる',       icon: Icons.extension),
+      _Skill(label: '1手詰めを解く',       detail: '毎日5問。まず王手に慣れる',       icon: Icons.extension, screen: 'tsume'),
       _Skill(label: '玉の囲いを1つ覚える', detail: '美濃囲いか矢倉を1種類だけ',       icon: Icons.security),
     ],
   ),
@@ -52,7 +56,7 @@ const _stages = [
     minRating: 450,
     advice: '3手詰めが安定して解けると8級に届きます。飛車・角の使い方を意識しましょう。',
     skills: [
-      _Skill(label: '3手詰めを解く',       detail: '毎日10問。詰みパターンを増やす',  icon: Icons.extension),
+      _Skill(label: '3手詰めを解く',       detail: '毎日10問。詰みパターンを増やす',  icon: Icons.extension, screen: 'tsume'),
       _Skill(label: '美濃囲いを完璧に',    detail: '7手で組める速さを目標に',         icon: Icons.security),
       _Skill(label: '飛車先の歩を交換する', detail: '序盤の基本。2六歩〜2五歩の流れ', icon: Icons.trending_up),
     ],
@@ -63,7 +67,7 @@ const _stages = [
     minRating: 600,
     advice: '5手詰めが見えるようになると一気に伸びます。囲いを2種類使い分けましょう。',
     skills: [
-      _Skill(label: '5手詰めを解く',       detail: '週3回。見えない手を読む訓練',     icon: Icons.extension),
+      _Skill(label: '5手詰めを解く',       detail: '週3回。見えない手を読む訓練',     icon: Icons.extension, screen: 'tsume'),
       _Skill(label: '四間飛車の基本定跡',   detail: '穴熊対策・棒銀対策を覚える',      icon: Icons.route,  screen: 'joseki'),
       _Skill(label: '飛車・角の手筋',      detail: '王手金取り・両取りの形を覚える',  icon: Icons.psychology, screen: 'tesuji'),
     ],
@@ -74,10 +78,10 @@ const _stages = [
     minRating: 820,
     advice: 'ここからは終盤力が勝負を決めます。寄せ・受けのパターンを蓄積しましょう。',
     skills: [
-      _Skill(label: '7手詰めを解く',       detail: '詰みの形を増やす。毎日1問でOK',  icon: Icons.extension),
+      _Skill(label: '7手詰めを解く',       detail: '詰みの形を増やす。毎日1問でOK',  icon: Icons.extension, screen: 'tsume'),
       _Skill(label: '矢倉・角換わりの定跡', detail: '先手・後手両方の作戦を知る',      icon: Icons.route, screen: 'joseki'),
       _Skill(label: '寄せの手筋',          detail: '金底の歩・端攻め・底歩のパターン', icon: Icons.psychology, screen: 'tesuji'),
-      _Skill(label: '感想戦をする',         detail: 'AI対局後に悪手を確認する習慣',    icon: Icons.replay, screen: 'coach'),
+      _Skill(label: '弱点を分析する',       detail: 'AI対局後に自分の弱点を確認',      icon: Icons.analytics, screen: 'weakness'),
     ],
   ),
   _Stage(
@@ -86,8 +90,8 @@ const _stages = [
     minRating: 1050,
     advice: '初段の直前。中盤の構想力が鍵です。プロ棋士の定跡・格言を積極的に吸収しましょう。',
     skills: [
-      _Skill(label: '9手詰めを解く',       detail: '長手数の詰みを読み切る訓練',      icon: Icons.extension),
-      _Skill(label: '中盤の構想',           detail: '駒の効率・手番の使い方を意識',    icon: Icons.psychology),
+      _Skill(label: '9手詰めを解く',       detail: '長手数の詰みを読み切る訓練',      icon: Icons.extension, screen: 'tsume'),
+      _Skill(label: '中盤の構想',           detail: '駒の効率・手番の使い方を意識',    icon: Icons.psychology, screen: 'game'),
       _Skill(label: '将棋の格言を覚える',   detail: '「角は引いて使え」など実戦格言を', icon: Icons.menu_book, screen: 'proverbs'),
       _Skill(label: 'コーチモードで指す',   detail: 'AI指導で悪手の癖を矯正する',     icon: Icons.school, screen: 'coach'),
     ],
@@ -98,9 +102,9 @@ const _stages = [
     minRating: 1150,
     advice: 'おめでとうございます！初段はアマチュアの大きな節目。さらなる高みを目指しましょう。',
     skills: [
-      _Skill(label: '11手詰めを解く',      detail: '有段者の詰将棋に挑戦',            icon: Icons.extension),
-      _Skill(label: '相矢倉の深い定跡',    detail: '局面の細かい差を理解する',         icon: Icons.route),
-      _Skill(label: '棋譜並べ',            detail: 'プロの棋譜を感覚で吸収する',       icon: Icons.history),
+      _Skill(label: '11手詰めを解く',      detail: '有段者の詰将棋に挑戦',            icon: Icons.extension, screen: 'tsume'),
+      _Skill(label: '相矢倉の深い定跡',    detail: '局面の細かい差を理解する',         icon: Icons.route, screen: 'joseki'),
+      _Skill(label: '弱点を徹底分析',      detail: '上達のボトルネックを特定する',     icon: Icons.analytics, screen: 'weakness'),
     ],
   ),
 ];
@@ -222,10 +226,34 @@ class _ShodanRoadmapScreenState extends State<ShodanRoadmapScreen> {
       case 'proverbs':
         Navigator.pushNamed(context, '/proverbs');
         break;
+      case 'tsume':
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const TsumeScreen()));
+        break;
+      case 'weakness':
+        Navigator.push(context, MaterialPageRoute(
+          builder: (_) => WeaknessAnalysisScreen(
+            onGoToTsume: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const TsumeScreen())),
+            onGoToJoseki: () => Navigator.pushNamed(context, '/joseki'),
+            onGoToTesuji: () => Navigator.pushNamed(context, '/tesuji'),
+            onGoToAiGame: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => GameSetupScreen(mode: GameMode.vsAI))),
+          ),
+        ));
+        break;
+      case 'game':
+        Navigator.push(context, MaterialPageRoute(
+            builder: (_) => GameSetupScreen(mode: GameMode.vsAI)));
+        break;
       case 'coach':
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('対局タブ → AI対局 → コーチモードをONにしてください')),
+          const SnackBar(
+            content: Text('AI対局 → 設定 → コーチモードをONにしてください'),
+            duration: Duration(seconds: 3),
+          ),
         );
+        Navigator.push(context, MaterialPageRoute(
+            builder: (_) => GameSetupScreen(mode: GameMode.vsAI)));
         break;
       default:
         break;

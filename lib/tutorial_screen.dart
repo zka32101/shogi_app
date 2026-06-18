@@ -12,7 +12,7 @@ class TutorialScreen extends StatefulWidget {
 class _TutorialScreenState extends State<TutorialScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  static const int _pageCount = 6;
+  static const int _pageCount = 9;
 
   @override
   void dispose() {
@@ -41,7 +41,8 @@ class _TutorialScreenState extends State<TutorialScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
         elevation: 0,
       ),
-      body: Column(
+      body: SafeArea(
+        child: Column(
         children: [
           // ページビュー
           Expanded(
@@ -55,6 +56,9 @@ class _TutorialScreenState extends State<TutorialScreen> {
                 _Page4CapturedPieces(),
                 _Page5Check(),
                 _Page6Controls(),
+                _Page7Opening(),
+                _Page8Castle(),
+                _Page9AppTips(),
               ],
             ),
           ),
@@ -81,7 +85,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
 
           // ナビゲーションボタン
           Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
             child: Row(
               children: [
                 if (_currentPage > 0)
@@ -129,6 +133,7 @@ class _TutorialScreenState extends State<TutorialScreen> {
             ),
           ),
         ],
+      ),
       ),
     );
   }
@@ -819,4 +824,273 @@ class _Page6Controls extends StatelessWidget {
       ),
     );
   }
+}
+
+// ===== ページ7: 定跡入門 =====
+
+class _Page7Opening extends StatelessWidget {
+  const _Page7Opening();
+
+  @override
+  Widget build(BuildContext context) {
+    return _TutorialPage(
+      icon: Icons.book,
+      title: '定跡入門',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '定跡とは、序盤で最善とされる指し手の流れのことです。代表的な定跡を覚えると序盤を安定させられます。',
+            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.6),
+          ),
+          const SizedBox(height: 16),
+          _OpeningCard('矢倉', '居飛車の代表的な定跡。右辺から攻め、玉を左辺に囲う。', '△', Colors.blue.shade700),
+          const SizedBox(height: 8),
+          _OpeningCard('四間飛車', '振り飛車の基本。飛車を4筋に振り、銀冠や美濃囲いと組み合わせる。', '◆', Colors.green.shade700),
+          const SizedBox(height: 8),
+          _OpeningCard('中飛車', '飛車を5筋（中央）に置き、中央突破を狙う積極的な戦法。', '◎', Colors.orange.shade700),
+          const SizedBox(height: 8),
+          _OpeningCard('角換わり', '序盤に角を交換する戦法。攻撃的な将棋になりやすい。', '★', Colors.purple.shade700),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.amber.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.amber.withAlpha(60)),
+            ),
+            child: const Text(
+              '💡 効棋のAI対局後に「棋譜解析」機能で序盤の改善点を確認できます',
+              style: TextStyle(color: Colors.amber, fontSize: 12, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OpeningCard extends StatelessWidget {
+  final String name, desc, symbol;
+  final Color color;
+  const _OpeningCard(this.name, this.desc, this.symbol, this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: color.withAlpha(30),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withAlpha(80)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(symbol, style: TextStyle(color: color, fontSize: 20)),
+        const SizedBox(width: 10),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(desc, style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)),
+          ],
+        )),
+      ],
+    ),
+  );
+}
+
+// ===== ページ8: 囲い入門 =====
+
+class _Page8Castle extends StatelessWidget {
+  const _Page8Castle();
+
+  @override
+  Widget build(BuildContext context) {
+    return _TutorialPage(
+      icon: Icons.castle,
+      title: '囲い入門',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '「囲い」とは王将を守るための陣形です。囲いを作ることで、相手の攻撃に耐えやすくなります。',
+            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.6),
+          ),
+          const SizedBox(height: 16),
+          _CastleCard('美濃囲い', '振り飛車でよく使われる。コンパクトで横からの攻撃に強い。初心者向け。',
+              [['金', '銀', ''], ['玉', '', ''], ['', '', '金']], Colors.green),
+          const SizedBox(height: 10),
+          _CastleCard('矢倉囲い', '居飛車の代表的な囲い。金銀3枚で守り、縦横からの攻撃に強い。',
+              [['金', '王', '金'], ['銀', '銀', ''], ['', '', '']], Colors.blue),
+          const SizedBox(height: 10),
+          _CastleCard('穴熊', '端に王を囲う最も堅い囲いの一つ。序盤に時間がかかるが守りが強固。',
+              [['香', '銀', '金'], ['桂', '金', ''], ['王', '', '']], Colors.purple),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.teal.withAlpha(20),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: Colors.teal.withAlpha(60)),
+            ),
+            child: const Text(
+              '💡 「囲いガイド」モードで特定の囲いへの組み方を対局中に表示できます',
+              style: TextStyle(color: Colors.tealAccent, fontSize: 12, height: 1.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CastleCard extends StatelessWidget {
+  final String name, desc;
+  final List<List<String>> grid;
+  final Color color;
+  const _CastleCard(this.name, this.desc, this.grid, this.color);
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: color.withAlpha(20),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: color.withAlpha(70)),
+    ),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 3x3 グリッド表示
+        SizedBox(
+          width: 72,
+          height: 72,
+          child: GridView.builder(
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 3,
+            ),
+            itemCount: 9,
+            itemBuilder: (_, i) {
+              final r = i ~/ 3, c = i % 3;
+              final piece = grid[r][c];
+              return Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white12, width: 0.5),
+                  color: piece.isNotEmpty ? color.withAlpha(40) : Colors.transparent,
+                ),
+                child: Center(
+                  child: Text(piece, style: TextStyle(color: color, fontSize: 9)),
+                ),
+              );
+            },
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(name, style: TextStyle(color: color, fontSize: 14, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text(desc, style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)),
+          ],
+        )),
+      ],
+    ),
+  );
+}
+
+// ===== ページ9: 効棋の使い方 =====
+
+class _Page9AppTips extends StatelessWidget {
+  const _Page9AppTips();
+
+  @override
+  Widget build(BuildContext context) {
+    return _TutorialPage(
+      icon: Icons.tips_and_updates,
+      title: '効棋の使い方',
+      content: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '効棋には将棋を楽しく上達するための機能が揃っています。',
+            style: TextStyle(color: Colors.white70, fontSize: 14, height: 1.6),
+          ),
+          const SizedBox(height: 16),
+          _AppTipItem(Icons.smart_toy, Colors.amber, 'AI対局',
+              '8段階の難度から選べます。初心者は「入門」から始めましょう。コーチモードで悪手を教えてくれます。'),
+          _AppTipItem(Icons.extension, Colors.blue, '詰将棋',
+              '1手詰〜7手詰まで多数収録。毎日1問解くだけで終盤力が上がります。'),
+          _AppTipItem(Icons.network_check, Colors.green, 'ネット対局',
+              '世界中のプレイヤーと対局できます。マナー報告機能で安全な環境を維持。'),
+          _AppTipItem(Icons.bar_chart, Colors.purple, '統計・段級位',
+              '対局結果が自動記録され、段級位が上がります。週次成長・弱点分析で課題を把握。'),
+          _AppTipItem(Icons.history_edu, Colors.teal, '棋譜管理',
+              '対局後の棋譜を保存・再生。KIFエクスポートや棋譜シェアも可能です。'),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Colors.amber.withAlpha(30), Colors.orange.withAlpha(20)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.withAlpha(80)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.emoji_events, color: Colors.amber, size: 28),
+                SizedBox(width: 10),
+                Expanded(child: Text(
+                  '将棋ウォーズより公平で\nマナーの良い対局環境を目指しています！',
+                  style: TextStyle(color: Colors.amber, fontSize: 12, height: 1.5, fontWeight: FontWeight.bold),
+                )),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AppTipItem extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title, desc;
+  const _AppTipItem(this.icon, this.color, this.title, this.desc);
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            color: color.withAlpha(30),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withAlpha(80)),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 12),
+        Expanded(child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 2),
+            Text(desc, style: const TextStyle(color: Colors.white54, fontSize: 12, height: 1.4)),
+          ],
+        )),
+      ],
+    ),
+  );
 }
