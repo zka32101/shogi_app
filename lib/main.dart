@@ -684,61 +684,76 @@ class _PlayTabState extends State<_PlayTab> {
             const SizedBox(height: 8),
             // ゴースト棋士カード
             GestureDetector(
-              onTap: () => _go(context, const GhostScreen()),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 14,
-                ),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF1A237E),
-                      Colors.deepPurple.shade900,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.indigo.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Text('👻', style: TextStyle(fontSize: 28)),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              onTap: () {
+                if (!PurchaseService.isPremium) {
+                  Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumScreen()));
+                  return;
+                }
+                _go(context, const GhostScreen());
+              },
+              child: Stack(
+                children: [
+                  Opacity(
+                    opacity: PurchaseService.isPremium ? 1.0 : 0.65,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 14,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            const Color(0xFF1A237E),
+                            Colors.deepPurple.shade900,
+                          ],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.indigo.withAlpha(80)),
+                      ),
+                      child: Row(
                         children: [
-                          const Text(
-                            'ゴースト棋士',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
+                          const Text('👻', style: TextStyle(fontSize: 28)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'ゴースト棋士',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  PurchaseService.isPremium
+                                      ? ((_ghostWins + _ghostLosses) == 0
+                                          ? '棋風ゴーストで自動対戦'
+                                          : '今日 $_ghostWins勝 $_ghostLosses敗')
+                                      : 'プレミアム限定機能',
+                                  style: TextStyle(
+                                    color: PurchaseService.isPremium
+                                        ? ((_ghostWins + _ghostLosses) == 0 ? Colors.white38 : Colors.white70)
+                                        : Colors.amber.shade300,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Text(
-                            (_ghostWins + _ghostLosses) == 0
-                                ? '棋風ゴーストで自動対戦'
-                                : '今日 $_ghostWins勝 $_ghostLosses敗',
-                            style: TextStyle(
-                              color: (_ghostWins + _ghostLosses) == 0
-                                  ? Colors.white38
-                                  : Colors.white70,
-                              fontSize: 12,
-                            ),
+                          Icon(
+                            PurchaseService.isPremium ? Icons.arrow_forward_ios : Icons.lock,
+                            color: PurchaseService.isPremium ? Colors.white54 : Colors.amber,
+                            size: 14,
                           ),
                         ],
                       ),
                     ),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 20),
@@ -898,9 +913,9 @@ class _StudyTab extends StatelessWidget {
       ]),
       _StudySection('診断・分析', Icons.analytics, const Color(0xFFAB47BC), [
         _StudyItem('棋力診断', Icons.assessment, () => _go(context, const StrengthTestScreen())),
-        _StudyItem('棋風診断', Icons.face, () => _go(context, const PlaystyleDiagnosisScreen())),
-        _StudyItem('弱点分析', Icons.radar, () => _go(context, const WeaknessAnalysisScreen())),
-        _StudyItem('弱点採掘', Icons.travel_explore, () => _go(context, const WeaknessMiningScreen())),
+        _StudyItem('棋風診断', Icons.face, () => _go(context, const PlaystyleDiagnosisScreen()), requiresPremium: true),
+        _StudyItem('弱点分析', Icons.radar, () => _go(context, const WeaknessAnalysisScreen()), requiresPremium: true),
+        _StudyItem('弱点採掘', Icons.travel_explore, () => _go(context, const WeaknessMiningScreen()), requiresPremium: true),
         _StudyItem('学習カレンダー', Icons.calendar_month, () => _go(context, const StudyCalendarScreen())),
         _StudyItem('プロ棋譜', Icons.video_library, () => _go(context, const ProKifuScreen())),
       ]),
@@ -911,13 +926,13 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('3分筋トレ', Icons.bolt, () => _go(context, const MicroTrainingScreen())),
       ]),
       _StudySection('AIコーチ・ツール 👑', Icons.auto_awesome, const Color(0xFF7E57C2), [
-        _StudyItem('週次AI振り返り', Icons.insights, () => _go(context, const WeeklyReviewScreen())),
-        _StudyItem('忘却曲線AI', Icons.calendar_today, () => _go(context, const SpacedRepetitionScreen())),
-        _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen())),
-        _StudyItem('自然言語Q&A', Icons.chat, () => _go(context, const NaturalLangQAScreen())),
-        _StudyItem('難易度自動調整', Icons.tune, () => _go(context, const AdaptiveDifficultyScreen(userId: 'user_default'))),
-        _StudyItem('カメラOCR', Icons.camera_alt, () => _go(context, const CameraOCRScreen())),
-        _StudyItem('音声入出力', Icons.mic, () => _go(context, const VoiceIOScreen())),
+        _StudyItem('週次AI振り返り', Icons.insights, () => _go(context, const WeeklyReviewScreen()), requiresPremium: true),
+        _StudyItem('忘却曲線AI', Icons.calendar_today, () => _go(context, const SpacedRepetitionScreen()), requiresPremium: true),
+        _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen()), requiresPremium: true),
+        _StudyItem('自然言語Q&A', Icons.chat, () => _go(context, const NaturalLangQAScreen()), requiresPremium: true),
+        _StudyItem('難易度自動調整', Icons.tune, () => _go(context, const AdaptiveDifficultyScreen(userId: 'user_default')), requiresPremium: true),
+        _StudyItem('カメラOCR', Icons.camera_alt, () => _go(context, const CameraOCRScreen(isPremiumUser: true)), requiresPremium: true),
+        _StudyItem('音声入出力', Icons.mic, () => _go(context, const VoiceIOScreen()), requiresPremium: true),
       ]),
       _StudySection('記録・実績', Icons.leaderboard, const Color(0xFF78909C), [
         _StudyItem('ランキング', Icons.leaderboard, () => _go(context, const RankingScreen())),
@@ -980,7 +995,8 @@ class _StudyItem {
   final String label;
   final IconData icon;
   final VoidCallback onTap;
-  _StudyItem(this.label, this.icon, this.onTap);
+  final bool requiresPremium;
+  _StudyItem(this.label, this.icon, this.onTap, {this.requiresPremium = false});
 }
 
 class _LearnTile extends StatelessWidget {
@@ -990,42 +1006,58 @@ class _LearnTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final locked = item.requiresPremium && !PurchaseService.isPremium;
     return GestureDetector(
-      onTap: item.onTap,
-      child: Container(
-        padding: const EdgeInsets.all(8),
-        decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withAlpha(60)),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Container(
-              width: 38,
-              height: 38,
+      onTap: locked
+          ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumScreen()))
+          : item.onTap,
+      child: Stack(
+        children: [
+          Opacity(
+            opacity: locked ? 0.55 : 1.0,
+            child: Container(
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: color.withAlpha(38),
-                borderRadius: BorderRadius.circular(10),
+                color: const Color(0xFF16213E),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: color.withAlpha(60)),
               ),
-              child: Icon(item.icon, color: color, size: 20),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              item.label,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 11,
-                height: 1.15,
-                fontWeight: FontWeight.w500,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: color.withAlpha(38),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(item.icon, color: color, size: 20),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    item.label,
+                    textAlign: TextAlign.center,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      height: 1.15,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          if (locked)
+            const Positioned(
+              top: 4,
+              right: 4,
+              child: Icon(Icons.lock, color: Colors.amber, size: 14),
+            ),
+        ],
       ),
     );
   }

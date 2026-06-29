@@ -166,7 +166,7 @@ class CameraOCRScreen extends StatefulWidget {
 
   const CameraOCRScreen({
     Key? key,
-    this.isPremiumUser = true,
+    this.isPremiumUser = false,
   }) : super(key: key);
 
   @override

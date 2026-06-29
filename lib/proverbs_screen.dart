@@ -322,18 +322,16 @@ List<_ProverbData> _buildAllProverbs() {
     // 6. 金底の歩岩より固し [守り]
     () {
       final b = _emptyBoard();
-      b[8][4] = const Piece(PieceType.king, true);
-      b[0][4] = const Piece(PieceType.king, false);
-      b[7][4] = const Piece(PieceType.gold, true);
-      b[8][4] = const Piece(PieceType.king, true);
-      b[8][3] = const Piece(PieceType.gold, true);
-      b[8][5] = const Piece(PieceType.silver, true);
-      b[6][4] = const Piece(PieceType.pawn, true);   // 金底の歩
+      b[8][7] = const Piece(PieceType.king, true);   // 玉は端に退避
+      b[0][7] = const Piece(PieceType.king, false);
+      b[7][4] = const Piece(PieceType.gold, true);   // 守りの金
+      b[8][4] = const Piece(PieceType.pawn, true);   // 金底の歩（金の下に打つ）
+      b[2][4] = const Piece(PieceType.rook, false);  // 攻め込む後手飛車
       return _ProverbData(
         proverb: '金底の歩岩より固し',
-        explanation: '金の下に打った歩は岩より固い守り。飛車の成り込みを防ぐ最強の受け。',
+        explanation: '金の下（底）に打った歩は岩より固い守り。後手の飛車成り込みを完全に防ぐ最強の受け。',
         board: b,
-        highlightSquares: {(6, 4), (7, 4)},
+        highlightSquares: {(8, 4), (7, 4)},
         category: _ProverbCategory.defense,
         sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
         sourceTitle: '将棋講座.com',
@@ -396,7 +394,7 @@ List<_ProverbData> _buildAllProverbs() {
       b[0][4] = const Piece(PieceType.king, false);
       b[6][0] = const Piece(PieceType.pawn, true);   // 先手端歩
       b[2][0] = const Piece(PieceType.pawn, false);  // 後手端歩
-      b[7][8] = const Piece(PieceType.lance, true);
+      b[8][8] = const Piece(PieceType.lance, true);
       b[0][8] = const Piece(PieceType.lance, false);
       return _ProverbData(
         proverb: '端歩は突くな突かせるな',
@@ -470,18 +468,18 @@ List<_ProverbData> _buildAllProverbs() {
     // 13. 玉の早逃げ八手の得 [守り]
     () {
       final b = _emptyBoard();
-      b[8][4] = const Piece(PieceType.king, true);   // まだ中央
+      b[8][7] = const Piece(PieceType.king, true);   // 逃げた後の安全な位置
+      b[7][7] = const Piece(PieceType.gold, true);
+      b[7][6] = const Piece(PieceType.gold, true);
+      b[8][6] = const Piece(PieceType.silver, true);
       b[0][4] = const Piece(PieceType.king, false);
-      b[7][3] = const Piece(PieceType.gold, true);
-      b[8][3] = const Piece(PieceType.silver, true);
-      b[7][5] = const Piece(PieceType.gold, true);
-      // 逃げ先を示す
-      b[8][7] = const Piece(PieceType.king, true);   // 逃げた後の位置（仮）
+      b[3][4] = const Piece(PieceType.rook, false);  // 後手の攻め駒
+      b[3][3] = const Piece(PieceType.silver, false);
       return _ProverbData(
         proverb: '玉の早逃げ八手の得',
         explanation: '中盤から早めに玉を安全な場所に逃しておくと終盤8手分の余裕ができる。',
         board: b,
-        highlightSquares: {(8, 4), (8, 7)},
+        highlightSquares: {(8, 7), (7, 7), (7, 6)},
         category: _ProverbCategory.defense,
         sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/玉の格言一覧.html',
         sourceTitle: '将棋講座.com',
@@ -519,7 +517,7 @@ List<_ProverbData> _buildAllProverbs() {
       b[2][7] = const Piece(PieceType.pawn, false);
       return _ProverbData(
         proverb: '棒銀は歩の突き越しから',
-        explanation: '棒銀攻めは7筋の歩を突き越してから銀を進める。歩の突き越しが銀の道を作る。',
+        explanation: '棒銀攻めは2筋の歩を突き越してから銀を進める。歩の突き越しが銀の道を作る。',
         board: b,
         highlightSquares: {(5, 7), (6, 7)},
         category: _ProverbCategory.attack,
@@ -660,14 +658,14 @@ List<_ProverbData> _buildAllProverbs() {
       final b = _emptyBoard();
       b[8][4] = const Piece(PieceType.king, true);
       b[0][4] = const Piece(PieceType.king, false);
-      b[2][4] = const Piece(PieceType.pawn, true);   // 垂れ歩（相手陣2段目）
-      b[1][4] = const Piece(PieceType.gold, false);
-      b[4][4] = const Piece(PieceType.rook, true);
+      b[1][4] = const Piece(PieceType.pawn, true);   // 垂れ歩（敵陣2段目）
+      b[1][3] = const Piece(PieceType.gold, false);  // 受けに来た後手の金
+      b[3][4] = const Piece(PieceType.rook, true);   // 垂れ歩を支援する飛車
       return _ProverbData(
         proverb: '垂れ歩は先手必勝',
-        explanation: '敵陣の2段目に打った歩を「垂れ歩」という。成れる位置で相手に受けを迫る強力な攻め。',
+        explanation: '敵陣の2段目に打った歩を「垂れ歩」という。飛車で守られた歩は相手が取れず受けを迫る強力な攻め。',
         board: b,
-        highlightSquares: {(2, 4), (1, 4)},
+        highlightSquares: {(1, 4), (1, 3)},
         category: _ProverbCategory.attack,
         sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
         sourceTitle: '将棋講座.com',
@@ -679,9 +677,8 @@ List<_ProverbData> _buildAllProverbs() {
       final b = _emptyBoard();
       b[8][4] = const Piece(PieceType.king, true);
       b[0][4] = const Piece(PieceType.king, false);
-      b[5][4] = const Piece(PieceType.pawn, true);
       b[3][4] = const Piece(PieceType.pawn, false);
-      b[4][4] = const Piece(PieceType.pawn, true);   // 継ぎ歩
+      b[4][4] = const Piece(PieceType.pawn, true);   // 継ぎ歩（前進）
       b[6][4] = const Piece(PieceType.rook, true);
       return _ProverbData(
         proverb: '継ぎ歩は攻めの第一歩',

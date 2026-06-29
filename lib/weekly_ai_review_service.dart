@@ -1,6 +1,7 @@
 // lib/weekly_ai_review_service.dart
 // AI週次振り返りレポート - Cloud Functions経由でClaude APIを呼び出し
 
+import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -82,23 +83,50 @@ class WeeklyAiReviewService {
       final attack = prefs.getInt('playstyle_attack') ?? 0;
       final total = prefs.getInt('playstyle_total') ?? 1;
 
+      // rating_history から直近7日間の勝敗を集計
+      int wins = 0;
+      int losses = 0;
+      try {
+        final raw = prefs.getString('rating_history') ?? '[]';
+        final records = (jsonDecode(raw) as List).cast<Map<String, dynamic>>();
+        final weekAgo = DateTime.now().subtract(const Duration(days: 7));
+        for (final r in records) {
+          final dateStr = r['date'] as String? ?? '';
+          final delta = r['delta'] as int? ?? 0;
+          try {
+            final dt = DateTime.parse(dateStr.replaceFirst(' ', 'T'));
+            if (dt.isAfter(weekAgo)) {
+              if (delta > 0) {
+                wins++;
+              } else if (delta < 0) {
+                losses++;
+              }
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+
       final dialogues = <String>[];
       final improvementArea = _getImprovementArea(attack / total, rating);
 
-      // キャラクターセリフで励まし
       if (gamesPlayed > 10) {
         dialogues.add('よく頑張ったな。10試合以上も指したか。');
       }
       if (rating > 1200) {
         dialogues.add('なかなかの腕前だ。次も期待している。');
       }
+      if (wins > losses && wins > 0) {
+        dialogues.add('今週は好調だ。この調子を維持しろ。');
+      }
 
       return WeeklyAiReview(
         weekKey: weekKey,
         gamesPlayed: gamesPlayed,
-        wins: gamesPlayed,
-        losses: 0,
-        summary: '今週は $gamesPlayed 回の対局を行いました。',
+        wins: wins,
+        losses: losses,
+        summary: gamesPlayed > 0
+            ? '今週は $gamesPlayed 局指して $wins 勝 $losses 敗でした。'
+            : '今週はまだ対局していません。',
         dialogues: dialogues,
         improvementArea: improvementArea,
       );

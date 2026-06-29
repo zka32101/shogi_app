@@ -129,6 +129,10 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // 機能比較表
+                  _buildComparisonTable(),
+                  const SizedBox(height: 20),
+
                   // 無料プラン
                   _buildFreePlanCard(),
                   const SizedBox(height: 16),
@@ -151,6 +155,94 @@ class _PremiumScreenState extends State<PremiumScreen> {
                 ],
               ),
             ),
+    );
+  }
+
+  // ── 機能比較表 ──────────────────────────────────────────────
+  Widget _buildComparisonTable() {
+    const rows = [
+      ('対戦回数',      '5回/日', '無制限',  '無制限'),
+      ('広告',         'あり',   'なし',    'なし'),
+      ('棋風診断',      '×',     '✓',       '✓'),
+      ('弱点分析',      '×',     '✓',       '✓'),
+      ('ゴースト棋士',  '×',     '✓',       '✓'),
+      ('難易度自動調整', '×',    '✓',       '✓'),
+      ('忘却曲線AI',    '×',     '✓',       '✓'),
+      ('カメラOCR',     '×',    '✓',       '✓'),
+      ('AI週次振り返り', '×',   '×',       '✓'),
+      ('クラウド同期',   '×',   '×',       '✓'),
+      ('無制限履歴',    '×',    '×',       '✓'),
+      ('プレミアムバッジ', '×', '×',       '✓'),
+    ];
+
+    Widget header(String text, {Color? bg}) => Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      color: bg,
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          color: bg != null ? Colors.black87 : AppTheme.textMid,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+      ),
+    );
+
+    Widget cell(String text, {bool isCheck = false, bool isCross = false}) => Container(
+      padding: const EdgeInsets.symmetric(vertical: 7),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 11,
+          color: isCheck ? Colors.greenAccent.shade400
+              : isCross ? Colors.white24
+              : AppTheme.textHigh,
+          fontWeight: isCheck ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      clipBehavior: Clip.hardEdge,
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(2.2),
+          1: FlexColumnWidth(1.0),
+          2: FlexColumnWidth(1.0),
+          3: FlexColumnWidth(1.0),
+        },
+        border: TableBorder.symmetric(
+          inside: const BorderSide(color: Colors.white10, width: 0.5),
+        ),
+        children: [
+          TableRow(
+            decoration: const BoxDecoration(color: Color(0xFF0D1B2A)),
+            children: [
+              header('機能'),
+              header('無料'),
+              header('300円', bg: Colors.blue.shade800),
+              header('500円', bg: Colors.amber.shade800),
+            ],
+          ),
+          for (final r in rows)
+            TableRow(children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                child: Text(r.$1, style: const TextStyle(color: AppTheme.textMid, fontSize: 11)),
+              ),
+              cell(r.$2, isCross: r.$2 == '×'),
+              cell(r.$3, isCheck: r.$3 == '✓', isCross: r.$3 == '×'),
+              cell(r.$4, isCheck: r.$4 == '✓', isCross: r.$4 == '×'),
+            ]),
+        ],
+      ),
     );
   }
 

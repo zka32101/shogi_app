@@ -149,6 +149,178 @@ List<_SRSProb> _buildSRSProblems() {
     ));
   }
 
+  // ── 新規問題 ⑥〜⑮ ──────────────────────────────────────────
+
+  {
+    // 角[7][5]→[5][3]: 後手飛車を取る。[5][3]から斜め上右→[1][7]で王手
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[1][7] = Piece(PieceType.king, false);
+    b[7][5] = Piece(PieceType.bishop, true);
+    b[5][3] = Piece(PieceType.rook, false);
+    list.add(_SRSProb(
+      id: 'srs_006',
+      title: '王手飛車取り - 角篇',
+      explanation: '先手の角が後手の飛車を取りながら、同時に後手玉に王手をかけます。一石二鳥の手を見つけてください。',
+      board: b,
+      answer: AMove(fr: 7, fc: 5, tr: 5, tc: 3),
+    ));
+  }
+
+  {
+    // 桂[6][5]→[4][4]: 後手飛車を取る。桂は[2][3]と[2][5]を攻撃→後手玉[2][5]に王手
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[2][5] = Piece(PieceType.king, false);
+    b[6][5] = Piece(PieceType.knight, true);
+    b[4][4] = Piece(PieceType.rook, false);
+    list.add(_SRSProb(
+      id: 'srs_007',
+      title: '桂馬の王手飛車取り',
+      explanation: '先手桂馬が後手の飛車を取りながら、後手玉に王手をかける好手を指してください。桂馬は跳び越せます。',
+      board: b,
+      answer: AMove(fr: 6, fc: 5, tr: 4, tc: 4),
+    ));
+  }
+
+  {
+    // 金[2][5]→[1][4]: 後手玉[0][4]に王手。金の利きで全逃げ道封鎖。先手飛車[1][8]が[1][4]を守る
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[2][5] = Piece(PieceType.gold, true);
+    b[1][8] = Piece(PieceType.rook, true);
+    list.add(_SRSProb(
+      id: 'srs_008',
+      title: '金の一手詰め',
+      explanation: '先手の金を斜め前に動かして後手玉を詰ませてください。金の動きと、飛車による金の守りがポイントです。',
+      board: b,
+      answer: AMove(fr: 2, fc: 5, tr: 1, tc: 4),
+    ));
+  }
+
+  {
+    // 竜[3][4]→[1][4]: 後手玉[0][4]に王手。後手銀[0][3]・後手金[0][5]で横逃げ不可。先手金[2][3]が[1][4]を守る
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[0][3] = Piece(PieceType.silver, false);
+    b[0][5] = Piece(PieceType.gold, false);
+    b[3][4] = Piece(PieceType.promotedRook, true);
+    b[2][3] = Piece(PieceType.gold, true);
+    list.add(_SRSProb(
+      id: 'srs_009',
+      title: '竜の一手詰め',
+      explanation: '先手の竜（成り飛車）を前進させて後手玉を詰ませてください。後手の駒が逃げ道を塞いでいる点に注目。',
+      board: b,
+      answer: AMove(fr: 3, fc: 4, tr: 1, tc: 4),
+    ));
+  }
+
+  {
+    // 角[4][0]→[2][2]: 後手玉[0][4]に[1][3]→[0][4]で王手。先手金[2][3]→[1][4]封鎖、先手香[8][5]→[1][5]封鎖
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[0][3] = Piece(PieceType.silver, false);
+    b[0][5] = Piece(PieceType.gold, false);
+    b[4][0] = Piece(PieceType.bishop, true);
+    b[2][3] = Piece(PieceType.gold, true);
+    b[8][5] = Piece(PieceType.lance, true);
+    list.add(_SRSProb(
+      id: 'srs_010',
+      title: '遠見の角 - 大斜め詰め',
+      explanation: '先手の角を遠くに動かして後手玉に王手をかけてください。角の長い斜め利きで詰みを実現するのがポイントです。',
+      board: b,
+      answer: AMove(fr: 4, fc: 0, tr: 2, tc: 2),
+    ));
+  }
+
+  {
+    // 角[5][2]→[3][4]: 後手飛車[3][4]をタダ取り（守り駒なし）
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[5][2] = Piece(PieceType.bishop, true);
+    b[3][4] = Piece(PieceType.rook, false);
+    b[2][4] = Piece(PieceType.pawn, false);
+    list.add(_SRSProb(
+      id: 'srs_011',
+      title: '飛車をタダ取り',
+      explanation: '後手の飛車がタダで取れます。角の利きを活かして大駒を取ってください。',
+      board: b,
+      answer: AMove(fr: 5, fc: 2, tr: 3, tc: 4),
+    ));
+  }
+
+  {
+    // 角[5][6]→[3][4]: 後手金[1][6]と後手飛車[5][2]を同時に攻撃（両取り）
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[5][6] = Piece(PieceType.bishop, true);
+    b[1][6] = Piece(PieceType.gold, false);
+    b[5][2] = Piece(PieceType.rook, false);
+    list.add(_SRSProb(
+      id: 'srs_012',
+      title: '角の両取り（ダブルアタック）',
+      explanation: '先手の角を動かすと、後手の飛車と金を同時に攻撃できます。一手で二つの駒を狙う「両取り」を見つけてください。',
+      board: b,
+      answer: AMove(fr: 5, fc: 6, tr: 3, tc: 4),
+    ));
+  }
+
+  {
+    // 竜[3][3]→[1][3]: 後手飛車[1][3]を縦にタダ取り（守り駒なし）
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[3][3] = Piece(PieceType.promotedRook, true);
+    b[1][3] = Piece(PieceType.rook, false);
+    b[3][7] = Piece(PieceType.silver, false);
+    list.add(_SRSProb(
+      id: 'srs_013',
+      title: '竜で飛車をタダ取り',
+      explanation: '先手の竜（成り飛車）で後手の飛車をタダで取れます。縦の利きを使った基本の「タダ取り」です。',
+      board: b,
+      answer: AMove(fr: 3, fc: 3, tr: 1, tc: 3),
+    ));
+  }
+
+  {
+    // 桂[6][5]→[4][4]: 後手金[4][4]を跳んで取る（守り駒なし）
+    final b = _empty();
+    b[8][4] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[6][5] = Piece(PieceType.knight, true);
+    b[4][4] = Piece(PieceType.gold, false);
+    b[4][2] = Piece(PieceType.silver, false);
+    list.add(_SRSProb(
+      id: 'srs_014',
+      title: '桂馬の急所 - 金をタダ取り',
+      explanation: '先手の桂馬を跳ばせると後手の金をタダで取れます。桂馬は他の駒を跳び越えられる特殊な動きです。',
+      board: b,
+      answer: AMove(fr: 6, fc: 5, tr: 4, tc: 4),
+    ));
+  }
+
+  {
+    // 飛車[5][4]→[2][4]: 後手金[2][4]を取る。横に銀[5][2]も取れるが金の方が価値が高い
+    final b = _empty();
+    b[8][0] = Piece(PieceType.king, true);
+    b[0][4] = Piece(PieceType.king, false);
+    b[5][4] = Piece(PieceType.rook, true);
+    b[2][4] = Piece(PieceType.gold, false);
+    b[5][2] = Piece(PieceType.silver, false);
+    list.add(_SRSProb(
+      id: 'srs_015',
+      title: '飛車で大駒選択 - どちらを取る？',
+      explanation: '先手の飛車は縦に金も、横に銀も取れます。駒の価値（金＞銀）を考えて、より大きな駒を取ってください。',
+      board: b,
+      answer: AMove(fr: 5, fc: 4, tr: 2, tc: 4),
+    ));
+  }
+
   return list;
 }
 
