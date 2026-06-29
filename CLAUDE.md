@@ -96,6 +96,39 @@ description: 将棋アプリ（詰将棋 + ネットワーク対局 + AI対局�
 
 ---
 
+## AI エンジン（最新: c059de4）
+
+### アーキテクチャ
+| レイヤー | ファイル | 役割 |
+|---|---|---|
+| Isolateラッパー | `lib/services/ai_isolate.dart` | `compute()` でUIスレッドをブロックしない |
+| コアAI | `lib/logic.dart` — `AI` class | α-β + TT + Killer + NMP + QSearch + LMR |
+| 棋風設定 | `lib/ai_personality.dart` | attackBias / defenceBias / greedBias / depthBonus |
+| やねうら王(Web) | `lib/yaneuraou_service_web.dart` | WASM + Web Worker（Web専用） |
+| やねうら王(Mobile) | `lib/yaneuraou_service_stub.dart` | 常にfalse返却 → Dart AIにフォールバック |
+| 条件切り替え | `lib/yaneuraou_service.dart` | `export ... if (dart.library.html)` |
+
+### 主要メソッド
+- `AI.bestMoveTimed(board, p1h, p2h, aiIsP1, {budget})` — 反復深化（depth=1〜10）+ 時間予算制御
+- `AI.topMovesTimed(board, p1h, p2h, aiIsP1, {n, budget})` — 上位N手を反復深化で返す
+- `AiIsolate.bestMoveTimed(...)` — Isolate内で bestMoveTimed を実行（UIブロックなし）
+- `AiIsolate.topMovesTimed(...)` — Isolate内で topMovesTimed を実行
+
+### LMR（Late Move Reductions）
+- `_mm()` 内で手のindex >= 2 かつ depth >= 3 の非戦術手（非取り・非成り・王手なし）を削減
+- index 2〜5: reduction=1、index 6+かつdepth>=5: reduction=2
+- 削減した手がα/βを改善したら全深度で再探索
+
+### 時間予算テーブル（depth別 ms）
+`effectiveDepth` 1〜6: 200 / 350 / 600 / 1000 / 1800 / 3200 ms
+
+### `_runAI()` フロー（game_screen.dart）
+1. 序盤20手以内 + depth>=2 → 定跡ブック（50%確率）
+2. depth<=3 → `AiIsolate.topMovesTimed()` → 60%/30%/10%でランダム選択
+3. depth>=4 → `AiIsolate.bestMoveTimed()`
+
+---
+
 ## Firebase Firestore スキーマ
 ```
 users/{uid}/
