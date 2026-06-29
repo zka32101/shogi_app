@@ -936,6 +936,12 @@ class AI {
     final moves = allMoves(b, aiIsP1, p1h, p2h);
     if (moves.isEmpty) return null;
     if (moves.length == 1) return moves.first;
+
+    // ── 詰み探索（9手詰めまで優先）──
+    // 通常の α-β より高速に詰みを発見できる場合がある
+    final mateMove = findMate(b, p1h, p2h, aiIsP1, maxDepth: 9);
+    if (mateMove != null) return mateMove;
+
     _clearSearchState();
     final sw  = Stopwatch()..start();
     AMove? best;
@@ -1042,6 +1048,95 @@ class AI {
     }
     scored.sort((a, bb) => aiIsP1 ? bb.$2 - a.$2 : a.$2 - bb.$2);
     return scored.take(n).toList();
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 詰み探索（最大 N 手詰め）
+  // 攻め側は王手のみ、受け側は全手を試す再帰探索。
+  // ノード数上限で打ち切り（時間超過防止）。
+  // ─────────────────────────────────────────────────────────────
+
+  static int _mateNodes = 0;
+  static const int _maxMateNodes = 120000;
+
+  /// 最大 maxDepth 手以内の詰み手を返す（詰みなし → null）。
+  /// maxDepth は奇数（1, 3, 5, 7, 9, ...）推奨。
+  static AMove? findMate(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool attackerIsP1, {
+    int maxDepth = 9,
+  }) {
+    _mateNodes = 0;
+    for (int d = 1; d <= maxDepth; d += 2) {
+      // 攻め手の候補: 王手になる手のみ
+      final atkMoves = allMoves(b, attackerIsP1, p1h, p2h).where((mv) {
+        final nx = apply(b, p1h, p2h, mv, attackerIsP1);
+        return GL.inCheck(nx.b, !attackerIsP1);
+      }).toList();
+
+      for (final mv in atkMoves) {
+        if (_mateNodes >= _maxMateNodes) return null;
+        final nx = apply(b, p1h, p2h, mv, attackerIsP1);
+        if (_isMate(nx.b, nx.p1h, nx.p2h, attackerIsP1, d - 1)) {
+          return mv;
+        }
+      }
+    }
+    return null;
+  }
+
+  /// 受け側の番。depth 手以内に全変化詰み → true
+  static bool _isMate(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool attackerIsP1,
+    int depth,
+  ) {
+    _mateNodes++;
+    if (_mateNodes >= _maxMateNodes) return false;
+
+    final defMoves = allMoves(b, !attackerIsP1, p1h, p2h);
+    if (defMoves.isEmpty) return true; // 受けなし → 詰み
+    if (depth == 0) return false;      // 深さ切れ → 不詰み
+
+    for (final mv in defMoves) {
+      final nx = apply(b, p1h, p2h, mv, !attackerIsP1);
+      if (!_canMate(nx.b, nx.p1h, nx.p2h, attackerIsP1, depth - 1)) {
+        return false; // 少なくとも1変化逃げられる
+      }
+      if (_mateNodes >= _maxMateNodes) return false;
+    }
+    return true; // 全変化詰み
+  }
+
+  /// 攻め側の番。depth 手以内に詰みがある → true
+  static bool _canMate(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool attackerIsP1,
+    int depth,
+  ) {
+    _mateNodes++;
+    if (_mateNodes >= _maxMateNodes) return false;
+    if (depth == 0) return false;
+
+    final atkMoves = allMoves(b, attackerIsP1, p1h, p2h).where((mv) {
+      final nx = apply(b, p1h, p2h, mv, attackerIsP1);
+      return GL.inCheck(nx.b, !attackerIsP1);
+    }).toList();
+
+    for (final mv in atkMoves) {
+      final nx = apply(b, p1h, p2h, mv, attackerIsP1);
+      if (_isMate(nx.b, nx.p1h, nx.p2h, attackerIsP1, depth - 1)) {
+        return true;
+      }
+      if (_mateNodes >= _maxMateNodes) return false;
+    }
+    return false;
   }
 
   // 盤上の総駒数（null move pruning の終盤判定用）

@@ -126,6 +126,18 @@ List<Map<String, dynamic>> _workerTop(Map<String, dynamic> p) {
       .toList();
 }
 
+/// findMate をIsolate内で実行
+Map<String, dynamic>? _workerMate(Map<String, dynamic> p) {
+  final b   = _decodeBoard((p['board'] as List).cast<int>());
+  final p1h = _decodeHand((p['p1h'] as List).cast<int>());
+  final p2h = _decodeHand((p['p2h'] as List).cast<int>());
+  final attackerIsP1 = p['aiIsP1'] as bool;
+  final maxDepth     = p['maxDepth'] as int;
+  AI.setPersonality(null);
+  final mv = AI.findMate(b, p1h, p2h, attackerIsP1, maxDepth: maxDepth);
+  return mv?.toJson();
+}
+
 // ─────────────────────────────────────────────
 // 公開 API
 // ─────────────────────────────────────────────
@@ -190,5 +202,25 @@ class AiIsolate {
       final score = e['score'] as int;
       return (mv, score);
     }).toList();
+  }
+
+  /// 詰み手をIsolateで探索して返す（詰みなし → null）。
+  /// [maxDepth] 手詰めまでを探す。
+  static Future<AMove?> findMate(
+    List<List<Piece?>> board,
+    Map<PieceType, int> p1Hand,
+    Map<PieceType, int> p2Hand,
+    bool attackerIsP1, {
+    int maxDepth = 9,
+  }) async {
+    final params = <String, dynamic>{
+      'board':      _encodeBoard(board),
+      'p1h':        _encodeHand(p1Hand),
+      'p2h':        _encodeHand(p2Hand),
+      'aiIsP1':     attackerIsP1,
+      'maxDepth':   maxDepth,
+    };
+    final result = await compute(_workerMate, params);
+    return result != null ? AMove.fromJson(result) : null;
   }
 }
