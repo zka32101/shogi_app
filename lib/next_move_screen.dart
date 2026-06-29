@@ -649,6 +649,7 @@ final List<_NMProb> _problems = [
     explanation: '▲1二金が正解。2三の銀が1二の地点を支えているので玉は金を取れず、逃げ場もなく詰みです。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
+    p1Hand: {PieceType.gold: 1},
   ),
   _NMProb(
     title: '飛車の成り込み',
@@ -671,6 +672,7 @@ final List<_NMProb> _problems = [
     explanation: '▲1八金打が正解。玉の逃げ道を金で全て封じる「必死」の手です。後手は受ける手がありません。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
+    p1Hand: {PieceType.gold: 1},
   ),
   _NMProb(
     title: '角で決める',
@@ -687,13 +689,14 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '歩で塞ぐ',
     difficulty: '初級',
-    description: '先手番。相手の攻めを歩で塞いで、玉の守りを強化する最善手は？',
+    description: '先手番。後手の飛車による王手を歩を打って防いでください。',
     board: _prob16Board(),
-    options: ['▲6八歩', '▲7八歩', '▲6五歩', '▲5八歩'],
+    options: ['▲6八歩打', '▲7七歩', '▲6五歩打', '▲5八歩打'],
     correctIndex: 0,
-    explanation: '▲6八歩が正解。歩を前に進めて、相手の駒の進入を防ぎながら玉を守ります。',
+    explanation: '▲6八歩打が正解。6二の後手飛車が6九の先手玉に向かう6筋を歩で遮断します。',
     sourceUrl: 'https://www.shogi.or.jp',
     sourceTitle: '日本将棋協会',
+    p1Hand: {PieceType.pawn: 1},
   ),
   _NMProb(
     title: '金を上げる',

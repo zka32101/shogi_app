@@ -212,6 +212,253 @@ exports.evaluateTesuji = functions.https.onCall(async (data, context) => {
   }
 });
 
+// ── HTTP API: 敗北分析（対局全体の評価値推移 + 敗着特定） ──────
+exports.analyzeDefeat = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', '認証が必要です');
+  }
+
+  const { sfen, kifu, playerColor, depth = 15 } = data;
+
+  // 入力検証
+  if (!sfen || typeof sfen !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'sfen (string) が必要です');
+  }
+  if (!kifu || !Array.isArray(kifu)) {
+    throw new functions.https.HttpsError('invalid-argument', 'kifu (array) が必要です');
+  }
+  if (kifu.length === 0) {
+    throw new functions.https.HttpsError('invalid-argument', 'kifu が空です');
+  }
+  if (!playerColor || !['p1', 'p2'].includes(playerColor)) {
+    throw new functions.https.HttpsError('invalid-argument', 'playerColor は "p1" または "p2" である必要があります');
+  }
+
+  try {
+    const eng = await getEngine();
+
+    // 初期盤面から出発
+    eng.position('startpos');
+    const evaluations = [0]; // 初期盤面の評価値は 0
+
+    // ===== フェーズ 1: 対局全体の評価値推移を復元 =====
+    // playerColor の手番を判定（p1=偶数(0,2,4), p2=奇数(1,3,5)）
+    const loserIsEven = playerColor === 'p1';
+
+    for (let i = 0; i < kifu.length; i++) {
+      const moveNotation = kifu[i];
+
+      try {
+        // 手を実行
+        eng.move(moveNotation);
+
+        // 現在の盤面を評価（軽量評価: depth=10で高速化）
+        const evalResult = await evaluatePosition(eng, Math.min(depth, 10));
+
+        // 評価値を保存
+        // 評価値は常に先手(black)視点で表現
+        // i=0,2,4... は先手の手、i=1,3,5... は後手の手
+        // 後手の手後の評価値を記録する際は、後手視点から見た評価値に変換
+        const eval_score = (i % 2 === 0) ? evalResult.score : -evalResult.score;
+        evaluations.push(eval_score);
+      } catch (moveErr) {
+        console.warn(`Failed to process move ${i}: ${moveNotation}`, moveErr);
+        throw new functions.https.HttpsError('invalid-argument', `棋譜の${i}手目が無効です: ${moveNotation}`);
+      }
+    }
+
+    // ===== フェーズ 2: 敗着（キー手）の自動検出 =====
+    let keyMoveIndex = -1;
+    let maxEvalDrop = 0;
+
+    // 敗者の手のインデックスを抽出
+    for (let i = loserIsEven ? 0 : 1; i < kifu.length; i += 2) {
+      if (i === 0) continue; // 初手前の評価値がないため
+
+      // i が敗者の手である場合、その手による局面悪化を検出
+      const prevEval = evaluations[i]; // 敗者の手の直前の評価値
+      const postEval = evaluations[i + 1]; // 敗者の手直後の評価値
+
+      if (prevEval === undefined || postEval === undefined) continue;
+
+      // 敗者にとって悪化した度合い（敗者がp1なら負の方向、p2なら正の方向に注目）
+      // 統一的に：敗者の視点から見て「prevEval → postEval で悪化」を計算
+      const evalDrop = loserIsEven ? (prevEval - postEval) : (postEval - prevEval);
+
+      if (evalDrop > maxEvalDrop) {
+        maxEvalDrop = evalDrop;
+        keyMoveIndex = i;
+      }
+    }
+
+    // keyMoveIndex が見つからない場合は最後の敗者の手を使用
+    if (keyMoveIndex === -1) {
+      for (let i = loserIsEven ? 0 : 1; i < kifu.length; i += 2) {
+        keyMoveIndex = i;
+      }
+    }
+
+    // keyMoveIndex が still -1 の場合は安全な初期値
+    if (keyMoveIndex === -1) {
+      keyMoveIndex = Math.max(0, kifu.length - 2);
+    }
+
+    // ===== フェーズ 3: 敗着での詳細評価（最善手の提案） =====
+    let bestMoveAtKey = null;
+    let bestMoveEval = 0;
+    let actualMoveAtKey = null;
+    let actualMoveEval = 0;
+    let evaluationDiff = 0;
+
+    if (keyMoveIndex >= 0 && keyMoveIndex < kifu.length) {
+      try {
+        // キー手の直前までの局面を再構築
+        eng.position('startpos');
+        for (let i = 0; i < keyMoveIndex; i++) {
+          eng.move(kifu[i]);
+        }
+
+        // 最善手を詳細評価（depth=20）
+        const keyEvalResult = await evaluatePosition(eng, Math.min(20, depth + 5));
+        bestMoveAtKey = keyEvalResult.bestMove;
+        bestMoveEval = keyEvalResult.score;
+
+        // 実際の手の評価値
+        actualMoveAtKey = kifu[keyMoveIndex];
+
+        // keyMoveIndex の直後の評価値を取得
+        if (keyMoveIndex + 1 < evaluations.length) {
+          actualMoveEval = evaluations[keyMoveIndex + 1];
+        } else {
+          // キー手が最後の手の場合
+          actualMoveEval = evaluations[keyMoveIndex] || 0;
+        }
+
+        // 評価値差を計算（敗者の視点で統一）
+        if (loserIsEven) {
+          // 敗者がp1（先手視点）：最善手の評価値 - 実際の手の評価値
+          evaluationDiff = bestMoveEval - actualMoveEval;
+        } else {
+          // 敗者がp2（後手視点）：評価値は反転しているので逆
+          evaluationDiff = actualMoveEval - bestMoveEval;
+        }
+      } catch (keyErr) {
+        console.warn(`Failed to analyze key move at index ${keyMoveIndex}`, keyErr);
+      }
+    }
+
+    // ===== フェーズ 4: ターニングポイント検出 =====
+    let turningPointMove = keyMoveIndex; // デフォルトは敗着
+    let fromEqualAtMove = 0;
+
+    // 互角の定義：評価値が [-50, 50] の範囲
+    for (let i = 0; i < evaluations.length; i++) {
+      if (Math.abs(evaluations[i]) <= 50) {
+        fromEqualAtMove = i;
+      }
+    }
+
+    // 敗勢への転換点を検出（評価値が一気に悪化）
+    for (let i = fromEqualAtMove + 1; i < evaluations.length; i++) {
+      if (Math.abs(evaluations[i]) > 200) {
+        turningPointMove = i - 1;
+        break;
+      }
+    }
+
+    // ===== フェーズ 5: アドバイスメッセージ生成 =====
+    let advice = '敗北の分析';
+    if (bestMoveAtKey && actualMoveAtKey && bestMoveAtKey !== actualMoveAtKey && Math.abs(evaluationDiff) > 50) {
+      const evalDiffAbs = Math.abs(evaluationDiff);
+      const prefix = loserIsEven ? '▲' : '△';
+
+      if (evalDiffAbs > 300) {
+        advice = `${prefix}${bestMoveAtKey}なら大きく有利を保てました（評価値差: ${Math.abs(evaluationDiff)}）。`;
+      } else if (evalDiffAbs > 150) {
+        advice = `${prefix}${bestMoveAtKey}ならもっと有利を保てました。`;
+      } else {
+        advice = `${prefix}${bestMoveAtKey}なら互角を保てました。`;
+      }
+    } else if (bestMoveAtKey === actualMoveAtKey && bestMoveAtKey) {
+      advice = 'この手は最善手でした。';
+    } else if (fromEqualAtMove > 0) {
+      advice = `${fromEqualAtMove}手目まで互角でしたが、その後の展開で敗れました。`;
+    }
+
+    return {
+      success: true,
+      moveCount: kifu.length,
+      evaluations: evaluations,
+      keyMoveIndex: keyMoveIndex >= 0 ? keyMoveIndex : 0,
+      bestMoveAtKey: bestMoveAtKey,
+      actualMoveAtKey: actualMoveAtKey,
+      evaluationDiff: evaluationDiff,
+      turning_point_move: turningPointMove,
+      from_equal_at_move: fromEqualAtMove,
+      advice: advice,
+      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    };
+  } catch (e) {
+    console.error('analyzeDefeat failed:', e);
+    throw new functions.https.HttpsError('internal', '敗北分析に失敗しました');
+  }
+});
+
+/**
+ * 盤面を指定のdepthで評価する
+ * @param {Object} eng - YaneuraOu エンジンインスタンス
+ * @param {number} depth - 探索深さ
+ * @returns {Promise<{score: number, bestMove: string}>}
+ */
+async function evaluatePosition(eng, depth) {
+  return new Promise((resolve, reject) => {
+    let resolved = false;
+    const info = {};
+
+    try {
+      eng.go({ depth }, (line) => {
+        // USI エンジンの info 行をパース
+        if (line.startsWith('info')) {
+          const match = line.match(/score cp (-?\d+)/);
+          if (match) info.score = parseInt(match[1]);
+
+          const moveMatch = line.match(/pv (.+?)(?:\s|$)/);
+          if (moveMatch) info.bestMove = moveMatch[1];
+        }
+        // bestmove 行で終了
+        if (line.startsWith('bestmove')) {
+          if (resolved) return;
+          resolved = true;
+
+          const parts = line.split(' ');
+          resolve({
+            bestMove: parts[1] || info.bestMove || 'unknown',
+            score: info.score || 0,
+          });
+        }
+      });
+
+      // タイムアウト対策（20秒で強制終了）
+      const timeoutHandle = setTimeout(() => {
+        if (!resolved) {
+          resolved = true;
+          console.warn(`Evaluation timeout after 20s with depth ${depth}`);
+          reject(new Error(`Evaluation timeout (depth=${depth})`));
+        }
+      }, 20000);
+
+      // 既に resolve済みの場合はタイムアウトをキャンセル
+      const originalResolve = resolve;
+      resolve = (value) => {
+        clearTimeout(timeoutHandle);
+        originalResolve(value);
+      };
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
 // ── Schedule 1: マッチメイキング（毎3秒）──────────────────────
 exports.matchmaking = functions.pubsub
   .schedule('every 3 seconds')
