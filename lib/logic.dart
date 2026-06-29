@@ -921,15 +921,47 @@ class AI {
       moves.shuffle(_rand);
       return moves.first;
     }
+    _clearSearchState();
+    return _rootBestMove(b, p1h, p2h, aiIsP1, depth, moves);
+  }
 
-    _clearSearchState(); // キラー手・ヒストリーリセット
+  // 反復深化 + 時間予算版 bestMove（UIスレッドをブロックしない前提でIsolate内から呼ぶ）
+  static AMove? bestMoveTimed(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool aiIsP1, {
+    Duration budget = const Duration(milliseconds: 900),
+  }) {
+    final moves = allMoves(b, aiIsP1, p1h, p2h);
+    if (moves.isEmpty) return null;
+    if (moves.length == 1) return moves.first;
+    _clearSearchState();
+    final sw  = Stopwatch()..start();
+    AMove? best;
+    for (int d = 1; d <= 10; d++) {
+      final t0        = sw.elapsedMilliseconds;
+      final candidate = _rootBestMove(b, p1h, p2h, aiIsP1, d, moves);
+      if (candidate != null) best = candidate;
+      final depthMs = sw.elapsedMilliseconds - t0;
+      // 次の深さは約5倍かかると推定。予算を超えるなら打ち切り
+      if (sw.elapsedMilliseconds + depthMs * 5 >= budget.inMilliseconds) break;
+    }
+    return best;
+  }
 
-    // A: ムーブオーダリング適用（取る手・成り手を優先探索）
+  // 共通ルートサーチ（clearSearchState は呼び出し元の責任）
+  static AMove? _rootBestMove(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool aiIsP1,
+    int depth,
+    List<AMove> moves,
+  ) {
     final sortedMoves = _sortMoves(b, moves);
-
     AMove? best;
     int bestScore = aiIsP1 ? -999999 : 999999;
-
     for (final mv in sortedMoves) {
       final next  = apply(b, p1h, p2h, mv, aiIsP1);
       final score = _mm(
@@ -942,7 +974,6 @@ class AI {
         bestScore = score;
         best      = mv;
       } else if (score == bestScore && _rand.nextDouble() < 0.25) {
-        // 同スコア時に25%の確率で差し替え（多様な手順を生成）
         best = mv;
       }
     }
@@ -965,15 +996,51 @@ class AI {
       return moves.take(n).map((m) => (m, 0)).toList();
     }
     _clearSearchState();
+    return _rootTopMoves(b, p1h, p2h, aiIsP1, depth, moves, n);
+  }
+
+  // 反復深化 + 時間予算版 topMoves
+  static List<(AMove, int)> topMovesTimed(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool aiIsP1, {
+    int n = 3,
+    Duration budget = const Duration(milliseconds: 600),
+  }) {
+    final moves = allMoves(b, aiIsP1, p1h, p2h);
+    if (moves.isEmpty) return [];
+    _clearSearchState();
+    final sw = Stopwatch()..start();
+    var best = <(AMove, int)>[];
+    for (int d = 1; d <= 8; d++) {
+      final t0        = sw.elapsedMilliseconds;
+      final candidate = _rootTopMoves(b, p1h, p2h, aiIsP1, d, moves, n);
+      if (candidate.isNotEmpty) best = candidate;
+      final depthMs = sw.elapsedMilliseconds - t0;
+      if (sw.elapsedMilliseconds + depthMs * 5 >= budget.inMilliseconds) break;
+    }
+    return best;
+  }
+
+  static List<(AMove, int)> _rootTopMoves(
+    List<List<Piece?>> b,
+    Map<PieceType, int> p1h,
+    Map<PieceType, int> p2h,
+    bool aiIsP1,
+    int depth,
+    List<AMove> moves,
+    int n,
+  ) {
     final scored      = <(AMove, int)>[];
-    final sortedMoves = _sortMoves(b, moves); // A: ムーブオーダリング
+    final sortedMoves = _sortMoves(b, moves);
     for (final mv in sortedMoves) {
       final next  = apply(b, p1h, p2h, mv, aiIsP1);
       final score = _mm(next.b, next.p1h, next.p2h,
           depth - 1, -999999, 999999, !aiIsP1, aiIsP1);
       scored.add((mv, score));
     }
-    scored.sort((a, b) => aiIsP1 ? b.$2 - a.$2 : a.$2 - b.$2);
+    scored.sort((a, bb) => aiIsP1 ? bb.$2 - a.$2 : a.$2 - bb.$2);
     return scored.take(n).toList();
   }
 
@@ -1040,13 +1107,38 @@ class AI {
     final sorted = _sortMovesEx(b, moves, depth);
 
     int val = maximizing ? -999999 : 999999;
-    for (final mv in sorted) {
+    final inCheckNow = GL.inCheck(b, currP1);
+    for (int i = 0; i < sorted.length; i++) {
+      final mv = sorted[i];
+      final isCapture   = mv.drop == null && b[mv.tr][mv.tc] != null;
+      final isTactical  = isCapture || mv.promote || inCheckNow;
+
+      // ── LMR（Late Move Reductions）──
+      // 後半の非戦術手を1〜2手浅く読む。αを超えたら全深度で再探索
+      int reduction = 0;
+      if (i >= 2 && depth >= 3 && !isTactical) {
+        reduction = (i >= 6 && depth >= 5) ? 2 : 1;
+      }
+
       final next  = apply(b, p1h, p2h, mv, currP1);
-      final child = _mm(
+      int child = _mm(
         next.b, next.p1h, next.p2h,
-        depth - 1, alpha, beta,
+        depth - 1 - reduction, alpha, beta,
         !maximizing, aiIsP1,
       );
+
+      // LMR 再探索: 削減あり & 有望な手だった場合
+      if (reduction > 0) {
+        final promising = maximizing ? child > alpha : child < beta;
+        if (promising) {
+          child = _mm(
+            next.b, next.p1h, next.p2h,
+            depth - 1, alpha, beta,
+            !maximizing, aiIsP1,
+          );
+        }
+      }
+
       if (maximizing) {
         val   = max(val, child);
         alpha = max(alpha, val);

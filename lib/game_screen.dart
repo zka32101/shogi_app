@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:share_plus/share_plus.dart';
 import 'piece.dart';
 import 'logic.dart';
+import 'services/ai_isolate.dart';
 import 'character_icons.dart';
 import 'exceptions/app_exception.dart';
 import 'ai_personality.dart';
@@ -34,6 +35,7 @@ import 'screens/story_overlay.dart';
 import 'services/character_bond_service.dart';
 import 'services/firebase_logging_service.dart';
 import 'defeat_experience_widget.dart';
+import 'defeat_screen.dart';
 import 'practice_points_system.dart';
 
 // ── コーチモード補助関数 ──────────────────────────────
@@ -2084,32 +2086,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final pers = getPersonality(s.opponentCharacterId);
       final depthBonus = pers?.depthBonus ?? 0;
       final effectiveDepth = (s.aiDepth + depthBonus).clamp(1, 6);
+      // 時間予算テーブル（depth 1..6 に対応）
+      const budgetTable = [200, 350, 600, 1000, 1800, 3200];
+      final budgetMs = budgetTable[(effectiveDepth - 1).clamp(0, 5)];
+      final aiIsP1 = !s.aiIsP2;
       if (mv == null) {
         // 浅い読み（depth<=3）では上位3手からランダム選択して多様性を確保
+        // Isolate で実行することで UIスレッドをブロックしない
         if (effectiveDepth <= 3) {
-          final tops = await Future(
-            () => AI.topMoves(
-              board,
-              p1Hand,
-              p2Hand,
-              !s.aiIsP2,
-              effectiveDepth,
-              n: 3,
-            ),
+          final tops = await AiIsolate.topMovesTimed(
+            board, p1Hand, p2Hand, aiIsP1,
+            n: 3,
+            budget: Duration(milliseconds: budgetMs),
+            personality: pers,
+            persAiIsP1: aiIsP1,
           );
           if (tops.isNotEmpty) {
             // 60%: 1位、30%: 2位、10%: 3位
             final r = Random().nextDouble();
-            final idx = r < 0.6
-                ? 0
-                : r < 0.9
-                ? 1
-                : 2;
+            final idx = r < 0.6 ? 0 : r < 0.9 ? 1 : 2;
             mv = tops[idx.clamp(0, tops.length - 1)].$1;
           }
         } else {
-          mv = await Future(
-            () => AI.bestMove(board, p1Hand, p2Hand, !s.aiIsP2, effectiveDepth),
+          mv = await AiIsolate.bestMoveTimed(
+            board, p1Hand, p2Hand, aiIsP1,
+            budget: Duration(milliseconds: budgetMs),
+            personality: pers,
+            persAiIsP1: aiIsP1,
           );
         }
       }
@@ -3129,17 +3132,34 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         context: context,
         isDismissible: true,
         isScrollControlled: true,
-        builder: (_) => DefeatExperienceWidget(
-          result: result ?? '敗北',
-          moveCount: kifu.length,
-          opponentCharacterId: s.opponentCharacterId,
+        builder: (_) => DefeatScreen(
+          analysis: DefeatAnalysis(
+            moveCount: kifu.length,
+            evaluations: _evalHistory.isNotEmpty ? _evalHistory : [],
+            bestMoveAtKey: analysisData.$2,
+            actualMove: analysisData.$1,
+            playerWon: false,
+          ),
+          opponentCharacterId: s.opponentCharacterId ?? 'samurai',
+          opponentCharacterName: _getCharacterName(),
           isPremium: isPremium,
           practicePoints: todayPoints,
           streakDays: streakDays,
           evaluationHistory: _evalHistory.isNotEmpty ? _evalHistory : null,
           suggestedBestMove: analysisData.$2,
           failedMove: analysisData.$1,
-          opponentCharacterName: _getCharacterName(),
+          onViewAnalysis: () {
+            // 感想戦画面へのナビゲーション
+            Navigator.pop(context);
+            // TODO: kansousen_screen への遷移（今後実装）
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('感想戦機能は準備中です')),
+            );
+          },
+          onPlayAgain: () {
+            Navigator.pop(context);
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          },
           onClose: () {
             try {
               Navigator.pop(context);
@@ -4673,18 +4693,42 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           )
         : <PieceType>{};
     return Container(
-      height: 44,
-      color: active ? const Color(0xFF1F4068) : const Color(0xFF0F2A40),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      height: 50,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: active
+              ? [const Color(0xFF254E7A), const Color(0xFF1A3A5C)]
+              : [const Color(0xFF0F2A40), const Color(0xFF0A1E30)],
+        ),
+        border: Border(
+          top: BorderSide(
+            color: active
+                ? Colors.blueGrey.shade400.withAlpha(80)
+                : Colors.blueGrey.shade800.withAlpha(60),
+            width: 0.5,
+          ),
+          bottom: BorderSide(
+            color: active
+                ? Colors.blueGrey.shade400.withAlpha(80)
+                : Colors.blueGrey.shade800.withAlpha(60),
+            width: 0.5,
+          ),
+        ),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       child: Row(
         children: [
           Text(
-            '持駒: ',
+            '持駒',
             style: TextStyle(
-              color: active ? Colors.white60 : Colors.white30,
-              fontSize: 11,
+              color: active ? Colors.white54 : Colors.white24,
+              fontSize: 10,
+              letterSpacing: 0.5,
             ),
           ),
+          const SizedBox(width: 6),
           Expanded(
             child: hand.isEmpty
                 ? Text(
@@ -4839,11 +4883,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   fontSize: s.labelStyle == PieceLabelStyle.english
                       ? cellW * .40
                       : cellW * .50,
-                  fontWeight: FontWeight.bold,
+                  fontWeight: FontWeight.w900,
                   color: piece.isPromoted
                       ? const Color(0xFFB3261E)
-                      : const Color(0xFF3A2A18),
+                      : const Color(0xFF2C1A0A),
                   height: 1.0,
+                  shadows: [
+                    Shadow(
+                      color: piece.isPromoted
+                          ? const Color(0xFFB3261E).withAlpha(50)
+                          : Colors.black.withAlpha(35),
+                      offset: const Offset(0.5, 0.8),
+                      blurRadius: 1,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -4911,34 +4964,49 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                  // 盤面本体
+                  // 盤面本体（ダブルボーダー＋影で本物感）
                   Container(
+                    // 外枠：濃い焦茶
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(7),
+                      border: Border.all(
+                        color: const Color(0xFF2E1A0E),
+                        width: 5,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withAlpha(140),
+                          blurRadius: 18,
+                          offset: const Offset(0, 7),
+                        ),
+                        BoxShadow(
+                          color: Colors.black.withAlpha(55),
+                          blurRadius: 6,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Container(
+                    // 内枠：明るい縁（立体感）
                     width: boardSize,
                     height: boardH,
                     clipBehavior: Clip.hardEdge,
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(5),
+                      borderRadius: BorderRadius.circular(3),
                       border: Border.all(
-                        color: const Color(0xFF4E342E), // 盤の縁（濃い木）
-                        width: 4,
+                        color: const Color(0xFF8D6E4A), // 明るい木縁
+                        width: 2,
                       ),
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
                         colors: [
-                          Color.lerp(_cellColor, Colors.white, 0.10)!,
+                          Color.lerp(_cellColor, Colors.white, 0.12)!,
                           _cellColor,
-                          Color.lerp(_cellColor, Colors.black, 0.14)!,
+                          Color.lerp(_cellColor, Colors.black, 0.16)!,
                         ],
                         stops: const [0.0, 0.5, 1.0],
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withAlpha(115),
-                          blurRadius: 14,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
                     ),
                     child: Stack(
                       children: [
@@ -5091,7 +5159,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                       }
                                     }
                                     // 選択（合法手はドット/リングで示すのでマス塗りはしない）
-                                    if (isSel) bg = Colors.amber.shade200;
+                                    if (isSel) bg = Colors.amber.shade200.withAlpha(200);
 
                                     final net =
                                         p1V - p2V; // 利き合計値（+は先手有利、-は後手有利）
@@ -5106,7 +5174,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                         height: cellH,
                                         decoration: BoxDecoration(
                                           color: bg,
-                                          border: isTadaDori
+                                          border: isSel
+                                              ? Border.all(
+                                                  color: Colors.amber.shade600,
+                                                  width: 2.2,
+                                                )
+                                              : isTadaDori
                                               ? Border.all(
                                                   color: Colors.red.shade400,
                                                   width: 2.0,
@@ -5116,11 +5189,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                                   color: Colors.orange.shade300,
                                                   width: 1.0,
                                                 )
-                                              : Border.all(
-                                                  color: _cellBorder,
-                                                  width: 0.5,
-                                                ),
-                                          boxShadow: null,
+                                              : null, // グリッドはBoardPainterが描く
                                         ),
                                         child: Stack(
                                           children: [
@@ -5143,16 +5212,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                                   ),
                                                 ),
                                               )
+                                            // 合法手マーカー（空マス＝ドット）
                                             else if (isHL)
                                               Center(
                                                 child: Container(
-                                                  width: cellW * .30,
-                                                  height: cellW * .30,
+                                                  width: cellW * .28,
+                                                  height: cellW * .28,
                                                   decoration: BoxDecoration(
-                                                    color: const Color(
-                                                      0xFF2E7D5B,
-                                                    ).withAlpha(190),
+                                                    color: const Color(0xFF1B6B46).withAlpha(210),
                                                     shape: BoxShape.circle,
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: const Color(0xFF2E7D5B).withAlpha(120),
+                                                        blurRadius: 4,
+                                                        spreadRadius: 1,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
@@ -5160,16 +5235,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                             if (isHL && piece != null)
                                               Center(
                                                 child: Container(
-                                                  width: cellW * 0.94,
-                                                  height: cellH * 0.94,
+                                                  width: cellW * 0.92,
+                                                  height: cellH * 0.92,
                                                   decoration: BoxDecoration(
                                                     shape: BoxShape.circle,
                                                     border: Border.all(
-                                                      color: const Color(
-                                                        0xFF2E7D5B,
-                                                      ),
-                                                      width: 3,
+                                                      color: const Color(0xFF1B6B46),
+                                                      width: 2.5,
                                                     ),
+                                                    boxShadow: [
+                                                      BoxShadow(
+                                                        color: const Color(0xFF2E7D5B).withAlpha(80),
+                                                        blurRadius: 5,
+                                                        spreadRadius: 0,
+                                                      ),
+                                                    ],
                                                   ),
                                                 ),
                                               ),
@@ -5259,7 +5339,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         ),
                       ],
                     ),
-                  ),
+                    ), // 内枠 Container
+                  ), // 外枠 Container
                 ],
               ),
             ],
