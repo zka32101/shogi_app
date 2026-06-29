@@ -9,6 +9,7 @@ import '../services/network_service.dart';
 import 'match_history_screen.dart';
 import 'notification_settings_screen.dart';
 import 'customize_screen.dart';
+import '../theme/app_theme.dart';
 
 class PlayerProfileScreen extends StatefulWidget {
   final String userId;
@@ -72,12 +73,12 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           widget.isCurrentUser ? 'マイプロフィール' : 'プロフィール',
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppTheme.textHigh),
         ),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: widget.isCurrentUser
@@ -112,7 +113,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
           : _profile == null
               ? const Center(
                   child: Text('プロフィールが見つかりません',
-                      style: TextStyle(color: Colors.white70)))
+                      style: TextStyle(color: AppTheme.textMid)))
               : _buildProfile(),
     );
   }
@@ -137,7 +138,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Colors.brown.shade800,
-                  const Color(0xFF1A1A2E),
+                  AppTheme.bg,
                 ],
               ),
             ),
@@ -158,7 +159,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                           ? p.username[0].toUpperCase()
                           : '?',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontSize: 36,
                         fontWeight: FontWeight.bold,
                       ),
@@ -169,7 +170,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                 Text(
                   p.username,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textHigh,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -230,7 +231,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
               icon: const Icon(Icons.history),
               label: const Text('対局履歴'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.brown.shade700,
+                backgroundColor: AppTheme.catPlay,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
               ),
@@ -271,7 +272,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
         decoration: BoxDecoration(
-          color: Colors.grey.shade900,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -319,7 +320,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     child: Text(
                       '$wins勝',
                       style:
-                          const TextStyle(color: Colors.white, fontSize: 11),
+                          const TextStyle(color: AppTheme.textHigh, fontSize: 11),
                     ),
                   ),
                 ),
@@ -333,7 +334,7 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
                     child: Text(
                       '$losses敗',
                       style:
-                          const TextStyle(color: Colors.white, fontSize: 11),
+                          const TextStyle(color: AppTheme.textHigh, fontSize: 11),
                     ),
                   ),
                 ),
@@ -351,18 +352,18 @@ class _PlayerProfileScreenState extends State<PlayerProfileScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('ユーザー名を変更',
-            style: TextStyle(color: Colors.white)),
+            style: TextStyle(color: AppTheme.textHigh)),
         content: TextField(
           controller: controller,
           maxLength: 16,
-          style: const TextStyle(color: Colors.white),
+          style: const TextStyle(color: AppTheme.textHigh),
           decoration: const InputDecoration(
             hintText: '新しいユーザー名',
-            hintStyle: TextStyle(color: Colors.white38),
+            hintStyle: TextStyle(color: AppTheme.textLow),
             enabledBorder: UnderlineInputBorder(
-              borderSide: BorderSide(color: Colors.white38),
+              borderSide: BorderSide(color: AppTheme.textLow),
             ),
           ),
         ),

@@ -114,6 +114,30 @@ class AMove {
     this.drop,
     this.promote = false,
   });
+
+  /// JSON から復元
+  factory AMove.fromJson(Map<String, dynamic> json) {
+    return AMove(
+      fr: json['fr'] as int,
+      fc: json['fc'] as int,
+      tr: json['tr'] as int,
+      tc: json['tc'] as int,
+      drop: json['drop'] != null
+          ? PieceType.values[json['drop'] as int]
+          : null,
+      promote: json['promote'] as bool? ?? false,
+    );
+  }
+
+  /// JSON に変換
+  Map<String, dynamic> toJson() => {
+    'fr': fr,
+    'fc': fc,
+    'tr': tr,
+    'tc': tc,
+    'drop': drop?.index,
+    'promote': promote,
+  };
 }
 
 // ===== 棋譜 =====
@@ -125,6 +149,7 @@ class KifuMove {
   final int fr, fc, tr, tc; // 打ちの場合 fr=fc=-1
   final PieceType? drop;
   final bool promote;
+  final int elapsedSec; // この手にかかった秒数
 
   const KifuMove(
     this.num,
@@ -136,6 +161,7 @@ class KifuMove {
     this.tc = -1,
     this.drop,
     this.promote = false,
+    this.elapsedSec = 0,
   });
 
   String get text => '${num.toString().padLeft(3)}. ${p1 ? "▲" : "△"}$note';
@@ -150,6 +176,7 @@ class KifuMove {
     'tc': tc,
     'drop': drop?.index,
     'promote': promote,
+    'sec': elapsedSec,
   };
 
   static KifuMove fromJson(Map<String, dynamic> j) => KifuMove(
@@ -162,5 +189,6 @@ class KifuMove {
     tc: j['tc'] as int,
     drop: j['drop'] != null ? PieceType.values[j['drop'] as int] : null,
     promote: j['promote'] as bool,
+    elapsedSec: (j['sec'] as int?) ?? 0,
   );
 }

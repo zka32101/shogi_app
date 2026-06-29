@@ -30,8 +30,8 @@ class MiniBoardWidget extends StatelessWidget {
     this.boardFlipped = false,
   });
 
-  // Colors matching game_screen.dart
-  static const _cellColor = Color(0xFFE8C87A);
+  // Colors matching game_screen.dart standard theme
+  static const _cellColor = Color(0xFFDEB887);
   static const _cellBorder = Color(0xFF7A4E2B);
 
   Color _pieceColor(Piece p) {

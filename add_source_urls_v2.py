@@ -2,12 +2,15 @@
 # -*- coding: utf-8 -*-
 """
 tesuji_screen.dart の 55問に sourceUrl/sourceTitle を一括追加するスクリプト（改良版）
+
+行ベースの処理により、複雑な正規表現を避けて安定した変換を実現します。
 """
 
 import re
+from typing import Dict, List, Optional, Tuple
 
-# 修正ルール
-SOURCE_MAPPING = {
+# 修正ルール: カテゴリ別の参照元情報
+SOURCE_MAPPING: Dict[str, Dict[str, str]] = {
     '飛車取り': {
         'sourceUrl': 'https://xn--pet04dr1n5x9a.com/tesuji/',
         'sourceTitle': '将棋講座.com',
@@ -34,67 +37,129 @@ SOURCE_MAPPING = {
     },
 }
 
-def process_file(input_file, output_file):
+INDENT: str = '      '
+
+
+def extract_block_category(block_text: str) -> Optional[str]:
+    """ブロック内からカテゴリを抽出する。
+
+    Args:
+        block_text: 問題ブロック全体のテキスト
+
+    Returns:
+        抽出されたカテゴリ、またはNone
     """
-    ファイルを読み込んで sourceUrl/sourceTitle を追加する
+    match = re.search(r"category:\s*'([^']+)'", block_text)
+    return match.group(1) if match else None
+
+
+def should_add_source(block_text: str, category: Optional[str]) -> bool:
+    """参照元情報を追加すべきかを判定する。
+
+    Args:
+        block_text: 問題ブロックのテキスト
+        category: カテゴリ名
+
+    Returns:
+        参照元情報を追加すべき場合 True
+    """
+    if category is None or category not in SOURCE_MAPPING:
+        return False
+    if 'sourceUrl:' in block_text:
+        return False
+    source_info = SOURCE_MAPPING[category]
+    return source_info['sourceUrl'] != ''
+
+
+def add_source_to_block_lines(block_lines: List[str], source_url: str, source_title: str) -> List[str]:
+    """ブロック行に参照元情報を挿入する。
+
+    Args:
+        block_lines: ブロックの行リスト
+        source_url: 参照元の URL
+        source_title: 参照元のタイトル
+
+    Returns:
+        参照元情報が挿入された行リスト
+    """
+    result: List[str] = []
+    for i, line in enumerate(block_lines):
+        if i == len(block_lines) - 1 and '));' in line:
+            result.append(f"{INDENT}sourceUrl: '{source_url}',\n")
+            result.append(f"{INDENT}sourceTitle: '{source_title}',\n")
+            result.append(line)
+        else:
+            result.append(line)
+    return result
+
+
+def extract_problem_block(lines: List[str], start_idx: int) -> Tuple[List[str], int]:
+    """list.add(_TesujiProb(...)); ブロック全体を抽出する。
+
+    Args:
+        lines: 全ファイル行
+        start_idx: ブロック開始インデックス
+
+    Returns:
+        (抽出されたブロック行, 次のインデックス)
+    """
+    block_lines: List[str] = [lines[start_idx]]
+    i = start_idx + 1
+
+    while i < len(lines):
+        block_lines.append(lines[i])
+        if '));' in lines[i]:
+            return block_lines, i + 1
+        i += 1
+
+    return block_lines, i
+
+
+def process_lines(lines: List[str]) -> List[str]:
+    """全ファイル行を処理して、参照元情報を追加する。
+
+    Args:
+        lines: 入力ファイルの行リスト
+
+    Returns:
+        処理済みの行リスト
+    """
+    output_lines: List[str] = []
+    i = 0
+
+    while i < len(lines):
+        if 'list.add(_TesujiProb(' in lines[i]:
+            block_lines, next_idx = extract_problem_block(lines, i)
+            block_text = ''.join(block_lines)
+            category = extract_block_category(block_text)
+
+            if should_add_source(block_text, category):
+                source_info = SOURCE_MAPPING[category]
+                block_lines = add_source_to_block_lines(
+                    block_lines, source_info['sourceUrl'], source_info['sourceTitle']
+                )
+
+            output_lines.extend(block_lines)
+            i = next_idx
+        else:
+            output_lines.append(lines[i])
+            i += 1
+
+    return output_lines
+
+
+def process_file(input_file: str, output_file: str) -> None:
+    """ファイルを読み込んで sourceUrl/sourceTitle を追加し、出力する。
+
+    Args:
+        input_file: 入力ファイルパス
+        output_file: 出力ファイルパス
     """
     with open(input_file, 'r', encoding='utf-8') as f:
         lines = f.readlines()
 
-    output_lines = []
-    i = 0
+    output_lines = process_lines(lines)
 
-    while i < len(lines):
-        line = lines[i]
-
-        # list.add(_TesujiProb( を見つけたら、ブロック全体を処理
-        if 'list.add(_TesujiProb(' in line:
-            block_lines = [line]
-            i += 1
-
-            # )); に到達するまで読み込む
-            while i < len(lines):
-                block_lines.append(lines[i])
-                if '));' in lines[i]:
-                    break
-                i += 1
-
-            # ブロック内の category を抽出
-            block_text = ''.join(block_lines)
-            category_match = re.search(r"category:\s*'([^']+)'", block_text)
-
-            if category_match:
-                category = category_match.group(1)
-
-                # sourceUrl がまだない場合のみ追加
-                if 'sourceUrl:' not in block_text and category in SOURCE_MAPPING:
-                    source_info = SOURCE_MAPPING[category]
-                    source_url = source_info['sourceUrl']
-                    source_title = source_info['sourceTitle']
-
-                    # ブロック内の最後の )); の直前に sourceUrl/sourceTitle を挿入
-                    new_block_lines = []
-                    for j, bline in enumerate(block_lines):
-                        if j == len(block_lines) - 1 and '));' in bline:
-                            # 最後の行の直前に sourceUrl/sourceTitle を追加
-                            # インデントは6スペース（answer と同じ）
-                            new_block_lines.append(f"      sourceUrl: '{source_url}',\n")
-                            new_block_lines.append(f"      sourceTitle: '{source_title}',\n")
-                            new_block_lines.append(bline)
-                        else:
-                            new_block_lines.append(bline)
-
-                    output_lines.extend(new_block_lines)
-                else:
-                    output_lines.extend(block_lines)
-            else:
-                output_lines.extend(block_lines)
-        else:
-            output_lines.append(line)
-
-        i += 1
-
-    # 出力
     with open(output_file, 'w', encoding='utf-8') as f:
         f.writelines(output_lines)
 

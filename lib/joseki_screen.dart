@@ -123,30 +123,13 @@ List<_JosekiStep> _yagaraSteps() {
   // 2手目: △8四歩
   final b2 = _move(b1, _r(3), _c(8), _r(4), _c(8));
 
-  // 3手目: ▲6八銀
-  final b3 = _move(b2, _r(9), _c(7), _r(8), _c(6)); // 7九銀→6八へ... 実際は6九銀→6八
-  // 正確には7七銀(8七)→6八へだが簡略化: ▲6八銀 (8九銀→6八)
-  // 将棋の初期配置で銀は7九と3九。先手の銀は row=8,col=2(7九) と row=8,col=6(3九)
-  // ▲6八銀: 7九銀(row8,col1 knight隣) → 実際の銀は col=2(左) と col=6(右)
-  // 先手右側の銀は row=8,col=6(3九) → ▲6八銀はrow=7,col=3
-  // 先手左側の銀は row=8,col=2(7九) → ▲7八銀はrow=7,col=1
-  // 矢倉では7八銀→6七銀の手順なのでここは別アプローチで
-  // シンプルに: ▲7七銀 → ▲6八銀 を省略し、3手目は▲6六歩とする（実戦矢倉）
-
-  // リセット: b2から再構築
-  // 3手目: ▲6六歩
+  // 3手目: ▲6六歩（角道を止めて矢倉模様に）
   final b3b = _move(b2, _r(7), _c(6), _r(6), _c(6));
 
   // 4手目: △3四歩
   final b4 = _move(b3b, _r(3), _c(3), _r(4), _c(3));
 
-  // 5手目: ▲7七銀 (8九銀→7七へ: row=8,col=1 → row=6,col=2)
-  // 先手の銀は row8,col2 と row8,col6。7筋左銀=row8,col1(knight)の隣...
-  // 実際の配置確認: 先手側 row8: [lance,knight,silver,gold,king,gold,silver,knight,lance]
-  //                          col:    0      1      2     3    4    5     6      7      8
-  // ▲7七銀: 7七(row6,col2)へ銀を移動。元: 7九(row8,col2)の銀
-  final b5 = _move(b4, _r(9), _c(7), _r(7), _c(7));
-  // ▲7七銀: row8,col2 → row6,col2
+  // 5手目: ▲7七銀 (先手左銀 7九 → 7七: row8,col2 → row6,col2)
   final b5b = _move(b4, 8, 2, 6, 2);
 
   // 6手目: △7七角成 はないので矢倉継続: △8五歩
@@ -238,7 +221,7 @@ List<_JosekiStep> _shikenbishaSteps() {
   return [
     _JosekiStep(
       move: '初期配置',
-      comment: '四間飛車は先手が飛車を4筋に振る「振り飛車」の代表戦法です。',
+      comment: '四間飛車は先手が飛車を6筋（6八）に振る「振り飛車」の代表戦法です。',
       board: b0,
     ),
     _JosekiStep(
@@ -544,10 +527,8 @@ List<_JosekiStep> _minoSteps() {
   final b5 = _move(b4, 7, 6, 7, 7);
   // ▲3八銀: 先手右銀(row8,col6) → 三八(row7,col6)
   final b6 = _move(b5, 8, 6, 7, 6);
-  // ▲7八銀: 先手左銀(row8,col2) → 七八(row7,col2)
-  final b7 = _move(b6, 8, 2, 7, 2);
-  // ▲6七銀: 七八銀(row7,col2) → 六七(row6,col3)
-  final b8 = _move(b7, 7, 2, 6, 3);
+  // ▲5八金左: 先手左金(row8,col3=6九) → 五八(row7,col4)
+  final b7 = _move(b6, 8, 3, 7, 4);
 
   return [
     _JosekiStep(
@@ -598,27 +579,20 @@ List<_JosekiStep> _minoSteps() {
       toCell: (7, 6),
     ),
     _JosekiStep(
-      move: '▲7八銀',
-      comment: '左銀を上がります。飛車の横利きを生かしつつ囲いを強化。',
+      move: '▲5八金左',
+      comment: '左の金を5八へ寄せて美濃囲いが完成。玉2八・銀3八・金5八の形です。',
       board: b7,
-      fromCell: (8, 2),
-      toCell: (7, 2),
-    ),
-    _JosekiStep(
-      move: '▲6七銀',
-      comment: '銀を繰り出して飛車の前をサポート。美濃囲いの完成形に近づきます。',
-      board: b8,
-      fromCell: (7, 2),
-      toCell: (6, 3),
+      fromCell: (8, 3),
+      toCell: (7, 4),
     ),
     _JosekiStep(
       move: '以降の方針',
       comment:
-          '金を▲5八金→▲4八金と引き寄せて美濃囲いの完成形に。\n'
+          '右金も▲4八金と足せば本美濃囲いの完成形になります。\n'
           '美濃囲いは玉頭が薄いですが横からの攻めに強い形です。\n'
-          '飛車が4筋にいることで中央から右辺へ広く睨みをきかせます。\n'
+          '飛車が6筋にいることで中央から右辺へ広く睨みをきかせます。\n'
           '振り飛車の攻めは5筋・4筋からのカウンターが主体です。',
-      board: b8,
+      board: b7,
     ),
   ];
 }
@@ -982,21 +956,21 @@ List<_JosekiStep> _sankenbishaSteps() {
   final b3 = _move(b2, 6, 3, 5, 3);
   // △3四歩
   final b4 = _move(b3, 2, 6, 3, 6);
-  // ▲7八飛: 先手飛車を3筋に振る（三間）
-  final b5 = _move(b4, 7, 7, 7, 6);
+  // ▲7八飛: 先手飛車を7筋(7八)に振る（三間）
+  final b5 = _move(b4, 7, 7, 7, 2);
   // △8五歩
   final b6 = _move(b5, 3, 1, 4, 1);
   // ▲7七角
   final b7 = _move(b6, 7, 1, 6, 2);
   // △6二銀: 後手左銀を移動
   final b8 = _move(b7, 0, 2, 1, 3);
-  // ▲7七銀
-  final b9 = _move(b8, 8, 2, 7, 2);
+  // ▲4八玉（美濃囲いへ）
+  final b9 = _move(b8, 8, 4, 7, 5);
 
   return [
     _JosekiStep(
       move: '初期配置',
-      comment: '三間飛車は飛車を3筋に振る振り飛車。四間飛車より攻撃的な戦法です。',
+      comment: '三間飛車は飛車を7筋（7八）に振る振り飛車。石田流にも発展する攻撃的な戦法です。',
       board: b0,
     ),
     _JosekiStep(
@@ -1029,10 +1003,10 @@ List<_JosekiStep> _sankenbishaSteps() {
     ),
     _JosekiStep(
       move: '▲7八飛',
-      comment: '飛車を3筋に振る三間飛車。四間飛車より左側に配置され、より攻撃的です。',
+      comment: '飛車を7筋（7八）に振る三間飛車。四間飛車より左側に配置され、より攻撃的です。',
       board: b5,
       fromCell: (7, 7),
-      toCell: (7, 6),
+      toCell: (7, 2),
     ),
     _JosekiStep(
       move: '△8五歩',
@@ -1056,17 +1030,17 @@ List<_JosekiStep> _sankenbishaSteps() {
       toCell: (1, 3),
     ),
     _JosekiStep(
-      move: '▲7七銀',
-      comment: '銀を上がります。三間飛車の駒組みが進みます。',
+      move: '▲4八玉',
+      comment: '玉を右へ動かし、美濃囲いへの第一歩。次に▲3八玉→▲2八玉と囲います。',
       board: b9,
-      fromCell: (8, 2),
-      toCell: (7, 2),
+      fromCell: (8, 4),
+      toCell: (7, 5),
     ),
     _JosekiStep(
       move: '以降の方針',
       comment:
-          '先手は▲4八玉と玉を移動して美濃囲いを目指します。\n'
-          '三間飛車は3筋に飛車があるため、中央への睨みが強くなります。\n'
+          '先手は▲3八玉→▲2八玉→▲3八銀と進めて美濃囲いを完成させます。\n'
+          '三間飛車は7筋に飛車があるため、石田流への組み換えも狙えます。\n'
           '攻撃と守備のバランスが取れた現代的な振り飛車です。',
       board: b9,
     ),
@@ -1083,21 +1057,19 @@ List<_JosekiStep> _mukaiBishaSteps() {
   final b1 = _move(b0, 6, 2, 5, 2);
   // △8四歩
   final b2 = _move(b1, 2, 1, 3, 1);
-  // ▲2六歩
-  final b3 = _move(b2, 6, 7, 5, 7);
+  // ▲6六歩: 角道を止める
+  final b3 = _move(b2, 6, 3, 5, 3);
   // △8五歩
   final b4 = _move(b3, 3, 1, 4, 1);
-  // ▲2二飛: 先手飛車を9筋（向かう方向）に振る（向飛車）
-  final b5 = _move(b4, 7, 7, 7, 7);
-  // 実際には盤の端から端への移動: row7, col7 (2八) → row7, col8 (1八)
-  final b5b = _move(b4, 7, 7, 7, 8);
+  // ▲7七角: 先に角を上がって8八を空ける
+  final b5b = _move(b4, 7, 1, 6, 2);
   // △3四歩
   final b6 = _move(b5b, 2, 6, 3, 6);
-  // ▲7七角
-  final b7 = _move(b6, 7, 1, 6, 2);
+  // ▲8八飛: 飛車を8筋(8八)に振る（向飛車＝後手飛車と向かい合う）
+  final b7 = _move(b6, 7, 7, 7, 1);
   // △6二銀
   final b8 = _move(b7, 0, 2, 1, 3);
-  // ▲7七銀
+  // ▲7八銀
   final b9 = _move(b8, 8, 2, 7, 2);
   // △8六歩: 後手が飛車に圧力
   final b10 = _move(b9, 4, 1, 5, 1);
@@ -1105,7 +1077,7 @@ List<_JosekiStep> _mukaiBishaSteps() {
   return [
     _JosekiStep(
       move: '初期配置',
-      comment: '向飛車は飛車を9筋（端）に振る最も個性的な振り飛車。上級向けの難しい戦法です。',
+      comment: '向飛車は飛車を8筋（8八）に振り、相手の飛車と向かい合う振り飛車。上級向けの戦法です。',
       board: b0,
     ),
     _JosekiStep(
@@ -1123,11 +1095,11 @@ List<_JosekiStep> _mukaiBishaSteps() {
       toCell: (3, 1),
     ),
     _JosekiStep(
-      move: '▲2六歩',
-      comment: '先手は左翼を展開。向飛車は相手の角道を遮ることが重要です。',
+      move: '▲6六歩',
+      comment: '角道を止めて振り飛車の意思表示。向飛車は相手の角道を意識します。',
       board: b3,
-      fromCell: (6, 7),
-      toCell: (5, 7),
+      fromCell: (6, 3),
+      toCell: (5, 3),
     ),
     _JosekiStep(
       move: '△8五歩',
@@ -1137,11 +1109,11 @@ List<_JosekiStep> _mukaiBishaSteps() {
       toCell: (4, 1),
     ),
     _JosekiStep(
-      move: '▲2二飛',
-      comment: '飛車を最端の9筋に振る向飛車！極めてユニークな振り飛車です。',
+      move: '▲7七角',
+      comment: '先に角を7七へ上がり、8八の地点を空けます。',
       board: b5b,
-      fromCell: (7, 7),
-      toCell: (7, 8),
+      fromCell: (7, 1),
+      toCell: (6, 2),
     ),
     _JosekiStep(
       move: '△3四歩',
@@ -1151,11 +1123,11 @@ List<_JosekiStep> _mukaiBishaSteps() {
       toCell: (3, 6),
     ),
     _JosekiStep(
-      move: '▲7七角',
-      comment: '角を上がります。向飛車では角の配置がユニーク。',
+      move: '▲8八飛',
+      comment: '飛車を8筋（8八）へ振る向飛車！後手の飛車と正面から向かい合います。',
       board: b7,
-      fromCell: (7, 1),
-      toCell: (6, 2),
+      fromCell: (7, 7),
+      toCell: (7, 1),
     ),
     _JosekiStep(
       move: '△6二銀',
@@ -1165,15 +1137,15 @@ List<_JosekiStep> _mukaiBishaSteps() {
       toCell: (1, 3),
     ),
     _JosekiStep(
-      move: '▲7七銀',
-      comment: '銀を上がります。',
+      move: '▲7八銀',
+      comment: '銀を7八へ上がり、玉の囲いを準備します。',
       board: b9,
       fromCell: (8, 2),
       toCell: (7, 2),
     ),
     _JosekiStep(
       move: '△8六歩',
-      comment: '後手が飛車に圧力をかけます。向飛車は駒の効率が悪く難しい戦法。',
+      comment: '後手が飛車に圧力をかけます。向飛車は8筋でぶつかり合う激しい戦いに。',
       board: b10,
       fromCell: (4, 1),
       toCell: (5, 1),
@@ -1317,7 +1289,7 @@ final List<_Joseki> _josekiList = [
   ),
   _Joseki(
     name: '四間飛車',
-    overview: '先手が飛車を4筋に振る「振り飛車」の代表戦法。\n'
+    overview: '先手が飛車を6筋（6八）に振る「振り飛車」の代表戦法。\n'
         '美濃囲いで守りを固め、相手の攻めを受け流します。\n'
         '駒組みの完成形が分かりやすく初心者にもおすすめ。\n'
         '飛車を振った後は▲7七銀→▲6七銀と銀を活用します。\n'
@@ -1402,10 +1374,10 @@ final List<_Joseki> _josekiList = [
   ),
   _Joseki(
     name: '三間飛車',
-    overview: '飛車を3筋に振る振り飛車。四間飛車より攻撃的。\n'
-        '3筋に飛車があるため、中央への睨みが強くなります。\n'
+    overview: '飛車を7筋（7八）に振る振り飛車。四間飛車より攻撃的。\n'
+        '7筋に飛車があり、石田流など積極的な攻めに発展します。\n'
         '攻撃と守備のバランスが取れた現代的な戦法です。\n'
-        '▲7七銀で銀を活用し、飛車をサポート。\n'
+        '美濃囲いで玉を固め、飛車をサポート。\n'
         '戦型の幅広さと攻撃力が魅力です。',
     color: Colors.indigo,
     icon: Icons.compare_arrows,

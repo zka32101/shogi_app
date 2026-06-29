@@ -75,52 +75,47 @@ List<List<Piece?>> _prob4Board() {
   return b;
 }
 
-// 問5: 棒銀の進出 — ▲7六歩・▲2六歩・▲3八銀後の局面
+// 問5: 棒銀の進出 — 2筋の歩を伸ばし右銀を2七まで繰り出した局面
 List<List<Piece?>> _prob5Board() {
   final b = _stdBoard();
   b[5][2] = b[6][2]; b[6][2] = null;   // ▲7六歩
   b[5][7] = b[6][7]; b[6][7] = null;   // ▲2六歩
-  b[6][2] = b[8][2]; b[8][2] = null;   // ▲7七銀（棒銀準備）
+  b[4][7] = b[5][7]; b[5][7] = null;   // ▲2五歩（さらに伸ばす）
+  b[6][7] = b[8][6]; b[8][6] = null;   // 右銀を2七へ繰り出す（3九銀→2七）
   b[3][2] = b[2][2]; b[2][2] = null;   // △3三銀
-  b[3][7] = b[2][7]; b[2][7] = null;   // △2四歩
+  b[3][6] = b[2][6]; b[2][6] = null;   // △3四歩
   return b;
 }
 
-// 問6: 歩の垂れ — 中盤戦、6筋に歩を垂らす場面
+// 問6: 垂れ歩 — 6五の歩を6四に進め、6三歩成を狙う場面
 List<List<Piece?>> _prob6Board() {
   final b = _empty();
   // 先手
-  b[8][4] = Piece(PieceType.king, true);
-  b[8][7] = Piece(PieceType.rook, true);
-  b[7][1] = Piece(PieceType.bishop, true);
-  b[8][5] = Piece(PieceType.gold, true);
-  b[8][3] = Piece(PieceType.gold, true);
-  b[8][6] = Piece(PieceType.silver, true);
-  b[7][3] = Piece(PieceType.silver, true);
-  b[6][0] = Piece(PieceType.pawn, true);
-  b[6][1] = Piece(PieceType.pawn, true);
-  b[6][2] = Piece(PieceType.pawn, true);
-  b[6][4] = Piece(PieceType.pawn, true);
-  b[6][6] = Piece(PieceType.pawn, true);
-  b[6][7] = Piece(PieceType.pawn, true);
-  b[6][8] = Piece(PieceType.pawn, true);
-  b[5][3] = Piece(PieceType.pawn, true); // 6筋に出た歩
-  // 後手
-  b[0][3] = Piece(PieceType.king, false);
-  b[1][1] = Piece(PieceType.rook, false);
-  b[1][7] = Piece(PieceType.bishop, false);
-  b[0][4] = Piece(PieceType.gold, false);
-  b[0][2] = Piece(PieceType.gold, false);
-  b[0][5] = Piece(PieceType.silver, false);
-  b[2][3] = Piece(PieceType.silver, false);
-  b[3][3] = Piece(PieceType.gold, false);
-  b[4][3] = Piece(PieceType.pawn, false);
-  b[2][0] = Piece(PieceType.pawn, false);
-  b[2][1] = Piece(PieceType.pawn, false);
-  b[2][2] = Piece(PieceType.pawn, false);
-  b[2][4] = Piece(PieceType.pawn, false);
-  b[2][6] = Piece(PieceType.pawn, false);
-  b[2][8] = Piece(PieceType.pawn, false);
+  b[8][4] = Piece(PieceType.king, true);   // 5九玉
+  b[8][3] = Piece(PieceType.gold, true);   // 6九金
+  b[8][5] = Piece(PieceType.gold, true);   // 4九金
+  b[8][6] = Piece(PieceType.silver, true); // 3九銀
+  b[7][1] = Piece(PieceType.bishop, true); // 8八角
+  b[8][7] = Piece(PieceType.rook, true);   // 2九飛
+  b[6][2] = Piece(PieceType.pawn, true);   // 7七歩
+  b[6][4] = Piece(PieceType.pawn, true);   // 5七歩
+  b[6][6] = Piece(PieceType.pawn, true);   // 3七歩
+  b[6][7] = Piece(PieceType.pawn, true);   // 2七歩
+  b[6][8] = Piece(PieceType.pawn, true);   // 1七歩
+  b[4][3] = Piece(PieceType.pawn, true);   // 6五歩（6四へ進めて垂れ歩）
+  // 後手（6筋・6三/6四は開けておく）
+  b[0][4] = Piece(PieceType.king, false);  // 5一玉
+  b[1][3] = Piece(PieceType.gold, false);  // 6二金
+  b[1][5] = Piece(PieceType.gold, false);  // 4二金
+  b[0][2] = Piece(PieceType.silver, false);// 7一銀
+  b[1][7] = Piece(PieceType.bishop, false);// 2二角
+  b[1][1] = Piece(PieceType.rook, false);  // 8二飛
+  b[2][0] = Piece(PieceType.pawn, false);  // 9三歩
+  b[2][1] = Piece(PieceType.pawn, false);  // 8三歩
+  b[2][2] = Piece(PieceType.pawn, false);  // 7三歩
+  b[2][4] = Piece(PieceType.pawn, false);  // 5三歩
+  b[2][6] = Piece(PieceType.pawn, false);  // 3三歩
+  b[2][8] = Piece(PieceType.pawn, false);  // 1三歩
   return b;
 }
 
@@ -134,7 +129,7 @@ List<List<Piece?>> _prob7Board() {
   b[8][5] = Piece(PieceType.gold, true);
   b[8][3] = Piece(PieceType.gold, true);
   b[8][6] = Piece(PieceType.silver, true);
-  b[8][2] = Piece(PieceType.knight, true);
+  b[6][3] = Piece(PieceType.knight, true); // 6七桂（7五に跳ねて6三銀に当てる）
   b[6][0] = Piece(PieceType.pawn, true);
   b[6][1] = Piece(PieceType.pawn, true);
   b[6][2] = Piece(PieceType.pawn, true);
@@ -206,13 +201,13 @@ List<List<Piece?>> _prob9Board() {
   b[6][4] = Piece(PieceType.pawn, true);
   b[6][6] = Piece(PieceType.pawn, true);
   b[6][8] = Piece(PieceType.pawn, true);
-  // 後手
+  // 後手: ▲5五角打ちで3三飛(2,6)と6四金(3,3)に両当たり
   b[0][3] = Piece(PieceType.king, false);
-  b[2][6] = Piece(PieceType.rook, false);
-  b[2][3] = Piece(PieceType.gold, false);
+  b[2][6] = Piece(PieceType.rook, false);  // 3三飛（5五角のUR対角線上）
+  b[3][3] = Piece(PieceType.gold, false);  // 6四金（5五角のUL対角線上）
   b[0][4] = Piece(PieceType.gold, false);
   b[0][2] = Piece(PieceType.silver, false);
-  b[3][5] = Piece(PieceType.pawn, false);
+  // 4四(3,5)の歩は5五角→3三飛の対角線を塞ぐため置かない
   b[2][0] = Piece(PieceType.pawn, false);
   b[2][1] = Piece(PieceType.pawn, false);
   b[2][2] = Piece(PieceType.pawn, false);
@@ -228,7 +223,7 @@ List<List<Piece?>> _prob10Board() {
   b[8][4] = Piece(PieceType.king, true);
   b[8][7] = Piece(PieceType.rook, true);
   b[7][1] = Piece(PieceType.bishop, true);
-  b[7][5] = Piece(PieceType.silver, true); // 銀が前進準備
+  b[6][5] = Piece(PieceType.silver, true); // 4七銀（4六へ進出）
   b[8][3] = Piece(PieceType.gold, true);
   b[8][5] = Piece(PieceType.gold, true);
   b[8][6] = Piece(PieceType.silver, true);
@@ -270,11 +265,9 @@ List<List<Piece?>> _prob11Board() {
 
 List<List<Piece?>> _prob12Board() {
   final b = _empty();
-  b[0][8] = Piece(PieceType.king, false);
-  b[1][7] = Piece(PieceType.gold, false);
-  b[2][6] = Piece(PieceType.rook, true);
-  b[1][8] = Piece(PieceType.silver, true);
-  b[5][4] = Piece(PieceType.king, true);
+  b[0][8] = Piece(PieceType.king, false);   // 後手玉 1一
+  b[2][7] = Piece(PieceType.silver, true);  // 先手銀 2三（1二を支える）
+  b[5][4] = Piece(PieceType.king, true);    // 先手玉 5六
   return b;
 }
 
@@ -312,27 +305,23 @@ List<List<Piece?>> _prob15Board() {
   b[1][5] = Piece(PieceType.pawn, false);
   b[4][7] = Piece(PieceType.bishop, true);
   b[5][4] = Piece(PieceType.king, true);
-  b[3][6] = Piece(PieceType.rook, true);
+  b[5][6] = Piece(PieceType.rook, true); // 3六飛（2五→5二の角道を塞がない位置へ）
   return b;
 }
 
 // 問16-30: 新規追加（初級5、中級7、上級3）
 
-// 問16: 歩で塞ぐ — 守りを強化する手筋
+// 問16: 歩で塞ぐ — 後手飛の王手を歩を打って受ける
 List<List<Piece?>> _prob16Board() {
   final b = _empty();
-  b[8][4] = Piece(PieceType.king, true);
-  b[6][5] = Piece(PieceType.pawn, true);
-  b[6][6] = Piece(PieceType.pawn, true);
-  b[6][7] = Piece(PieceType.pawn, true);
-  b[8][3] = Piece(PieceType.gold, true);
-  b[8][5] = Piece(PieceType.gold, true);
-  b[8][6] = Piece(PieceType.silver, true);
-  b[8][2] = Piece(PieceType.silver, true);
-  b[0][4] = Piece(PieceType.king, false);
-  b[3][4] = Piece(PieceType.rook, false);
-  b[2][3] = Piece(PieceType.bishop, false);
-  b[2][5] = Piece(PieceType.silver, false);
+  b[8][3] = Piece(PieceType.king, true);   // 先手玉 6九(8,3)
+  b[8][4] = Piece(PieceType.gold, true);    // 5九金
+  b[8][2] = Piece(PieceType.silver, true);  // 7九銀
+  b[7][2] = Piece(PieceType.pawn, true);    // 7八歩
+  b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一
+  b[1][3] = Piece(PieceType.rook, false);   // 後手飛 6二（6筋を直射し先手玉に王手）
+  b[2][5] = Piece(PieceType.silver, false); // 後手銀 4三
+  b[2][2] = Piece(PieceType.bishop, false); // 後手角 7三
   return b;
 }
 
@@ -378,30 +367,30 @@ List<List<Piece?>> _prob20Board() {
   b[8][5] = Piece(PieceType.gold, true);
   b[8][3] = Piece(PieceType.gold, true);
   b[8][6] = Piece(PieceType.silver, true);
+  b[5][2] = Piece(PieceType.silver, true); // 7六銀（7五へ進出して7四歩に当てる）
   b[6][0] = Piece(PieceType.pawn, true);
   b[6][1] = Piece(PieceType.pawn, true);
-  b[6][2] = Piece(PieceType.pawn, true);
   b[6][4] = Piece(PieceType.pawn, true);
   b[6][6] = Piece(PieceType.pawn, true);
   b[6][7] = Piece(PieceType.pawn, true);
   b[6][8] = Piece(PieceType.pawn, true);
   b[0][4] = Piece(PieceType.king, false);
-  b[4][3] = Piece(PieceType.pawn, false);
+  b[3][2] = Piece(PieceType.pawn, false); // 7四歩（銀の進出目標）
   return b;
 }
 
 // 問21: 駒の両取り (中級)
+// ▲6三銀: 7四(3,2)→6三(2,3)で6二金(1,3)と5四飛(3,4)に両当たり
 List<List<Piece?>> _prob21Board() {
   final b = _empty();
   b[8][4] = Piece(PieceType.king, true);
   b[8][7] = Piece(PieceType.rook, true);
-  b[5][2] = Piece(PieceType.silver, true);
+  b[3][2] = Piece(PieceType.silver, true);  // 7四（6三に1手で動ける）
   b[8][5] = Piece(PieceType.gold, true);
   b[8][3] = Piece(PieceType.gold, true);
   b[0][4] = Piece(PieceType.king, false);
-  b[2][3] = Piece(PieceType.gold, false);
-  b[1][5] = Piece(PieceType.bishop, false);
-  b[3][3] = Piece(PieceType.pawn, false);
+  b[1][3] = Piece(PieceType.gold, false);   // 6二金（6三銀の攻撃目標1）
+  b[3][4] = Piece(PieceType.rook, false);   // 5四飛（6三銀の攻撃目標2）
   return b;
 }
 
@@ -423,10 +412,11 @@ List<List<Piece?>> _prob22Board() {
 }
 
 // 問23: 逃げ場を作る中盤戦
+// ▲6四飛: 6六(5,3)→6四(3,3)は同一筋で有効
 List<List<Piece?>> _prob23Board() {
   final b = _empty();
   b[8][4] = Piece(PieceType.king, true);
-  b[5][7] = Piece(PieceType.rook, true);
+  b[5][3] = Piece(PieceType.rook, true);   // 6六（6四と同じ6筋）
   b[7][1] = Piece(PieceType.bishop, true);
   b[8][5] = Piece(PieceType.gold, true);
   b[8][3] = Piece(PieceType.gold, true);
@@ -441,17 +431,18 @@ List<List<Piece?>> _prob23Board() {
 }
 
 // 問24: 金を使った両取り
+// ▲6五金: 5六(5,4)→6五(4,3)で6四飛(3,3)と5五角(4,4)に両当たり
 List<List<Piece?>> _prob24Board() {
   final b = _empty();
   b[8][4] = Piece(PieceType.king, true);
   b[8][7] = Piece(PieceType.rook, true);
-  b[6][4] = Piece(PieceType.gold, true);
+  b[5][4] = Piece(PieceType.gold, true);   // 5六（6五に1手で動ける）
   b[8][5] = Piece(PieceType.gold, true);
   b[8][3] = Piece(PieceType.gold, true);
   b[6][3] = Piece(PieceType.pawn, true);
   b[0][4] = Piece(PieceType.king, false);
-  b[3][3] = Piece(PieceType.rook, false);
-  b[4][5] = Piece(PieceType.bishop, false);
+  b[3][3] = Piece(PieceType.rook, false);  // 6四飛（攻撃目標1）
+  b[4][4] = Piece(PieceType.bishop, false); // 5五角（攻撃目標2）
   return b;
 }
 
@@ -470,71 +461,54 @@ List<List<Piece?>> _prob25Board() {
   return b;
 }
 
-// 問26: 詰みを読む(上級)
+// 問26: 詰みを読む(上級) — 飛車を成り込んで王手（▲5二飛成）
 List<List<Piece?>> _prob26Board() {
   final b = _empty();
-  b[0][4] = Piece(PieceType.king, false);
-  b[0][3] = Piece(PieceType.gold, false);
-  b[0][5] = Piece(PieceType.gold, false);
-  b[1][2] = Piece(PieceType.silver, false);
-  b[1][4] = Piece(PieceType.silver, false);
-  b[2][3] = Piece(PieceType.rook, true);
-  b[5][4] = Piece(PieceType.king, true);
-  b[3][3] = Piece(PieceType.gold, true);
+  b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一
+  b[0][3] = Piece(PieceType.gold, false);   // 6一金
+  b[0][5] = Piece(PieceType.gold, false);   // 4一金
+  b[2][4] = Piece(PieceType.rook, true);    // 先手飛 5三
+  b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
 
-// 問27: 受けと攻めの両立
+// 問27: 受けと攻めの両立 — 飛車を成り込んで王手（▲2二飛成）
 List<List<Piece?>> _prob27Board() {
   final b = _empty();
-  b[0][4] = Piece(PieceType.king, false);
-  b[0][5] = Piece(PieceType.gold, false);
-  b[1][3] = Piece(PieceType.silver, false);
-  b[2][6] = Piece(PieceType.rook, true);
-  b[5][4] = Piece(PieceType.king, true);
-  b[4][2] = Piece(PieceType.rook, true);
-  b[6][3] = Piece(PieceType.gold, true);
+  b[0][6] = Piece(PieceType.king, false);   // 後手玉 3一
+  b[0][5] = Piece(PieceType.gold, false);   // 4一金
+  b[2][7] = Piece(PieceType.rook, true);    // 先手飛 2三
+  b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
 
-// 問28: 敵玉を追い詰める
+// 問28: 敵玉を追い詰める — 飛車を走らせて王手（▲2三飛）
 List<List<Piece?>> _prob28Board() {
   final b = _empty();
-  b[1][4] = Piece(PieceType.king, false);
-  b[1][3] = Piece(PieceType.gold, false);
-  b[1][5] = Piece(PieceType.gold, false);
-  b[2][4] = Piece(PieceType.silver, false);
-  b[3][5] = Piece(PieceType.rook, true);
-  b[5][4] = Piece(PieceType.king, true);
-  b[2][6] = Piece(PieceType.bishop, true);
+  b[0][7] = Piece(PieceType.king, false);   // 後手玉 2一
+  b[0][6] = Piece(PieceType.gold, false);   // 3一金
+  b[5][7] = Piece(PieceType.rook, true);    // 先手飛 2六
+  b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
 
-// 問29: 詰めロジックの応用
+// 問29: 詰めロジックの応用 — 9筋の飛車を成り込んで王手（▲9二飛成）
 List<List<Piece?>> _prob29Board() {
   final b = _empty();
-  b[0][4] = Piece(PieceType.king, false);
-  b[0][3] = Piece(PieceType.gold, false);
-  b[0][5] = Piece(PieceType.silver, false);
-  b[1][4] = Piece(PieceType.pawn, false);
-  b[2][2] = Piece(PieceType.rook, true);
-  b[5][4] = Piece(PieceType.king, true);
-  b[3][3] = Piece(PieceType.bishop, true);
-  b[4][4] = Piece(PieceType.gold, true);
+  b[0][0] = Piece(PieceType.king, false);   // 後手玉 9一
+  b[1][1] = Piece(PieceType.gold, false);   // 8二金（守り）
+  b[4][0] = Piece(PieceType.rook, true);    // 先手飛 9五
+  b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
 
-// 問30: 複合手筋で勝利へ
+// 問30: 複合手筋で勝利へ — 飛車を成り込んで王手（▲2二飛成）
 List<List<Piece?>> _prob30Board() {
   final b = _empty();
-  b[0][4] = Piece(PieceType.king, false);
-  b[0][5] = Piece(PieceType.gold, false);
-  b[1][3] = Piece(PieceType.gold, false);
-  b[1][4] = Piece(PieceType.silver, false);
-  b[3][6] = Piece(PieceType.rook, true);
-  b[5][4] = Piece(PieceType.king, true);
-  b[6][3] = Piece(PieceType.bishop, true);
-  b[2][5] = Piece(PieceType.bishop, false);
+  b[0][8] = Piece(PieceType.king, false);   // 後手玉 1一
+  b[1][6] = Piece(PieceType.gold, false);   // 3二金（守り）
+  b[2][7] = Piece(PieceType.rook, true);    // 先手飛 2三
+  b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
 
@@ -632,9 +606,9 @@ final List<_NMProb> _problems = [
     difficulty: '中級',
     description: '先手番（角を持ち駒として持っています）。角を打って飛車・金取りの両取りを狙う手は？',
     board: _prob9Board(),
-    options: ['▲4五角', '▲3三角', '▲7七角', '▲2二角'],
+    options: ['▲5五角', '▲4四角', '▲7七角', '▲2二角'],
     correctIndex: 0,
-    explanation: '▲4五角が正解。角を打ち込んで後手の飛車と金に「両取り」をかける手筋です。',
+    explanation: '▲5五角が正解。5五に角を打つと、右斜め前の3三飛車と左斜め前の6四金に同時に当たる両取りになります。',
     sourceUrl: 'https://tsume.glico.com',
     sourceTitle: '将棋パズル',
   ),
@@ -663,11 +637,11 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '一手詰め',
     difficulty: '上級',
-    description: '先手番。後手玉を「一手詰め」にする手を選んでください。',
+    description: '先手番。持ち駒の金を使い、1一の後手玉を一手で詰ましてください。',
     board: _prob12Board(),
-    options: ['▲1八金', '▲2八飛', '▲1九銀成', '▲1八飛'],
+    options: ['▲1二金', '▲2二金', '▲1三金', '▲2三金'],
     correctIndex: 0,
-    explanation: '▲1八金が正解。後手玉は1九に追い詰められており、1八に金を打てば詰みです。',
+    explanation: '▲1二金が正解。2三の銀が1二の地点を支えているので玉は金を取れず、逃げ場もなく詰みです。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),
@@ -700,7 +674,7 @@ final List<_NMProb> _problems = [
     board: _prob15Board(),
     options: ['▲7三角成', '▲5二角成', '▲6三角成', '▲3二角成'],
     correctIndex: 1,
-    explanation: '▲5二角成が正解。角が5二に成ることで後手玉に王手がかかり、竜として強力な攻め駒になります。',
+    explanation: '▲5二角成が正解。角が5二に成ることで後手玉に王手がかかり、馬として強力な攻め駒になります。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),
@@ -763,11 +737,11 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '駒の両取り',
     difficulty: '中級',
-    description: '先手番。角を活用して相手の2つの駒を同時に狙う手は？',
+    description: '先手番。銀を進めて相手の2つの駒を同時に攻撃する「両取り」の手は？',
     board: _prob21Board(),
     options: ['▲6四銀', '▲5三銀', '▲6三銀', '▲7四銀'],
     correctIndex: 2,
-    explanation: '▲6三銀が正解。銀がゴールドと飛車に両当たりします。',
+    explanation: '▲6三銀が正解。7四の銀が6三に進み、後手の6二金と5四飛車に同時に当たる「銀の両取り」になります。',
     sourceUrl: 'https://tsume.glico.com',
     sourceTitle: '将棋パズル',
   ),
@@ -785,11 +759,11 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '逃げ場を作る中盤戦',
     difficulty: '中級',
-    description: '先手番。攻撃しながら玉の逃げ場も確保する手筋は？',
+    description: '先手番。6六の浮き飛車を前進させて後手陣を圧迫する最善手は？',
     board: _prob23Board(),
     options: ['▲6四飛', '▲5四飛', '▲6三飛', '▲5三飛'],
     correctIndex: 0,
-    explanation: '▲6四飛が正解。飛車を活用しながら戦局をコントロールします。',
+    explanation: '▲6四飛が正解。6六の飛車を6四に進め、後手陣への圧力を高めながら次の▲6三飛成を狙います。',
     sourceUrl: 'https://tsume.glico.com',
     sourceTitle: '将棋パズル',
   ),
@@ -800,7 +774,7 @@ final List<_NMProb> _problems = [
     board: _prob24Board(),
     options: ['▲5五金', '▲6五金', '▲5三金', '▲6三金'],
     correctIndex: 1,
-    explanation: '▲6五金が正解。金がルークとビショップに両当たりします。',
+    explanation: '▲6五金が正解。5六の金が6五に進み、後手の6四飛車と5五角に同時に当たる「金の両取り」になります。',
     sourceUrl: 'https://tsume.glico.com',
     sourceTitle: '将棋パズル',
   ),
@@ -818,55 +792,55 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '詰みを読む',
     difficulty: '上級',
-    description: '先手番。複数手先を読んで確実な詰みまでの道筋を見つける手は？',
+    description: '先手番。5三の飛車を成り込んで5一の後手玉に王手をかける手は？',
     board: _prob26Board(),
-    options: ['▲2四飛', '▲1四飛', '▲2二飛', '▲3四飛'],
+    options: ['▲5四飛', '▲5二飛成', '▲4二飛成', '▲2二飛'],
     correctIndex: 1,
-    explanation: '▲1四飛が正解。この後、複数の詰む流れが生まれます。',
+    explanation: '▲5二飛成が正解。飛車を成って竜を作りながら王手をかけ、玉の急所に強力な大駒を効かせます。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),
   _NMProb(
     title: '受けと攻めの両立',
     difficulty: '上級',
-    description: '先手番。相手の攻撃に対応しながら自分の攻撃も続ける手を選んでください。',
+    description: '先手番。2三の飛車を成り込んで3一の後手玉に王手をかける手は？',
     board: _prob27Board(),
-    options: ['▲2一飛', '▲1一飛', '▲3一飛', '▲2二飛'],
-    correctIndex: 0,
-    explanation: '▲2一飛が正解。受けと攻めのバランスが取れた手です。',
+    options: ['▲2一飛成', '▲2二飛成', '▲3二飛成', '▲2四飛'],
+    correctIndex: 1,
+    explanation: '▲2二飛成が正解。飛車を2二に成って竜を作り、斜めの利きで3一の玉に王手をかけます。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),
   _NMProb(
     title: '敵玉を追い詰める',
     difficulty: '上級',
-    description: '先手番。敵玉の逃げ場を奪いながら詰みに導く最強手は？',
+    description: '先手番。2六の飛車を走らせて2一の後手玉に王手をかける手は？',
     board: _prob28Board(),
     options: ['▲2三飛', '▲1三飛', '▲3三飛', '▲2二飛'],
     correctIndex: 0,
-    explanation: '▲2三飛が正解。玉の逃げ道を完全に塞ぐ手です。',
+    explanation: '▲2三飛が正解。2筋を飛車で直射して2一の玉に王手をかけ、追い詰めていきます。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),
   _NMProb(
     title: '詰めロジックの応用',
     difficulty: '上級',
-    description: '先手番。複雑な局面から論理的に詰みの形を作る手を見つけてください。',
+    description: '先手番。9五の飛車を成り込んで9一の後手玉に王手をかける手は？',
     board: _prob29Board(),
-    options: ['▲1五飛', '▲2四飛', '▲1三飛', '▲2三飛'],
-    correctIndex: 2,
-    explanation: '▲1三飛が正解。複数の詰み手順につながる好手です。',
+    options: ['▲9三飛成', '▲9二飛成', '▲8二飛成', '▲9四飛'],
+    correctIndex: 1,
+    explanation: '▲9二飛成が正解。飛車を9二に成って竜を作り、9一の玉に王手をかけて端へ追い詰めます。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),
   _NMProb(
     title: '複合手筋で勝利へ',
     difficulty: '上級',
-    description: '先手番。複数の手筋を組み合わせて相手を詰ます最終手を選んでください。',
+    description: '先手番。2三の飛車を成り込んで1一の後手玉に王手をかける手は？',
     board: _prob30Board(),
     options: ['▲2三飛成', '▲2二飛成', '▲1二飛成', '▲3二飛成'],
     correctIndex: 1,
-    explanation: '▲2二飛成が正解。複合手筋により確実な勝利をもたらします。',
+    explanation: '▲2二飛成が正解。飛車を2二に成って竜を作り、斜めの利きで1一の玉に王手をかけます。',
     sourceUrl: 'https://shogidb.org',
     sourceTitle: '将棋データベース',
   ),

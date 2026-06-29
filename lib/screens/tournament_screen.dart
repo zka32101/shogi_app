@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/tournament_service.dart';
 import '../services/network_service.dart';
 import '../services/rating_service.dart';
+import '../theme/app_theme.dart';
 
 // ── 一覧画面 ─────────────────────────────────────────────────
 
@@ -14,11 +15,11 @@ class TournamentListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title:
-            const Text('トーナメント', style: TextStyle(color: Colors.white)),
+            const Text('トーナメント', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -40,20 +41,20 @@ class TournamentListScreen extends StatelessWidget {
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setSt) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('トーナメントを作成',
-              style: TextStyle(color: Colors.white)),
+              style: TextStyle(color: AppTheme.textHigh)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppTheme.textHigh),
                 decoration: const InputDecoration(
                   hintText: 'トーナメント名',
-                  hintStyle: TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: AppTheme.textLow),
                   enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white38),
+                    borderSide: BorderSide(color: AppTheme.textLow),
                   ),
                 ),
               ),
@@ -62,16 +63,16 @@ class TournamentListScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   const Text('人数',
-                      style: TextStyle(color: Colors.white70)),
+                      style: TextStyle(color: AppTheme.textMid)),
                   DropdownButton<int>(
                     value: selectedSize,
-                    dropdownColor: const Color(0xFF16213E),
+                    dropdownColor: AppTheme.surface,
                     items: [4, 8, 16, 32]
                         .map((n) => DropdownMenuItem(
                               value: n,
                               child: Text('$n名',
                                   style:
-                                      const TextStyle(color: Colors.white)),
+                                      const TextStyle(color: AppTheme.textHigh)),
                             ))
                         .toList(),
                     onChanged: (v) =>
@@ -152,7 +153,7 @@ class _TournamentList extends StatelessWidget {
                   icon: const Icon(Icons.add),
                   label: const Text('作成する'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber.shade700,
+                    backgroundColor: AppTheme.catPlay,
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -191,7 +192,7 @@ class _TournamentTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
@@ -226,7 +227,7 @@ class _TournamentTile extends StatelessWidget {
                     Text(
                       tournament.name,
                       style: const TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontWeight: FontWeight.bold),
                     ),
                     Text(
@@ -274,11 +275,11 @@ class TournamentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('トーナメント詳細',
-            style: TextStyle(color: Colors.white)),
+            style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: StreamBuilder<Tournament?>(
@@ -314,7 +315,7 @@ class TournamentDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.login),
               label: const Text('エントリーする'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade700,
+                backgroundColor: AppTheme.success,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
               ),
@@ -325,7 +326,7 @@ class TournamentDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.logout),
               label: const Text('キャンセル'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade800,
+                backgroundColor: AppTheme.danger,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
               ),
@@ -338,7 +339,7 @@ class TournamentDetailScreen extends StatelessWidget {
               icon: const Icon(Icons.play_arrow),
               label: const Text('トーナメント開始'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.amber.shade700,
+                backgroundColor: AppTheme.catPlay,
                 foregroundColor: Colors.white,
                 minimumSize: const Size.fromHeight(48),
               ),
@@ -354,7 +355,7 @@ class TournamentDetailScreen extends StatelessWidget {
         if (t.matches.isNotEmpty) ...[
           const Text('ブラケット',
               style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textHigh,
                   fontWeight: FontWeight.bold,
                   fontSize: 16)),
           const SizedBox(height: 8),
@@ -368,7 +369,7 @@ class TournamentDetailScreen extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -376,7 +377,7 @@ class TournamentDetailScreen extends StatelessWidget {
           Text(
             t.name,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppTheme.textHigh,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -410,7 +411,7 @@ class TournamentDetailScreen extends StatelessWidget {
         const SizedBox(height: 2),
         Text(value,
             style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
+                color: AppTheme.textHigh, fontWeight: FontWeight.bold)),
       ],
     );
   }
@@ -421,7 +422,7 @@ class TournamentDetailScreen extends StatelessWidget {
       children: [
         const Text('参加者',
             style: TextStyle(
-                color: Colors.white,
+                color: AppTheme.textHigh,
                 fontWeight: FontWeight.bold,
                 fontSize: 14)),
         const SizedBox(height: 8),
@@ -430,7 +431,7 @@ class TournamentDetailScreen extends StatelessWidget {
               padding:
                   const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.grey.shade900,
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(6),
               ),
               child: Row(
@@ -448,7 +449,7 @@ class TournamentDetailScreen extends StatelessWidget {
                             ? e.username[0].toUpperCase()
                             : '?',
                         style: const TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.textHigh,
                             fontWeight: FontWeight.bold),
                       ),
                     ),
@@ -456,7 +457,7 @@ class TournamentDetailScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(e.username,
-                        style: const TextStyle(color: Colors.white)),
+                        style: const TextStyle(color: AppTheme.textHigh)),
                   ),
                   Text(
                     '${_ratingService.getRankLabel(e.rating)} ${e.rating}',
@@ -523,7 +524,7 @@ class TournamentDetailScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: isMyMatch
             ? Colors.blue.shade900.withAlpha(80)
-            : Colors.grey.shade900,
+            : AppTheme.surface,
         borderRadius: BorderRadius.circular(6),
         border: isMyMatch
             ? Border.all(color: Colors.cyan.withAlpha(100), width: 1)
@@ -536,7 +537,7 @@ class TournamentDetailScreen extends StatelessWidget {
           m.player2 != null
               ? _playerRow(m.player2, m.winnerId)
               : const Text('BYE',
-                  style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  style: TextStyle(color: AppTheme.textLow, fontSize: 11)),
           if (m.status == 'pending' && isMyMatch) ...[
             const SizedBox(height: 4),
             GestureDetector(
@@ -567,14 +568,14 @@ class TournamentDetailScreen extends StatelessWidget {
         Icon(
           isWinner ? Icons.emoji_events : Icons.person_outline,
           size: 12,
-          color: isWinner ? Colors.amber : Colors.white38,
+          color: isWinner ? Colors.amber : AppTheme.textLow,
         ),
         const SizedBox(width: 4),
         Expanded(
           child: Text(
             player.username,
             style: TextStyle(
-              color: isWinner ? Colors.amber : Colors.white,
+              color: isWinner ? Colors.amber : AppTheme.textHigh,
               fontSize: 12,
               fontWeight:
                   isWinner ? FontWeight.bold : FontWeight.normal,
@@ -584,7 +585,7 @@ class TournamentDetailScreen extends StatelessWidget {
         ),
         Text(
           '${player.rating}',
-          style: const TextStyle(color: Colors.white38, fontSize: 10),
+          style: const TextStyle(color: AppTheme.textLow, fontSize: 10),
         ),
       ],
     );
@@ -656,12 +657,12 @@ class TournamentDetailScreen extends StatelessWidget {
     final action = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('対局',
-            style: TextStyle(color: Colors.white)),
+            style: TextStyle(color: AppTheme.textHigh)),
         content: Text(
           '${m.player1?.username ?? "?"} vs ${m.player2?.username ?? "?"}',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AppTheme.textMid),
         ),
         actions: [
           TextButton(
@@ -670,14 +671,14 @@ class TournamentDetailScreen extends StatelessWidget {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'p1_win'),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade700,
+                backgroundColor: AppTheme.success,
                 foregroundColor: Colors.white),
             child: Text('${m.player1?.username ?? "先手"} 勝利'),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, 'p2_win'),
             style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.blue.shade700,
+                backgroundColor: AppTheme.catPlay,
                 foregroundColor: Colors.white),
             child: Text('${m.player2?.username ?? "後手"} 勝利'),
           ),

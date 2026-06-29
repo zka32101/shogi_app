@@ -1,9 +1,9 @@
-// lib/castle_patterns_screen.dart — 囲い（城）パターン説明
+// lib/castle_patterns_screen.dart — 囲いパターン説明
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'utils/shogi_data_validator.dart';
 
 class CastlePatternsScreen extends StatefulWidget {
   const CastlePatternsScreen({super.key});
@@ -13,8 +13,7 @@ class CastlePatternsScreen extends StatefulWidget {
 }
 
 class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
-  String? _selectedDifficulty; // null = all, '初級', '中級', '上級'
-  String? _selectedSource; // null = all, sources
+  String? _selectedDifficulty;
 
   void _showFilterMenu() {
     showModalBottomSheet(
@@ -68,33 +67,6 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    '出典',
-                    style: TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: ['将棋講座.com', '将棋研究'].map((source) {
-                      final isSelected = _selectedSource == source;
-                      return FilterChip(
-                        label: Text(source),
-                        selected: isSelected,
-                        onSelected: (selected) {
-                          setState(() {
-                            _selectedSource = selected ? source : null;
-                          });
-                          this.setState(() {});
-                        },
-                        backgroundColor: const Color(0xFF0F3460),
-                        selectedColor: Colors.amber.shade600,
-                        labelStyle: TextStyle(
-                          color: isSelected ? Colors.black : Colors.white70,
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: 16),
                   ElevatedButton(
                     onPressed: () => Navigator.pop(context),
                     style: ElevatedButton.styleFrom(
@@ -115,170 +87,231 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     );
   }
 
-  // Helper to make empty 9x9 board
+  // ── 座標系: board[row][col], row=段-1, col=9-筋
+  //   例) 8八 → row=7, col=1  /  3七 → row=6, col=6
   static List<List<Piece?>> _empty() =>
       List.generate(9, (_) => List<Piece?>.filled(9, null, growable: true));
 
-  // 居玉（きょぎょく）
+  // 居玉（きょぎょく）— 玉が初期位置のまま
   static List<List<Piece?>> _kyogyoku() {
     final b = _empty();
-    b[8][4] = const Piece(PieceType.king, true);
+    b[8][4] = const Piece(PieceType.king, true);   // 5九玉
+    b[8][3] = const Piece(PieceType.gold, true);   // 6九金（初期位置）
+    b[8][5] = const Piece(PieceType.gold, true);   // 4九金（初期位置）
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
+    b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
     return b;
   }
 
-  // 渡辺システム
-  static List<List<Piece?>> _watanabeSystem() {
-    final b = _empty();
-    b[8][4] = const Piece(PieceType.king, true);
-    b[8][3] = const Piece(PieceType.gold, true);
-    b[8][5] = const Piece(PieceType.gold, true);
-    b[7][4] = const Piece(PieceType.silver, true);
-    b[7][3] = const Piece(PieceType.gold, true);
-    b[7][5] = const Piece(PieceType.silver, true);
-    b[6][2] = const Piece(PieceType.pawn, true);
-    b[6][3] = const Piece(PieceType.pawn, true);
-    b[6][4] = const Piece(PieceType.pawn, true);
-    b[6][5] = const Piece(PieceType.pawn, true);
-    b[6][6] = const Piece(PieceType.pawn, true);
-    return b;
-  }
-
-  // 矢倉角換わり
-  static List<List<Piece?>> _yaguraKakuKawari() {
-    final b = _empty();
-    b[7][1] = const Piece(PieceType.king, true);
-    b[7][2] = const Piece(PieceType.gold, true);
-    b[6][1] = const Piece(PieceType.silver, true);
-    b[6][2] = const Piece(PieceType.gold, true);
-    b[5][0] = const Piece(PieceType.pawn, true);
-    b[5][1] = const Piece(PieceType.pawn, true);
-    b[5][2] = const Piece(PieceType.pawn, true);
-    b[8][8] = const Piece(PieceType.bishop, true);
-    return b;
-  }
-
-  // 中田功システム
-  static List<List<Piece?>> _nakadaKouSystem() {
-    final b = _empty();
-    b[8][0] = const Piece(PieceType.king, true);
-    b[8][1] = const Piece(PieceType.gold, true);
-    b[7][0] = const Piece(PieceType.silver, true);
-    b[7][1] = const Piece(PieceType.gold, true);
-    b[7][2] = const Piece(PieceType.silver, true);
-    b[6][0] = const Piece(PieceType.pawn, true);
-    b[6][1] = const Piece(PieceType.pawn, true);
-    b[6][2] = const Piece(PieceType.pawn, true);
-    b[8][3] = const Piece(PieceType.rook, true);
-    return b;
-  }
-
-  // 矢倉
+  // 矢倉（やぐら）— 8八玉、7八金、7七銀、6七金
   static List<List<Piece?>> _yagura() {
     final b = _empty();
-    b[7][1] = const Piece(PieceType.king, true);
-    b[7][2] = const Piece(PieceType.gold, true);
-    b[6][2] = const Piece(PieceType.silver, true);  // 7七銀
-    b[6][3] = const Piece(PieceType.gold, true);    // 6七金
-    for (int c = 0; c <= 4; c++) {
-      b[5][c] = const Piece(PieceType.pawn, true);
-    }
+    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[6][3] = const Piece(PieceType.gold, true);   // 6七金
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[7][4] = const Piece(PieceType.rook, true);   // 5八飛
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[5][3] = const Piece(PieceType.pawn, true);   // 6六歩
+    b[5][4] = const Piece(PieceType.pawn, true);   // 5六歩
     return b;
   }
 
-  // 美濃
+  // 美濃囲い（みのがこい）— 2八玉、3八金、3七銀（振り飛車）
   static List<List<Piece?>> _mino() {
     final b = _empty();
-    b[7][7] = const Piece(PieceType.king, true);   // 2八玉（振り飛車・右玉）
+    b[7][7] = const Piece(PieceType.king, true);   // 2八玉
     b[7][6] = const Piece(PieceType.gold, true);   // 3八金
     b[6][6] = const Piece(PieceType.silver, true); // 3七銀
-    for (int c = 6; c <= 8; c++) {
-      b[5][c] = const Piece(PieceType.pawn, true);
-    }
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
+    b[7][5] = const Piece(PieceType.rook, true);   // 4八飛（四間飛車）
+    b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
+    b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
+    b[5][6] = const Piece(PieceType.pawn, true);   // 3六歩
     return b;
   }
 
-  // 穴熊
-  static List<List<Piece?>> _anaguma() {
-    final b = _empty();
-    b[8][0] = const Piece(PieceType.king, true);
-    b[8][1] = const Piece(PieceType.gold, true);
-    b[7][0] = const Piece(PieceType.silver, true);
-    b[7][1] = const Piece(PieceType.gold, true);
-    b[7][2] = const Piece(PieceType.silver, true);
-    return b;
-  }
-
-  // 金無双
-  static List<List<Piece?>> _kinmusou() {
-    final b = _empty();
-    b[8][1] = const Piece(PieceType.king, true);
-    b[7][0] = const Piece(PieceType.gold, true);
-    b[7][2] = const Piece(PieceType.gold, true);
-    b[8][2] = const Piece(PieceType.silver, true);
-    return b;
-  }
-
-  // 舟囲い
+  // 舟囲い（ふねがこい）— 5八玉、4八金、6八金
   static List<List<Piece?>> _funegakoi() {
     final b = _empty();
-    b[7][4] = const Piece(PieceType.king, true);
-    b[8][3] = const Piece(PieceType.gold, true);
-    b[8][5] = const Piece(PieceType.gold, true);
-    b[7][3] = const Piece(PieceType.silver, true);
+    b[7][4] = const Piece(PieceType.king, true);   // 5八玉
+    b[7][5] = const Piece(PieceType.gold, true);   // 4八金
+    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
+    b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
+    b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
     return b;
   }
 
-  // 銀冠
+  // 金無双（きんむそう）— 8八玉、7八金、6八金、7七銀（相振り飛車の囲い）
+  static List<List<Piece?>> _kinmusou() {
+    final b = _empty();
+    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    return b;
+  }
+
+  // 銀冠（ぎんかん）— 8八玉、7八金、6七金、8七銀（銀が玉の真上で冠の形）
   static List<List<Piece?>> _ginkan() {
     final b = _empty();
-    b[8][0] = const Piece(PieceType.king, true);
-    b[7][1] = const Piece(PieceType.silver, true); // 8八銀（玉頭）← 銀冠の特徴
-    b[8][1] = const Piece(PieceType.gold, true);
-    b[7][0] = const Piece(PieceType.gold, true);   // 9八金
-    b[6][0] = const Piece(PieceType.pawn, true);
-    b[6][1] = const Piece(PieceType.pawn, true);
-    b[6][2] = const Piece(PieceType.pawn, true);
+    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[6][3] = const Piece(PieceType.gold, true);   // 6七金
+    b[6][1] = const Piece(PieceType.silver, true); // 8七銀（冠＝玉の真上）
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[5][0] = const Piece(PieceType.pawn, true);   // 9六歩
+    b[5][1] = const Piece(PieceType.pawn, true);   // 8六歩
+    b[5][2] = const Piece(PieceType.pawn, true);   // 7六歩
     return b;
   }
 
-  // 左美濃
+  // 左美濃（ひだりみの）— 2八玉、3八金、2七銀（居飛車）
   static List<List<Piece?>> _hidarimino() {
     final b = _empty();
-    b[8][8] = const Piece(PieceType.king, true);
-    b[8][7] = const Piece(PieceType.gold, true);
-    b[7][7] = const Piece(PieceType.silver, true);
-    b[7][6] = const Piece(PieceType.gold, true);
-    b[6][6] = const Piece(PieceType.pawn, true);
-    b[6][7] = const Piece(PieceType.pawn, true);
-    b[6][8] = const Piece(PieceType.pawn, true);
+    b[7][7] = const Piece(PieceType.king, true);   // 2八玉
+    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
+    b[6][7] = const Piece(PieceType.silver, true); // 2七銀
+    b[7][8] = const Piece(PieceType.gold, true);   // 1八金
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
+    b[6][6] = const Piece(PieceType.pawn, true);   // 3七歩
+    b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
     return b;
   }
 
-  // 雁木
+  // 雁木（がんぎ）— 6八玉、5八金、6七金、7七銀、5七銀
   static List<List<Piece?>> _gangi() {
     final b = _empty();
-    b[7][3] = const Piece(PieceType.king, true);   // 6八玉（居飛車）
+    b[7][3] = const Piece(PieceType.king, true);   // 6八玉
     b[7][4] = const Piece(PieceType.gold, true);   // 5八金
     b[6][3] = const Piece(PieceType.gold, true);   // 6七金
     b[6][2] = const Piece(PieceType.silver, true); // 7七銀
     b[6][4] = const Piece(PieceType.silver, true); // 5七銀
-    b[5][3] = const Piece(PieceType.pawn, true);
-    b[5][4] = const Piece(PieceType.pawn, true);
-    b[5][5] = const Piece(PieceType.pawn, true);
-    b[5][6] = const Piece(PieceType.pawn, true);
+    b[5][5] = const Piece(PieceType.pawn, true);   // 4六歩
+    b[5][6] = const Piece(PieceType.pawn, true);   // 3六歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
     return b;
   }
 
-  // カニ囲い
+  // カニ囲い（かにがこい）— 5九玉、6九金、4九金、5八銀
   static List<List<Piece?>> _kanigakoi() {
     final b = _empty();
-    b[8][4] = const Piece(PieceType.king, true);
-    b[8][3] = const Piece(PieceType.gold, true);
-    b[8][5] = const Piece(PieceType.gold, true);
-    b[7][4] = const Piece(PieceType.silver, true);
-    b[6][3] = const Piece(PieceType.pawn, true);
-    b[6][4] = const Piece(PieceType.pawn, true);
-    b[6][5] = const Piece(PieceType.pawn, true);
+    b[8][4] = const Piece(PieceType.king, true);   // 5九玉
+    b[8][3] = const Piece(PieceType.gold, true);   // 6九金
+    b[8][5] = const Piece(PieceType.gold, true);   // 4九金
+    b[7][4] = const Piece(PieceType.silver, true); // 5八銀
+    b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
+    b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
+    b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
+    return b;
+  }
+
+  // 高美濃（たかみの）— 美濃の左金が4七に上がった形
+  static List<List<Piece?>> _takamiino() {
+    final b = _empty();
+    b[7][7] = const Piece(PieceType.king, true);   // 2八玉
+    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
+    b[6][6] = const Piece(PieceType.silver, true); // 3七銀（美濃のまま）
+    b[6][5] = const Piece(PieceType.gold, true);   // 4七金（高美濃の特徴）
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
+    b[7][5] = const Piece(PieceType.rook, true);   // 4八飛（振り飛車）
+    b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
+    b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
+    return b;
+  }
+
+  // 穴熊（あなぐま）— 9九玉、8九金、7九金、9八銀、8八銀
+  static List<List<Piece?>> _anaguma() {
+    final b = _empty();
+    b[8][0] = const Piece(PieceType.king, true);   // 9九玉
+    b[8][1] = const Piece(PieceType.gold, true);   // 8九金
+    b[8][2] = const Piece(PieceType.gold, true);   // 7九金
+    b[7][0] = const Piece(PieceType.silver, true); // 9八銀
+    b[7][1] = const Piece(PieceType.silver, true); // 8八銀（二枚銀が穴熊の特徴）
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[6][2] = const Piece(PieceType.pawn, true);   // 7七歩
+    return b;
+  }
+
+  // 矢倉角換わり — 矢倉形から角を交換した局面
+  static List<List<Piece?>> _yaguraKakuKawari() {
+    final b = _empty();
+    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[6][3] = const Piece(PieceType.gold, true);   // 6七金
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[7][4] = const Piece(PieceType.rook, true);   // 5八飛
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[5][3] = const Piece(PieceType.pawn, true);   // 6六歩
+    // 角なし（交換済み）
+    return b;
+  }
+
+  // ビッグ4 — 9九玉＋金2枚・銀2枚で固める四枚穴熊の最強形
+  static List<List<Piece?>> _bigFour() {
+    final b = _empty();
+    b[8][0] = const Piece(PieceType.king, true);   // 9九玉
+    b[8][1] = const Piece(PieceType.gold, true);   // 8九金
+    b[8][2] = const Piece(PieceType.gold, true);   // 7九金
+    b[7][1] = const Piece(PieceType.silver, true); // 8八銀
+    b[7][2] = const Piece(PieceType.silver, true); // 7八銀
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[6][2] = const Piece(PieceType.pawn, true);   // 7七歩
+    return b;
+  }
+
+  // 中住まい（なかずまい）— 玉を中央5八に置き、左右の金銀で守る
+  static List<List<Piece?>> _nakazumai() {
+    final b = _empty();
+    b[7][4] = const Piece(PieceType.king, true);   // 5八玉
+    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[7][5] = const Piece(PieceType.gold, true);   // 4八金
+    b[7][2] = const Piece(PieceType.silver, true); // 7八銀
+    b[7][6] = const Piece(PieceType.silver, true); // 3八銀
+    b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
+    b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
+    b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
+    return b;
+  }
+
+  // 木村美濃（きむらみの）— 美濃の右銀を4七へ上がった発展形
+  static List<List<Piece?>> _kimuraMino() {
+    final b = _empty();
+    b[7][7] = const Piece(PieceType.king, true);   // 2八玉
+    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
+    b[7][4] = const Piece(PieceType.gold, true);   // 5八金
+    b[6][5] = const Piece(PieceType.silver, true); // 4七銀（木村美濃の特徴）
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
+    b[5][5] = const Piece(PieceType.pawn, true);   // 4六歩
+    b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
+    b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
+    return b;
+  }
+
+  // 居飛車穴熊（いびしゃあなぐま）— 居飛車側が9九へ玉を潜らせる対振り最堅陣
+  static List<List<Piece?>> _ibishaAnaguma() {
+    final b = _empty();
+    b[8][0] = const Piece(PieceType.king, true);   // 9九玉
+    b[7][0] = const Piece(PieceType.lance, true);  // 9八香
+    b[7][1] = const Piece(PieceType.silver, true); // 8八銀
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[8][1] = const Piece(PieceType.knight, true); // 8九桂
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[6][2] = const Piece(PieceType.pawn, true);   // 7七歩
     return b;
   }
 
@@ -288,156 +321,132 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
       // 初級
       _CastleData(
         name: '居玉（きょぎょく）',
-        description: '王が玉の初期位置のままの形。最も簡易的な形で、初心者向け学習用。',
+        description: '玉が初期位置のまま動かない形。手数をかけずに対局できるが守りが薄い。囲いの比較学習に最適。',
         board: _kyogyoku(),
         highlights: const {(8, 4)},
         difficulty: '初級',
-        source: '将棋講座.com',
-        sourceUrl: 'https://xn--pet04dr1n5x9a.com/joseki/',
-        sourceTitle: '将棋講座.com',
       ),
       _CastleData(
         name: '矢倉（やぐら）',
-        description: '金と銀を重ねて玉を守る、居飛車の代表的な囲い。堅固で初心者にも覚えやすい。',
+        description: '8八玉・7八金・7七銀・6七金で組む居飛車の代表的な囲い。上部が厚く、縦の攻めに強い。',
         board: _yagura(),
         highlights: const {(7, 1), (7, 2), (6, 2), (6, 3)},
         difficulty: '初級',
-        source: '将棋講座.com',
-        sourceUrl: 'https://xn--pet04dr1n5x9a.com/joseki/',
-        sourceTitle: '将棋講座.com',
       ),
       _CastleData(
         name: '美濃囲い（みのがこい）',
-        description: '振飛車党御用達の囲い。金銀でコンパクトに玉を守り、素早く組める。',
+        description: '2八玉・3八金・3七銀の3枚で組む振り飛車の定番囲い。少ない手数で完成し、横からの攻めに強い。',
         board: _mino(),
         highlights: const {(7, 7), (7, 6), (6, 6)},
         difficulty: '初級',
-        source: '将棋講座.com',
-        sourceUrl: 'https://xn--pet04dr1n5x9a.com/joseki/',
-        sourceTitle: '将棋講座.com',
       ),
       _CastleData(
         name: '舟囲い（ふねがこい）',
-        description: '最低限の手数で組める簡易囲い。急戦に対応しつつ玉を安全にする。',
+        description: '5八玉・4八金・6八金の最短形。急戦にすぐ対応でき、玉を最低限安全にする実戦的な構え。',
         board: _funegakoi(),
-        highlights: const {(7, 4), (8, 3), (8, 5), (7, 3)},
+        highlights: const {(7, 4), (7, 5), (7, 3)},
         difficulty: '初級',
-        source: '将棋講座.com',
-        sourceUrl: 'https://xn--pet04dr1n5x9a.com/joseki/',
-        sourceTitle: '将棋講座.com',
       ),
       // 中級
       _CastleData(
         name: '金無双（きんむそう）',
-        description: '2枚の金将で玉を左右から守る。素早く組めるが横からの攻めに注意。',
+        description: '8八玉・7八金・6八金・7七銀でまとめる囲い。相振り飛車でよく使われ、素早く組めるが横からの攻めに注意。',
         board: _kinmusou(),
-        highlights: const {(8, 1), (7, 0), (7, 2)},
+        highlights: const {(7, 1), (7, 2), (7, 3), (6, 2)},
         difficulty: '中級',
-        source: '将棋研究',
-        sourceUrl: 'https://www.shougi.jp/learn/castle/',
-        sourceTitle: 'SHOGUN',
       ),
       _CastleData(
         name: '銀冠（ぎんかん）',
-        description: '玉頭に銀を置いて守る形。金2枚+銀で上部を厚く守り、現代将棋で人気の高い囲い。',
+        description: '8八玉・7八金・6七金・8七銀の形。銀を玉の真上（8七）に冠のように乗せ、上部の攻めに手厚い囲い。',
         board: _ginkan(),
-        highlights: const {(8, 0), (7, 1), (8, 1), (7, 0)},
+        highlights: const {(7, 1), (7, 2), (6, 1), (6, 3)},
         difficulty: '中級',
-        source: '将棋講座.com',
-        sourceUrl: 'https://xn--pet04dr1n5x9a.com/joseki/',
-        sourceTitle: '将棋講座.com',
       ),
       _CastleData(
         name: '左美濃（ひだりみの）',
-        description: '居飛車側が右側に玉を囲う形。美濃囲いを左右反転させたような陣形で、対抗形で活躍する。',
+        description: '居飛車側が2八玉・3八金・2七銀と組む形。美濃を左右反転させた構造で対抗形（居飛車vs振り飛車）で多用。',
         board: _hidarimino(),
-        highlights: const {(8, 8), (8, 7), (7, 7), (7, 6)},
+        highlights: const {(7, 7), (7, 6), (6, 7), (7, 8)},
         difficulty: '中級',
-        source: '将棋講座.com',
-        sourceUrl: 'https://xn--pet04dr1n5x9a.com/joseki/',
-        sourceTitle: '将棋講座.com',
       ),
       _CastleData(
         name: '雁木（がんぎ）',
-        description: '金2枚・銀2枚を高く構える囲い。攻守のバランスが良く、矢倉への対策としても有力。',
+        description: '6七金・7七銀・5七銀の2銀2金を高く構える形。攻守のバランスが良く対矢倉・対居飛車で有力。',
         board: _gangi(),
         highlights: const {(7, 3), (7, 4), (6, 3), (6, 2), (6, 4)},
         difficulty: '中級',
-        source: '将棋研究',
-        sourceUrl: 'https://www.shougi.jp/learn/castle/',
-        sourceTitle: 'SHOGUN',
       ),
       _CastleData(
         name: 'カニ囲い（かにがこい）',
-        description: '玉を中央に置き金2枚で挟む形。カニのハサミに似た見た目。急戦時に素早く組める実戦的な囲い。',
+        description: '5九玉・6九金・4九金・5八銀の形。カニのハサミのような見た目。急戦志向で素早く攻撃に転じられる。',
         board: _kanigakoi(),
         highlights: const {(8, 4), (8, 3), (8, 5), (7, 4)},
         difficulty: '中級',
-        source: '',
-        sourceTitle: '',
       ),
       _CastleData(
-        name: '渡辺システム',
-        description: 'プロ将棋で注目される現代的な囲い。複雑な構成で、高度なテクニックを要する。',
-        board: _watanabeSystem(),
-        highlights: const {(8, 4), (8, 3), (8, 5), (7, 4), (7, 3), (7, 5)},
+        name: '高美濃（たかみの）',
+        description: '美濃囲いの左金を4七へ上がった発展形。玉頭が厚くなり美濃より上部に強い。振り飛車の定番進化形。',
+        board: _takamiino(),
+        highlights: const {(7, 7), (7, 6), (6, 6), (6, 5)},
         difficulty: '中級',
-        source: '将棋研究',
-        sourceUrl: 'https://www.shougi.jp/learn/castle/',
-        sourceTitle: 'SHOGUN',
       ),
       // 上級
       _CastleData(
         name: '穴熊（あなぐま）',
-        description: '玉を盤の隅に深く潜らせる最強クラスの囲い。組むのに手数がかかる。',
+        description: '9九玉・8九金・7九金・9八銀・8八銀の形。玉を隅深く潜らせる最強クラスの囲い。組むのに手数がかかる。',
         board: _anaguma(),
-        highlights: const {(8, 0), (8, 1), (7, 0), (7, 1), (7, 2)},
+        highlights: const {(8, 0), (8, 1), (8, 2), (7, 0), (7, 1)},
         difficulty: '上級',
-        source: '将棋研究',
-        sourceUrl: 'https://www.shougi.jp/learn/castle/',
-        sourceTitle: 'SHOGUN',
       ),
       _CastleData(
         name: '矢倉角換わり',
-        description: '矢倉から角を交換した形。変化型として学習価値が高く、複雑な戦いが展開される。',
+        description: '矢倉形を維持しつつ角を交換した局面。高度な読みが必要で、角打ちの隙を常に意識する必要がある。',
         board: _yaguraKakuKawari(),
-        highlights: const {(7, 1), (7, 2), (6, 1), (6, 2), (8, 8)},
+        highlights: const {(7, 1), (7, 2), (6, 2), (6, 3)},
         difficulty: '上級',
-        source: '',
-        sourceTitle: '',
       ),
       _CastleData(
-        name: '中田功システム',
-        description: '振飛車対策の精密な囲い。高度なテクニックを要し、プロでも活用される最先端の形。',
-        board: _nakadaKouSystem(),
-        highlights: const {(8, 0), (8, 1), (7, 0), (7, 1), (7, 2), (8, 3)},
+        name: 'ビッグ4（びっぐふぉー）',
+        description: '9九玉・8九金・7九金・8八銀・7八銀の四枚穴熊。金銀4枚で玉を完全に囲う最強クラスの堅陣。組むのに手数がかかる。',
+        board: _bigFour(),
+        highlights: const {(8, 0), (8, 1), (8, 2), (7, 1), (7, 2)},
         difficulty: '上級',
-        source: '将棋研究',
-        sourceUrl: 'https://www.shougi.jp/learn/castle/',
-        sourceTitle: 'SHOGUN',
+      ),
+      _CastleData(
+        name: '中住まい（なかずまい）',
+        description: '5八玉・6八金・4八金・7八銀・3八銀。玉を中央に置き左右の金銀で守る形。横からの攻めに強く、相居飛車の急戦で使われます。',
+        board: _nakazumai(),
+        highlights: const {(7, 4), (7, 3), (7, 5), (7, 2), (7, 6)},
+        difficulty: '中級',
+      ),
+      _CastleData(
+        name: '木村美濃（きむらみの）',
+        description: '2八玉・3八金・5八金・4七銀。美濃の右銀を4七へ上がり、玉頭の守りと反撃力を高めた発展形。振り飛車で多用されます。',
+        board: _kimuraMino(),
+        highlights: const {(7, 7), (7, 6), (7, 4), (6, 5)},
+        difficulty: '中級',
+      ),
+      _CastleData(
+        name: '居飛車穴熊（いびしゃあなぐま）',
+        description: '9九玉・9八香・8八銀・7八金・6八金。居飛車側が玉を隅へ潜らせる対振り飛車の最堅陣。遠さと固さで終盤に絶大な威力を発揮します。',
+        board: _ibishaAnaguma(),
+        highlights: const {(8, 0), (7, 1), (7, 2), (7, 3)},
+        difficulty: '上級',
       ),
     ];
 
-    // Apply filters
-    final filteredCastles = allCastles.where((castle) {
-      if (_selectedDifficulty != null && castle.difficulty != _selectedDifficulty) {
-        return false;
-      }
-      if (_selectedSource != null && castle.source != _selectedSource) {
-        return false;
-      }
-      return true;
-    }).toList();
+    final filtered = _selectedDifficulty == null
+        ? allCastles
+        : allCastles.where((c) => c.difficulty == _selectedDifficulty).toList();
 
     return Scaffold(
       backgroundColor: const Color(0xFF1A1A2E),
       appBar: AppBar(
         backgroundColor: const Color(0xFF16213E),
-        title: const Text('囲い（城）パターン'),
+        title: const Text('囲いパターン', style: TextStyle(color: Colors.white)),
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
-          tooltip: '戻る',
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
@@ -450,47 +459,31 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
       ),
       body: Column(
         children: [
-          if (_selectedDifficulty != null || _selectedSource != null)
+          if (_selectedDifficulty != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
               child: Row(
                 children: [
-                  Text(
-                    '絞込: ',
-                    style: TextStyle(color: Colors.amber.shade400, fontSize: 12),
+                  Text('絞込: ', style: TextStyle(color: Colors.amber.shade400, fontSize: 12)),
+                  Chip(
+                    label: Text(_selectedDifficulty!),
+                    backgroundColor: Colors.amber.shade600,
+                    labelStyle: const TextStyle(color: Colors.black, fontSize: 11),
                   ),
-                  if (_selectedDifficulty != null)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: Chip(
-                        label: Text(_selectedDifficulty!),
-                        backgroundColor: Colors.amber.shade600,
-                        labelStyle: const TextStyle(color: Colors.black, fontSize: 11),
-                      ),
-                    ),
-                  if (_selectedSource != null)
-                    Chip(
-                      label: Text(_selectedSource!),
-                      backgroundColor: Colors.amber.shade600,
-                      labelStyle: const TextStyle(color: Colors.black, fontSize: 11),
-                    ),
                 ],
               ),
             ),
           Expanded(
-            child: filteredCastles.isEmpty
+            child: filtered.isEmpty
                 ? Center(
-                    child: Text(
-                      'マッチする囲いがありません',
-                      style: TextStyle(color: Colors.white.withAlpha(150)),
-                    ),
-                  )
+                    child: Text('マッチする囲いがありません',
+                        style: TextStyle(color: Colors.white.withAlpha(150))))
                 : ListView.separated(
                     physics: const BouncingScrollPhysics(),
                     padding: const EdgeInsets.all(16),
-                    itemCount: filteredCastles.length,
-                    separatorBuilder: (context, i) => const SizedBox(height: 16),
-                    itemBuilder: (context, i) => _CastleCard(data: filteredCastles[i]),
+                    itemCount: filtered.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 16),
+                    itemBuilder: (_, i) => _CastleCard(data: filtered[i]),
                   ),
           ),
         ],
@@ -504,20 +497,14 @@ class _CastleData {
   final String description;
   final List<List<Piece?>> board;
   final Set<(int, int)> highlights;
-  final String? sourceUrl;
-  final String? sourceTitle;
-  final String difficulty; // '初級', '中級', '上級'
-  final String source; // '将棋講座.com', '将棋研究'
+  final String difficulty;
 
   const _CastleData({
     required this.name,
     required this.description,
     required this.board,
     required this.highlights,
-    this.sourceUrl,
-    this.sourceTitle,
     required this.difficulty,
-    required this.source,
   });
 }
 
@@ -525,23 +512,12 @@ class _CastleCard extends StatelessWidget {
   final _CastleData data;
   const _CastleCard({required this.data});
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  Color _getDifficultyColor(String difficulty) {
-    switch (difficulty) {
-      case '初級':
-        return Colors.green.shade400;
-      case '中級':
-        return Colors.orange.shade400;
-      case '上級':
-        return Colors.red.shade400;
-      default:
-        return Colors.grey;
+  Color _difficultyColor() {
+    switch (data.difficulty) {
+      case '初級': return Colors.green.shade400;
+      case '中級': return Colors.orange.shade400;
+      case '上級': return Colors.red.shade400;
+      default:    return Colors.grey;
     }
   }
 
@@ -553,11 +529,7 @@ class _CastleCard extends StatelessWidget {
         border: Border.all(color: Colors.amber.shade800.withAlpha(100), width: 1),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(60),
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
+          BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 6, offset: const Offset(0, 3)),
         ],
       ),
       padding: const EdgeInsets.all(14),
@@ -581,16 +553,12 @@ class _CastleCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: _getDifficultyColor(data.difficulty),
+                  color: _difficultyColor(),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   data.difficulty,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: const TextStyle(color: Colors.black, fontSize: 11, fontWeight: FontWeight.bold),
                 ),
               ),
             ],
@@ -598,11 +566,7 @@ class _CastleCard extends StatelessWidget {
           const SizedBox(height: 6),
           Text(
             data.description,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 13,
-              height: 1.5,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
           ),
           const SizedBox(height: 12),
           Center(
@@ -612,27 +576,6 @@ class _CastleCard extends StatelessWidget {
               size: 220,
             ),
           ),
-          const SizedBox(height: 12),
-          if (data.sourceUrl != null)
-            GestureDetector(
-              onTap: () => _launchUrl(data.sourceUrl!),
-              child: Text(
-                '出典: ${data.sourceTitle ?? data.source}',
-                style: TextStyle(
-                  color: Colors.blue.shade300,
-                  fontSize: 11,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            )
-          else
-            Text(
-              '出典: ${data.source}',
-              style: const TextStyle(
-                color: Colors.white54,
-                fontSize: 11,
-              ),
-            ),
         ],
       ),
     );

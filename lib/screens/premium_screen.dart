@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../purchase_service.dart';
+import '../theme/app_theme.dart';
 
 class PremiumScreen extends StatefulWidget {
   const PremiumScreen({super.key});
@@ -77,15 +78,15 @@ class _PremiumScreenState extends State<PremiumScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('プレミアム', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('プレミアム', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           TextButton(
             onPressed: _restore,
-            child: const Text('復元', style: TextStyle(color: Colors.white70)),
+            child: const Text('復元', style: TextStyle(color: AppTheme.textMid)),
           ),
         ],
       ),
@@ -113,7 +114,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                       const Text(
                         '効棋 Premium',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 2,
@@ -144,7 +145,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   const Text(
                     '・全てのプランは買い切りです\n'
                     '・購入の復元は「復元」ボタンから',
-                    style: TextStyle(color: Colors.white24, fontSize: 11),
+                    style: TextStyle(color: AppTheme.textLow, fontSize: 11),
                     textAlign: TextAlign.center,
                   ),
                 ],
@@ -157,7 +158,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -169,7 +170,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             const SizedBox(width: 6),
             const Text(
               '無料プラン',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(color: AppTheme.textHigh, fontWeight: FontWeight.bold, fontSize: 15),
             ),
           ]),
           const SizedBox(height: 12),
@@ -184,7 +185,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _hasPlan300 ? Colors.blue.shade700 : Colors.white12,
@@ -198,7 +199,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             const SizedBox(width: 6),
             const Text(
               '300円プラン',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(color: AppTheme.textHigh, fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const Spacer(),
             if (_hasPlan300)
@@ -208,7 +209,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   color: Colors.green.shade700,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text('購入済み', style: TextStyle(color: Colors.white, fontSize: 11)),
+                child: const Text('購入済み', style: TextStyle(color: AppTheme.textHigh, fontSize: 11)),
               ),
           ]),
           const SizedBox(height: 12),
@@ -226,7 +227,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                 icon: const Icon(Icons.shopping_bag),
                 label: const Text('300円で購入'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade700,
+                  backgroundColor: AppTheme.catConfig,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -241,7 +242,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: _hasPlan500 ? Colors.amber.shade700 : Colors.white12,
@@ -255,7 +256,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             const SizedBox(width: 6),
             const Text(
               '500円プラン',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+              style: TextStyle(color: AppTheme.textHigh, fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const Spacer(),
             if (_hasPlan500)
@@ -265,11 +266,11 @@ class _PremiumScreenState extends State<PremiumScreen> {
                   color: Colors.green.shade700,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Text('購入済み', style: TextStyle(color: Colors.white, fontSize: 11)),
+                child: const Text('購入済み', style: TextStyle(color: AppTheme.textHigh, fontSize: 11)),
               ),
           ]),
           const SizedBox(height: 12),
-          const Text('300円プランのすべて +', style: TextStyle(color: Colors.white70, fontSize: 12)),
+          const Text('300円プランのすべて +', style: TextStyle(color: AppTheme.textMid, fontSize: 12)),
           const SizedBox(height: 8),
           _benefitRow(Icons.auto_awesome, 'AI週次振り返り', '毎週の対局分析'),
           _benefitRow(Icons.cloud_sync, 'クラウド同期', '棋譜自動バックアップ'),
@@ -284,7 +285,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
                 icon: const Icon(Icons.shopping_bag),
                 label: const Text('500円で購入'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.amber.shade700,
+                  backgroundColor: AppTheme.catConfig,
                   foregroundColor: Colors.white,
                 ),
               ),
@@ -303,8 +304,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
-            Text(desc, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+            Text(title, style: const TextStyle(color: AppTheme.textHigh, fontSize: 13, fontWeight: FontWeight.bold)),
+            Text(desc, style: const TextStyle(color: AppTheme.textLow, fontSize: 11)),
           ]),
         ),
       ]),

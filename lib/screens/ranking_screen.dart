@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/rating_service.dart';
 import '../services/network_service.dart';
+import '../theme/app_theme.dart';
 
 class RankingScreen extends StatefulWidget {
   const RankingScreen({super.key});
@@ -66,10 +67,10 @@ class _RankingScreenState extends State<RankingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('ランキング', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('ランキング', style: TextStyle(color: AppTheme.textHigh)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: Colors.amber,
@@ -128,7 +129,7 @@ class _RankingScreenState extends State<RankingScreen>
               decoration: BoxDecoration(
                 color: isCurrentUser
                     ? Colors.blue.shade900.withAlpha(100)
-                    : Colors.grey.shade900,
+                    : AppTheme.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: isCurrentUser
                     ? Border.all(color: Colors.cyan, width: 1)
@@ -145,7 +146,7 @@ class _RankingScreenState extends State<RankingScreen>
                     child: Text(
                       '$rank',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -154,18 +155,18 @@ class _RankingScreenState extends State<RankingScreen>
                 title: Text(
                   username,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textHigh,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 subtitle: Text(
                   '$rankLabel • $rating点 • 勝率: ${winRate}%',
-                  style: const TextStyle(color: Colors.white70, fontSize: 12),
+                  style: const TextStyle(color: AppTheme.textMid, fontSize: 12),
                 ),
                 trailing: Text(
                   '$wins勝 $losses敗',
                   style: const TextStyle(
-                    color: Colors.white70,
+                    color: AppTheme.textMid,
                     fontSize: 12,
                   ),
                 ),
@@ -182,7 +183,7 @@ class _RankingScreenState extends State<RankingScreen>
     if (_currentUserId == null) {
       return const Center(
         child: Text('ログインが必要です',
-            style: TextStyle(color: Colors.white70)),
+            style: TextStyle(color: AppTheme.textMid)),
       );
     }
 
@@ -222,7 +223,7 @@ class _RankingScreenState extends State<RankingScreen>
                     child: Text(
                       _currentUserRank?.toString() ?? '?',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontSize: 48,
                         fontWeight: FontWeight.bold,
                       ),
@@ -233,7 +234,7 @@ class _RankingScreenState extends State<RankingScreen>
                 Text(
                   username,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppTheme.textHigh,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                   ),
@@ -262,7 +263,7 @@ class _RankingScreenState extends State<RankingScreen>
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade900,
+                    color: AppTheme.surface,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Column(
@@ -271,7 +272,7 @@ class _RankingScreenState extends State<RankingScreen>
                       const Text(
                         '詳細統計',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -295,13 +296,13 @@ class _RankingScreenState extends State<RankingScreen>
       children: [
         Text(
           label,
-          style: const TextStyle(color: Colors.white70, fontSize: 12),
+          style: const TextStyle(color: AppTheme.textMid, fontSize: 12),
         ),
         const SizedBox(height: 4),
         Text(
           value,
           style: const TextStyle(
-            color: Colors.white,
+            color: AppTheme.textHigh,
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -316,8 +317,8 @@ class _RankingScreenState extends State<RankingScreen>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white70)),
-          Text(value, style: const TextStyle(color: Colors.white)),
+          Text(label, style: const TextStyle(color: AppTheme.textMid)),
+          Text(value, style: const TextStyle(color: AppTheme.textHigh)),
         ],
       ),
     );
@@ -334,7 +335,7 @@ class _RankingScreenState extends State<RankingScreen>
             const Text(
               'プラットフォーム統計',
               style: TextStyle(
-                color: Colors.white,
+                color: AppTheme.textHigh,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),

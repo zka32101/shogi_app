@@ -7,6 +7,7 @@ import '../services/spectator_service.dart';
 import '../services/network_service.dart';
 import '../services/board_sync_service.dart';
 import 'network_board_widget.dart';
+import '../theme/app_theme.dart';
 
 class SpectatorListScreen extends StatelessWidget {
   const SpectatorListScreen({super.key});
@@ -14,9 +15,9 @@ class SpectatorListScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('ライブ観戦', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -78,7 +79,7 @@ class _LiveMatchTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.brown.shade800, width: 1),
       ),
@@ -119,14 +120,14 @@ class _LiveMatchTile extends StatelessWidget {
                       ' vs '
                       '${match.player2Name} (${match.player2Rating})',
                       style: const TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 2),
                     Text(
                       '${match.moveCount}手 • $elapsedStr経過',
                       style: const TextStyle(
-                          color: Colors.white54, fontSize: 12),
+                          color: AppTheme.textLow, fontSize: 12),
                     ),
                   ],
                 ),
@@ -135,11 +136,11 @@ class _LiveMatchTile extends StatelessWidget {
               Column(
                 children: [
                   const Icon(Icons.visibility,
-                      size: 14, color: Colors.white38),
+                      size: 14, color: AppTheme.textLow),
                   Text(
                     '${match.spectatorCount}',
                     style: const TextStyle(
-                        color: Colors.white38, fontSize: 11),
+                        color: AppTheme.textLow, fontSize: 11),
                   ),
                 ],
               ),
@@ -209,9 +210,9 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('観戦中', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -269,7 +270,7 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
                       Text(
                         '観戦モード',
                         style: const TextStyle(
-                            color: Colors.white38, fontSize: 11),
+                            color: AppTheme.textLow, fontSize: 11),
                       ),
                     ],
                   ),
@@ -311,7 +312,7 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
   Widget _buildPlayerHeader(NetworkBoardState state) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: Colors.grey.shade900,
+      color: AppTheme.surface,
       child: FutureBuilder<DocumentSnapshot>(
         future: FirebaseFirestore.instance
             .collection('matches')
@@ -328,20 +329,20 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
             children: [
               Expanded(
                 child: Text('▲$p1($r1)',
-                    style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    style: const TextStyle(color: AppTheme.textHigh, fontSize: 12)),
               ),
               const Text('vs',
-                  style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  style: TextStyle(color: AppTheme.textLow, fontSize: 11)),
               Expanded(
                 child: Text('△$p2($r2)',
                     textAlign: TextAlign.right,
-                    style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    style: const TextStyle(color: AppTheme.textHigh, fontSize: 12)),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.visibility, size: 12, color: Colors.white38),
+              Icon(Icons.visibility, size: 12, color: AppTheme.textLow),
               Text(' $spec',
                   style:
-                      const TextStyle(color: Colors.white38, fontSize: 11)),
+                      const TextStyle(color: AppTheme.textLow, fontSize: 11)),
             ],
           );
         },
@@ -393,7 +394,7 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
                           TextSpan(
                             text: data['text'] as String? ?? '',
                             style: const TextStyle(
-                              color: Colors.white70,
+                              color: AppTheme.textMid,
                               fontSize: 10,
                             ),
                           ),
@@ -415,13 +416,13 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
                 child: TextField(
                   controller: _commentController,
                   maxLength: 40,
-                  style: const TextStyle(color: Colors.white, fontSize: 11),
+                  style: const TextStyle(color: AppTheme.textHigh, fontSize: 11),
                   decoration: InputDecoration(
                     hintText: 'コメント...',
                     hintStyle:
                         const TextStyle(color: Colors.white24, fontSize: 10),
                     filled: true,
-                    fillColor: Colors.grey.shade900,
+                    fillColor: AppTheme.surface,
                     counterText: '',
                     isDense: true,
                     border: OutlineInputBorder(
@@ -455,15 +456,15 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
           const Icon(Icons.sports_kabaddi,
               size: 64, color: Colors.white24),
           const SizedBox(height: 12),
-          const Text('対局終了', style: TextStyle(color: Colors.white, fontSize: 20)),
+          const Text('対局終了', style: TextStyle(color: AppTheme.textHigh, fontSize: 20)),
           const SizedBox(height: 8),
           Text('${state.moveCount}手で終了',
-              style: const TextStyle(color: Colors.white54)),
+              style: const TextStyle(color: AppTheme.textMid)),
           const SizedBox(height: 24),
           ElevatedButton(
             onPressed: () => Navigator.pop(context),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.brown.shade700,
+              backgroundColor: AppTheme.catPlay,
               foregroundColor: Colors.white,
             ),
             child: const Text('一覧に戻る'),

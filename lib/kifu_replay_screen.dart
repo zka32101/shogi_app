@@ -313,7 +313,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.brown.shade100,
+                            color: const Color(0xFFDEB887),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -348,7 +348,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
           height: size,
           child: Container(
             decoration: BoxDecoration(
-              color: Colors.brown.shade100,
+              color: const Color(0xFFDEB887),
               border: Border.all(color: Colors.black54, width: 2),
             ),
             child: Column(

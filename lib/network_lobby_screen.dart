@@ -7,6 +7,7 @@ import 'game_screen.dart';
 import 'network_game_service.dart';
 import 'local_network_service.dart';
 import 'purchase_service.dart';
+import 'screens/match_screen.dart';
 
 // ── 変則ルール選択データ ──────────────────────────────────────
 const _variantOptions = [
@@ -28,7 +29,7 @@ const _strengthOptions = [
 ];
 
 // ── 1日あたりの無料ネット対局数上限 ──────────────────────────
-const _kNetDailyLimit = 5;
+const _kNetDailyLimit = 9999;
 
 class NetworkLobbyScreen extends StatefulWidget {
   const NetworkLobbyScreen({super.key});
@@ -70,17 +71,16 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
 
   // ─── 1日の対局上限チェック ────────────────────────────────────────────────
   /// true なら対局可能。false なら上限に達していてダイアログ表示済み。
-  Future<bool> _checkDailyLimit() async {
-    // プレミアム会員は無制限
+  /// [countUp] = true のとき実際にカウントを消費する（対局開始確定時のみ）
+  Future<bool> _checkDailyLimit({bool countUp = false}) async {
     if (PurchaseService.isPremium) return true;
 
     final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().substring(0, 10); // YYYY-MM-DD
-    final savedDate  = prefs.getString('net_daily_date') ?? '';
-    int   count      = prefs.getInt('net_daily_count')  ?? 0;
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final savedDate = prefs.getString('net_daily_date') ?? '';
+    int count = prefs.getInt('net_daily_count') ?? 0;
 
     if (savedDate != today) {
-      // 日付が変わったのでリセット
       count = 0;
       await prefs.setString('net_daily_date', today);
       await prefs.setInt('net_daily_count', 0);
@@ -109,13 +109,16 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       return false;
     }
 
-    // カウントアップ
-    await prefs.setInt('net_daily_count', count + 1);
+    // マッチング成功確定時のみカウントアップ
+    if (countUp) {
+      await prefs.setInt('net_daily_count', count + 1);
+    }
     return true;
   }
 
   // ─── ランダムマッチング ──────────────────────────────────────────────────────
   Future<void> _startMatchmaking() async {
+    // 上限チェックのみ（カウントはまだ消費しない）
     if (!await _checkDailyLimit()) return;
     setState(() {
       _state   = _LobbyState.matching;
@@ -123,48 +126,66 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       _loading = false;
       _matchingElapsed = 0;
     });
-    // 経過秒数カウンター
     _matchingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _matchingElapsed++);
     });
 
     try {
-      // 現在のレーティングを取得して強さフィルタに使う
+      print('[DEBUG] マッチング開始...');
       final prefs    = await SharedPreferences.getInstance();
       final myRating = prefs.getInt('rating_current') ?? 1000;
       final strengthStr = _strengthPref == _StrengthPref.weak   ? 'weak'
                         : _strengthPref == _StrengthPref.strong ? 'strong'
                         : 'any';
+      print('[DEBUG] Firebase準備状態: ${NetworkGameService.firebaseReady}');
       final result = await NetworkGameService.startMatchmaking(
         myRating:     myRating,
         strengthPref: strengthStr,
         rated:        _rated,
       );
+      print('[DEBUG] マッチング成功: ${result.matchId}');
       _matchingTimer?.cancel();
-      if (mounted) _goToGame(isHost: result.isHost);
-    } on TimeoutException {
+      await _checkDailyLimit(countUp: true);
+      if (mounted) _goToMatchScreen(
+        matchId:    result.matchId,
+        isPlayer1:  result.isPlayer1,
+        myPlayerId: result.myPlayerId,
+      );
+    } on TimeoutException catch (e) {
+      print('[DEBUG] マッチングタイムアウト: $e');
       _matchingTimer?.cancel();
       if (mounted) {
         setState(() {
           _state = _LobbyState.initial;
-          _error = '対戦相手が見つかりませんでした。しばらく後でお試しください。';
+          _error = '対戦相手が見つかりませんでした。(${e.duration?.inSeconds}秒)';
         });
       }
-    } catch (e) {
+    } catch (e, st) {
       _matchingTimer?.cancel();
+      // ユーザーキャンセルは静かに終了
+      if (e is MatchCancelledException) return;
+      print('[DEBUG] マッチングエラー: $e');
+      print('[DEBUG] スタックトレース: $st');
       if (mounted) {
         setState(() {
           _state = _LobbyState.initial;
-          _error = 'エラー: $e';
+          _error = 'マッチングエラー: $e';
         });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('⚠️ $e'),
+            backgroundColor: Colors.red.shade700,
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }
 
   // ─── マッチングキャンセル ────────────────────────────────────────────────
-  Future<void> _cancelMatchmaking() async {
+  void _cancelMatchmaking() {
     _matchingTimer?.cancel();
-    await NetworkGameService.cancelMatchmaking();
+    NetworkGameService.cancelMatchmaking();
     if (mounted) {
       setState(() {
         _state = _LobbyState.initial;
@@ -175,6 +196,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
 
   // ─── 部屋を作る ────────────────────────────────────────────────────────────
   Future<void> _createRoom() async {
+    // 上限チェックのみ（カウントはまだ消費しない）
     if (!await _checkDailyLimit()) return;
     setState(() { _loading = true; _error = ''; });
     try {
@@ -184,10 +206,11 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
         _state   = _LobbyState.waiting;
         _loading = false;
       });
-      // 相手が参加するのを待つ
+      // 相手が参加して対局開始時にカウントアップ
       _statusSub = NetworkGameService.statusStream.listen((status) {
         if (status == NetworkStatus.playing && mounted) {
           _statusSub?.cancel();
+          _checkDailyLimit(countUp: true);
           _goToGame(isHost: NetworkGameService.hostIsP1);
         }
       });
@@ -210,6 +233,8 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       setState(() => _loading = false);
       switch (result) {
         case JoinResult.ok:
+          // 参加成功時にカウントアップ
+          await _checkDailyLimit(countUp: true);
           _goToGame(isHost: !NetworkGameService.hostIsP1);
         case JoinResult.notFound:
           setState(() => _error = 'ルームが見つかりません（コードを確認してください）');
@@ -223,7 +248,25 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     }
   }
 
-  // ─── GameScreen へ遷移 ─────────────────────────────────────────────────────
+  // ─── MatchScreen へ遷移（マッチング成功時）──────────────────────────────
+  void _goToMatchScreen({
+    required String matchId,
+    required bool isPlayer1,
+    required String myPlayerId,
+  }) {
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => MatchScreen(
+          matchId:    matchId,
+          isPlayer1:  isPlayer1,
+          myPlayerId: myPlayerId,
+        ),
+      ),
+    );
+  }
+
+  // ─── GameScreen へ遷移（友人対局・ローカル用）────────────────────────────
   void _goToGame({required bool isHost}) {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(

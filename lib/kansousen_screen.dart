@@ -1,6 +1,9 @@
 // lib/kansousen_screen.dart
 import 'dart:math' show sqrt, atan2, cos, sin;
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:share_plus/share_plus.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
@@ -103,6 +106,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
   final Map<int, List<AMove>> _topMovesCache = {};
   bool _loadingBest = false;
   final ScrollController _kifuScrollCtrl = ScrollController();
+  final GlobalKey _boardAreaKey = GlobalKey();
   static const _itemW = 56.0 + 4.0; // card width + gap
 
   // ── 検討モード ──
@@ -400,19 +404,11 @@ class _KansousenScreenState extends State<KansousenScreen> {
             tooltip: '対局サマリー',
             onPressed: _showSummaryDialog,
           ),
-          // 盤面画像保存
+          // 盤面画像保存（持ち駒含む）
           IconButton(
             icon: const Icon(Icons.camera_alt_outlined, color: Colors.white54),
-            tooltip: '盤面を画像保存',
-            onPressed: () {
-              final snap = _snapshots[_step];
-              exportBoardImage(
-                board: _studyMode && _studyBoard != null ? _studyBoard! : snap.board,
-                p1Hand: _studyMode ? _studyP1Hand : snap.p1Hand,
-                p2Hand: _studyMode ? _studyP2Hand : snap.p2Hand,
-                filename: 'shogi_step${_step}.png',
-              );
-            },
+            tooltip: '盤面を画像共有（持ち駒含む）',
+            onPressed: () => _captureAndShare(),
           ),
           // 検討モード切替
           IconButton(
@@ -467,7 +463,9 @@ class _KansousenScreenState extends State<KansousenScreen> {
                       final dispP1Hand = _studyMode ? _studyP1Hand : snap.p1Hand;
                       final dispP2Hand = _studyMode ? _studyP2Hand : snap.p2Hand;
 
-                      return Column(children: [
+                      return RepaintBoundary(
+                        key: _boardAreaKey,
+                        child: Column(children: [
                         Expanded(
                           child: GestureDetector(
                             onTapUp: _studyMode ? (det) {
@@ -516,7 +514,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
                         _handRow(dispP2Hand, false),
                         // 検討モード: 手番 + 持ち駒打ち込みUI
                         if (_studyMode) _studyHandBar(dispP1Hand, dispP2Hand),
-                      ]);
+                      ]));
                     }),
                   ),
                 ),
@@ -1043,6 +1041,35 @@ class _KansousenScreenState extends State<KansousenScreen> {
             const Text('データなし', style: TextStyle(color: Colors.white24, fontSize: 11)),
         ],
       ),
+    );
+  }
+
+  // 盤面（持ち駒含む）を画像としてキャプチャしてシェア
+  Future<void> _captureAndShare() async {
+    try {
+      final boundary = _boardAreaKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary != null) {
+        final image = await boundary.toImage(pixelRatio: 2.0);
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null && mounted) {
+          final bytes = byteData.buffer.asUint8List();
+          await Share.shareXFiles(
+            [XFile.fromData(bytes, mimeType: 'image/png', name: 'shogi_board.png')],
+            text: '将棋盤面 (${_step}手目)',
+          );
+          return;
+        }
+      }
+    } catch (_) {}
+    // Web向けフォールバック
+    if (!mounted) return;
+    final snap = _snapshots[_step];
+    exportBoardImage(
+      board: _studyMode && _studyBoard != null ? _studyBoard! : snap.board,
+      p1Hand: _studyMode ? _studyP1Hand : snap.p1Hand,
+      p2Hand: _studyMode ? _studyP2Hand : snap.p2Hand,
+      filename: 'shogi_step${_step}.png',
     );
   }
 

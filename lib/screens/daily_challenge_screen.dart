@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../services/daily_challenge_service.dart';
 import '../services/network_service.dart';
+import '../theme/app_theme.dart';
 
 class DailyChallengeScreen extends StatelessWidget {
   const DailyChallengeScreen({super.key});
@@ -11,11 +12,11 @@ class DailyChallengeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title:
-            const Text('デイリーチャレンジ', style: TextStyle(color: Colors.white)),
+            const Text('デイリーチャレンジ', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: const _DailyChallengeBody(),
@@ -63,7 +64,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
     if (uid == null) {
       return const Center(
           child:
-              Text('ログインが必要です', style: TextStyle(color: Colors.white54)));
+              Text('ログインが必要です', style: TextStyle(color: AppTheme.textMid)));
     }
 
     return SingleChildScrollView(
@@ -89,7 +90,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
               border:
                   Border.all(color: Colors.orange.withAlpha(80)),
@@ -110,7 +111,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                     ),
                     const Text('ログインストリーク',
                         style: TextStyle(
-                            color: Colors.white54, fontSize: 11)),
+                            color: AppTheme.textMid, fontSize: 11)),
                   ],
                 ),
               ],
@@ -123,7 +124,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
               border:
                   Border.all(color: Colors.amber.withAlpha(80)),
@@ -144,7 +145,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                     ),
                     const Text('チャレンジポイント',
                         style: TextStyle(
-                            color: Colors.white54, fontSize: 11)),
+                            color: AppTheme.textMid, fontSize: 11)),
                   ],
                 ),
               ],
@@ -173,7 +174,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                   SizedBox(height: 16),
                   Text(
                     '本日のチャレンジを読み込み中...',
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(color: AppTheme.textMid),
                   ),
                 ],
               ),
@@ -194,7 +195,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                   child: Text(
                     '本日のチャレンジ',
                     style: TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontSize: 18,
                         fontWeight: FontWeight.bold),
                   ),
@@ -211,7 +212,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade900,
+                    color: AppTheme.surface,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Column(
@@ -219,7 +220,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                     children: [
                       Text('チャレンジについて',
                           style: TextStyle(
-                              color: Colors.white,
+                              color: AppTheme.textHigh,
                               fontWeight: FontWeight.bold)),
                       SizedBox(height: 8),
                       Text(
@@ -228,7 +229,7 @@ class _DailyChallengeBodyState extends State<_DailyChallengeBody> {
                         '• ログインストリークを維持するとボーナスが付きます\n'
                         '• 対局を重ねてポイントを貯めましょう',
                         style: TextStyle(
-                            color: Colors.white54, height: 1.6),
+                            color: AppTheme.textMid, height: 1.6),
                       ),
                     ],
                   ),
@@ -262,7 +263,7 @@ class _ChallengeTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: completed
             ? Colors.green.shade900.withAlpha(120)
-            : const Color(0xFF16213E),
+            : AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: completed
@@ -304,7 +305,7 @@ class _ChallengeTile extends StatelessWidget {
                           challenge.title,
                           style: TextStyle(
                             color:
-                                completed ? Colors.green : Colors.white,
+                                completed ? Colors.green : AppTheme.textHigh,
                             fontWeight: FontWeight.bold,
                             fontSize: 15,
                           ),
@@ -320,7 +321,7 @@ class _ChallengeTile extends StatelessWidget {
                     Text(
                       challenge.description,
                       style: const TextStyle(
-                          color: Colors.white54, fontSize: 12),
+                          color: AppTheme.textMid, fontSize: 12),
                     ),
                   ],
                 ),
@@ -348,7 +349,7 @@ class _ChallengeTile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: ratio,
-                    backgroundColor: Colors.grey.shade800,
+                    backgroundColor: AppTheme.surfaceHigh,
                     valueColor: AlwaysStoppedAnimation<Color>(
                       completed ? Colors.green : Colors.amber,
                     ),
@@ -360,7 +361,7 @@ class _ChallengeTile extends StatelessWidget {
               Text(
                 '$current / ${challenge.targetCount}',
                 style: TextStyle(
-                  color: completed ? Colors.green : Colors.white54,
+                  color: completed ? Colors.green : AppTheme.textMid,
                   fontSize: 12,
                 ),
               ),

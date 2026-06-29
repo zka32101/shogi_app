@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../services/season_service.dart';
 import '../services/network_service.dart';
+import '../theme/app_theme.dart';
 
 class SeasonScreen extends StatefulWidget {
   const SeasonScreen({super.key});
@@ -48,10 +49,10 @@ class _SeasonScreenState extends State<SeasonScreen> {
   Widget build(BuildContext context) {
     final myUid = _networkService.currentUser?.uid;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('シーズン', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('シーズン', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: _loading
@@ -101,7 +102,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
             Text(
               _season.label,
               style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.textHigh,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -117,7 +118,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
           const SizedBox(height: 12),
           const Text(
             '上位プレイヤーにはシーズン終了時に特別称号が付与されます',
-            style: TextStyle(color: Colors.white54, fontSize: 12),
+            style: TextStyle(color: AppTheme.textLow, fontSize: 12),
           ),
           const SizedBox(height: 8),
           _rewardRow(1, '👑 シーズン王者', Colors.amber),
@@ -147,7 +148,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
         ),
       ),
       const SizedBox(width: 8),
-      Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      Text(label, style: const TextStyle(color: AppTheme.textMid, fontSize: 12)),
     ]);
   }
 
@@ -178,7 +179,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
       rankColor = Colors.brown.shade300;
       rankWidget = const Text('🥉', style: TextStyle(fontSize: 20));
     } else {
-      rankColor = Colors.white38;
+      rankColor = AppTheme.textLow;
       rankWidget = Text(
         '${entry.rank}',
         style: TextStyle(color: rankColor, fontSize: 16, fontWeight: FontWeight.bold),
@@ -191,7 +192,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
       decoration: BoxDecoration(
         color: isMe
             ? Colors.amber.withAlpha(20)
-            : Colors.grey.shade900,
+            : AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isMe ? Colors.amber.withAlpha(80) : Colors.white12,
@@ -206,7 +207,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
           backgroundColor: Colors.brown.shade700,
           child: Text(
             entry.username.isNotEmpty ? entry.username[0].toUpperCase() : '?',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: AppTheme.textHigh, fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(width: 10),
@@ -215,14 +216,14 @@ class _SeasonScreenState extends State<SeasonScreen> {
             Text(
               entry.username,
               style: TextStyle(
-                color: isMe ? Colors.amber : Colors.white,
+                color: isMe ? Colors.amber : AppTheme.textHigh,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
             ),
             Text(
               '${entry.wins}勝${entry.losses}敗  勝率${winRate}%',
-              style: const TextStyle(color: Colors.white38, fontSize: 11),
+              style: const TextStyle(color: AppTheme.textLow, fontSize: 11),
             ),
           ]),
         ),

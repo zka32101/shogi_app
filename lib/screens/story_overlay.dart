@@ -83,8 +83,9 @@ class _StoryOverlayState extends State<StoryOverlay>
       child: FadeTransition(
         opacity: _fadeController,
         child: Container(
-          color: _parseColor(widget.storyEvent.backgroundColor ?? '#000000')
-              .withOpacity(0.8),
+          color: _parseColor(
+            widget.storyEvent.backgroundColor ?? '#000000',
+          ).withOpacity(0.8),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -114,7 +115,8 @@ class _StoryOverlayState extends State<StoryOverlay>
                     padding: const EdgeInsets.only(bottom: 20),
                     child: Text(
                       widget.storyEvent.title,
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                      style: Theme.of(context).textTheme.headlineMedium
+                          ?.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
                           ),
@@ -129,9 +131,9 @@ class _StoryOverlayState extends State<StoryOverlay>
                     child: Text(
                       widget.storyEvent.description!,
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: Colors.white.withOpacity(0.9),
-                            height: 1.6,
-                          ),
+                        color: Colors.white.withOpacity(0.9),
+                        height: 1.6,
+                      ),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -171,7 +173,7 @@ class _StoryOverlayState extends State<StoryOverlay>
 class StoryManager {
   static Future<bool> shouldShowStory(StoryEvent storyEvent) async {
     final prefs = await SharedPreferences.getInstance();
-    return !prefs.getBool(storyEvent.sharedPrefKey);
+    return !(prefs.getBool(storyEvent.sharedPrefKey) ?? false);
   }
 
   static Future<void> showStoryIfNeeded(
@@ -192,9 +194,9 @@ class StoryManager {
     await showDialog(
       context: context,
       barrierDismissible: false,
+      barrierColor: Colors.black87,
       builder: (BuildContext ctx) => Dialog(
         backgroundColor: Colors.transparent,
-        barrierColor: Colors.black87,
         child: StoryOverlay(
           storyEvent: storyEvent,
           onComplete: () => Navigator.of(ctx).pop(),
@@ -220,10 +222,8 @@ class StoryManager {
 class EndingChoiceScreen extends StatelessWidget {
   final Function(EndingType) onChoose;
 
-  const EndingChoiceScreen({
-    Key? key,
-    required this.onChoose,
-  }) : super(key: key);
+  const EndingChoiceScreen({Key? key, required this.onChoose})
+    : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -248,16 +248,18 @@ class EndingChoiceScreen extends StatelessWidget {
               ),
               SizedBox(height: 30),
               // エンディング選択肢
-              ...endingChoices.map((choice) => Padding(
-                    padding: const EdgeInsets.only(bottom: 15),
-                    child: _EndingChoiceButton(
-                      choice: choice,
-                      onTap: () {
-                        onChoose(choice.type);
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                  )),
+              ...endingChoices.map(
+                (choice) => Padding(
+                  padding: const EdgeInsets.only(bottom: 15),
+                  child: _EndingChoiceButton(
+                    choice: choice,
+                    onTap: () {
+                      onChoose(choice.type);
+                      Navigator.of(context).pop();
+                    },
+                  ),
+                ),
+              ),
             ],
           ),
         ),
@@ -291,9 +293,9 @@ class _EndingChoiceButton extends StatelessWidget {
             children: [
               Text(
                 choice.title,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
               ),
               SizedBox(height: 8),
               Text(
@@ -304,9 +306,9 @@ class _EndingChoiceButton extends StatelessWidget {
               Text(
                 '報酬: ${choice.reward}',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Colors.blue,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  color: Colors.blue,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),

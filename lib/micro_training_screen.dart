@@ -49,69 +49,12 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
   }
 
   List<MicroTrainingProblem> _generateDailyProblems(String dateStr) {
-    // In a real app, fetch from database or API
-    // For now, use pseudo-random rotation based on date
+    // 検証済みの問題プール（盤面・選択肢・正解が連動）から日替わりで3問選ぶ
+    final allProblems = _buildMicroProblems();
     final dateHash = dateStr.hashCode.abs();
-
-    final allProblems = [
-      // Tsume (詰め) - mate in X
-      MicroTrainingProblem(
-        type: 'tsume',
-        title: '詰め: 3手詰め',
-        boardFen: '8/8/8/8/8/8/8/8 b - - 0 1', // Placeholder FEN
-        choices: ['▲3五飛', '▲4五金', '▲5四歩'],
-        correctAnswerIndex: 0,
-        explanation: '▲3五飛で詰みです。次に▲4五飛で避けられません。',
-      ),
-      // Tesuji (手筋) - technique
-      MicroTrainingProblem(
-        type: 'tesuji',
-        title: '手筋: 空き家の妙手',
-        boardFen: '8/8/8/8/8/8/8/8 b - - 0 1', // Placeholder FEN
-        choices: ['▲5四馬', '▲6三金', '▲7二銀'],
-        correctAnswerIndex: 1,
-        explanation: '▲6三金が好手！飛車の効きが広がります。',
-      ),
-      // Next move (次の一手)
-      MicroTrainingProblem(
-        type: 'next_move',
-        title: '次の一手: 形勢判断',
-        boardFen: '8/8/8/8/8/8/8/8 b - - 0 1', // Placeholder FEN
-        choices: ['▲2四歩', '▲1五角', '▲3六銀'],
-        correctAnswerIndex: 2,
-        explanation: '▲3六銀で堅陣を築きます。守備力が重要です。',
-      ),
-      // Additional problems for rotation
-      MicroTrainingProblem(
-        type: 'tsume',
-        title: '詰め: 5手詰め',
-        boardFen: '8/8/8/8/8/8/8/8 b - - 0 1',
-        choices: ['▲4四角', '▲5五金', '▲6六飛'],
-        correctAnswerIndex: 0,
-        explanation: '▲4四角から始まる詰み筋です。',
-      ),
-      MicroTrainingProblem(
-        type: 'tesuji',
-        title: '手筋: 後ろからの攻撃',
-        boardFen: '8/8/8/8/8/8/8/8 b - - 0 1',
-        choices: ['▲7五飛', '▲8四金', '▲9三銀'],
-        correctAnswerIndex: 0,
-        explanation: '▲7五飛で背後から攻撃。強烈です。',
-      ),
-      MicroTrainingProblem(
-        type: 'next_move',
-        title: '次の一手: 勝利への道',
-        boardFen: '8/8/8/8/8/8/8/8 b - - 0 1',
-        choices: ['▲4六歩', '▲5五角', '▲6四金'],
-        correctAnswerIndex: 1,
-        explanation: '▲5五角で主導権を握ります。',
-      ),
-    ];
-
-    // Rotate based on date hash: pick problems 0,1,2 or 1,2,3, etc.
-    final startIndex = (dateHash % (allProblems.length - 2));
+    final startIndex = dateHash % allProblems.length;
     return [
-      allProblems[startIndex],
+      allProblems[startIndex % allProblems.length],
       allProblems[(startIndex + 1) % allProblems.length],
       allProblems[(startIndex + 2) % allProblems.length],
     ];
@@ -442,40 +385,12 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
     }
   }
 
-  // 問題インデックスに応じたサンプル盤面を生成
-  List<List<Piece?>> _buildSampleBoard(int problemIndex) {
-    final board = List.generate(9, (_) => List<Piece?>.filled(9, null));
-    // 共通: 両玉
-    board[0][0] = Piece(PieceType.king, false); // 後手玉
-    board[8][8] = Piece(PieceType.king, true);  // 先手玉
-    switch (problemIndex % 3) {
-      case 0: // 詰将棋タイプ
-        board[1][0] = Piece(PieceType.gold, true);
-        board[2][1] = Piece(PieceType.rook, true);
-        board[0][1] = Piece(PieceType.silver, false);
-        break;
-      case 1: // 手筋タイプ
-        board[3][3] = Piece(PieceType.bishop, true);
-        board[2][2] = Piece(PieceType.gold, false);
-        board[4][4] = Piece(PieceType.pawn, true);
-        board[1][1] = Piece(PieceType.pawn, false);
-        break;
-      case 2: // 次の一手タイプ
-        board[4][4] = Piece(PieceType.rook, true);
-        board[3][3] = Piece(PieceType.gold, true);
-        board[2][5] = Piece(PieceType.silver, false);
-        board[3][6] = Piece(PieceType.gold, false);
-        break;
-    }
-    return board;
-  }
-
   Widget _buildBoardArea() {
-    final board = _buildSampleBoard(currentProblemIndex);
+    final problem = todayProblems[currentProblemIndex];
     return SizedBox(
       width: 280,
       child: MiniBoardWidget(
-        board: board,
+        board: problem.board,
         showLabels: true,
         size: 280,
       ),
@@ -797,7 +712,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
 class MicroTrainingProblem {
   final String type; // 'tsume', 'tesuji', 'next_move'
   final String title;
-  final String boardFen;
+  final List<List<Piece?>> board; // 表示する実際の盤面（選択肢と連動）
   final List<String> choices;
   final int correctAnswerIndex;
   final String explanation;
@@ -805,28 +720,104 @@ class MicroTrainingProblem {
   MicroTrainingProblem({
     required this.type,
     required this.title,
-    required this.boardFen,
+    required this.board,
     required this.choices,
     required this.correctAnswerIndex,
     required this.explanation,
   });
+}
 
-  Map<String, dynamic> toJson() => {
-    'type': type,
-    'title': title,
-    'boardFen': boardFen,
-    'choices': choices,
-    'correctAnswerIndex': correctAnswerIndex,
-    'explanation': explanation,
-  };
-
-  factory MicroTrainingProblem.fromJson(Map<String, dynamic> json) =>
-      MicroTrainingProblem(
-        type: json['type'] as String,
-        title: json['title'] as String,
-        boardFen: json['boardFen'] as String,
-        choices: List<String>.from(json['choices'] as List),
-        correctAnswerIndex: json['correctAnswerIndex'] as int,
-        explanation: json['explanation'] as String,
-      );
+List<MicroTrainingProblem> _buildMicroProblems() {
+  final list = <MicroTrainingProblem>[];
+  {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    b[0][4] = Piece(PieceType.king, false);
+    b[2][4] = Piece(PieceType.gold, false);
+    b[4][4] = Piece(PieceType.rook, true);
+    b[8][4] = Piece(PieceType.king, true);
+    list.add(MicroTrainingProblem(
+      type: 'next_move',
+      title: '次の一手：飛車の成り込み',
+      board: b,
+      choices: ['▲5三飛成', '▲5四飛', '▲4五飛'],
+      correctAnswerIndex: 0,
+      explanation: '▲5三飛成！金を取りながら龍を作り、5一の玉に王手。駒得と王手を同時に実現する最善手。',
+    ));
+  }
+  {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    b[0][4] = Piece(PieceType.king, false);
+    b[0][6] = Piece(PieceType.rook, false);
+    b[4][4] = Piece(PieceType.knight, true);
+    b[8][4] = Piece(PieceType.king, true);
+    list.add(MicroTrainingProblem(
+      type: 'tesuji',
+      title: '手筋：桂の高飛び',
+      board: b,
+      choices: ['▲4三桂', '▲6三桂', '▲4三桂成'],
+      correctAnswerIndex: 0,
+      explanation: '▲4三桂不成！玉(5一)と飛(3一)の両方に当てる桂の両取り。成ると当たりが消えるので不成が正着。',
+    ));
+  }
+  {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    b[1][7] = Piece(PieceType.king, false);
+    b[2][7] = Piece(PieceType.pawn, false);
+    b[3][7] = Piece(PieceType.silver, true);
+    b[8][1] = Piece(PieceType.king, true);
+    list.add(MicroTrainingProblem(
+      type: 'next_move',
+      title: '次の一手：銀で食いつく',
+      board: b,
+      choices: ['▲2三銀成', '▲3三銀', '▲1三銀'],
+      correctAnswerIndex: 0,
+      explanation: '▲2三銀成！歩を取りつつ成銀を作り、2二の玉に王手。銀が敵陣に食いつく強手。',
+    ));
+  }
+  {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    b[0][2] = Piece(PieceType.king, false);
+    b[2][4] = Piece(PieceType.gold, false);
+    b[4][6] = Piece(PieceType.bishop, true);
+    b[8][4] = Piece(PieceType.king, true);
+    list.add(MicroTrainingProblem(
+      type: 'tesuji',
+      title: '手筋：角のにらみ',
+      board: b,
+      choices: ['▲5三角成', '▲4四角', '▲2六角'],
+      correctAnswerIndex: 0,
+      explanation: '▲5三角成！角を成って馬を作りながら金を補獲。馬は守りにも攻めにも使える強力な成駒。',
+    ));
+  }
+  {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    b[0][7] = Piece(PieceType.king, false);
+    b[2][7] = Piece(PieceType.pawn, false);
+    b[4][1] = Piece(PieceType.rook, true);
+    b[8][1] = Piece(PieceType.king, true);
+    list.add(MicroTrainingProblem(
+      type: 'next_move',
+      title: '次の一手：飛車を回す',
+      board: b,
+      choices: ['▲2五飛', '▲5五飛', '▲8二飛成'],
+      correctAnswerIndex: 0,
+      explanation: '▲2五飛！飛車を玉のいる2筋に回し、次の2三飛成・2二への寄せを狙う。攻めの飛車は使う筋を変えるのが要点。',
+    ));
+  }
+  {
+    final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+    b[0][6] = Piece(PieceType.king, false);
+    b[2][6] = Piece(PieceType.gold, false);
+    b[5][6] = Piece(PieceType.rook, true);
+    b[8][4] = Piece(PieceType.king, true);
+    list.add(MicroTrainingProblem(
+      type: 'next_move',
+      title: '次の一手：龍を作る',
+      board: b,
+      choices: ['▲3三飛成', '▲3四飛', '▲7六飛'],
+      correctAnswerIndex: 0,
+      explanation: '▲3三飛成！金を取って龍を作り、3一の玉に王手。飛車を成って龍にすると攻守ともに働く強力な駒になる。',
+    ));
+  }
+  return list;
 }

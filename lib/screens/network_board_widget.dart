@@ -1,5 +1,5 @@
 // lib/screens/network_board_widget.dart
-// ネットワーク対局用インライン将棋盤 Widget
+// ネットワーク対局用将棋盤 Widget（AI対局盤と同一レンダリング）
 
 import 'package:flutter/material.dart';
 import '../piece.dart';
@@ -7,6 +7,8 @@ import '../logic.dart';
 import '../game_screen.dart';
 import '../services/board_sync_service.dart';
 import '../theme_config.dart';
+import '../widgets/koma_painter.dart';
+import '../widgets/board_painter.dart';
 
 class NetworkBoardWidget extends StatefulWidget {
   final NetworkBoardState state;
@@ -28,16 +30,47 @@ class NetworkBoardWidget extends StatefulWidget {
   State<NetworkBoardWidget> createState() => _NetworkBoardWidgetState();
 }
 
-class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
-  late final BoardThemeConfig _themeConfig;
-  (int, int)? _selectedCell; // 選択中のマス
-  PieceType? _selectedHandPiece; // 持ち駒選択
-  List<(int, int)> _legalMoves = []; // 合法手ハイライト
+class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
+    with SingleTickerProviderStateMixin {
+  late BoardThemeConfig _themeConfig;
+  (int, int)? _selectedCell;
+  PieceType? _selectedHandPiece;
+  List<(int, int)> _legalMoves = [];
+  bool _showAttackMap = false;
+  List<List<int>>? _p1AtkMap;
+  List<List<int>>? _p2AtkMap;
+
+  // 指し手アニメーション
+  late final AnimationController _animController;
+  late final Animation<double> _anim;
+  int? _animFR, _animFC, _animTR, _animTC;
 
   @override
   void initState() {
     super.initState();
     _themeConfig = boardThemeConfig(widget.theme);
+    _animController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 180),
+    );
+    _anim = CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic);
+    _animController.addListener(() => setState(() {}));
+    _animController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _animFR = null;
+          _animFC = null;
+          _animTR = null;
+          _animTC = null;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _animController.dispose();
+    super.dispose();
   }
 
   @override
@@ -46,16 +79,38 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
     if (oldWidget.theme != widget.theme) {
       _themeConfig = boardThemeConfig(widget.theme);
     }
+    if (_showAttackMap) _recomputeAtkMap();
+
+    // 相手が指したら選択解除 + アニメーション起動
+    if (widget.state.moveCount > oldWidget.state.moveCount) {
+      if (!widget.isMyTurn) {
+        _selectedCell = null;
+        _selectedHandPiece = null;
+        _legalMoves = [];
+      }
+      // 盤上移動のみアニメーション（打ちは瞬間表示）
+      final last = widget.state.moves.isNotEmpty ? widget.state.moves.last : null;
+      if (last != null && last.fr >= 0) {
+        _animFR = last.fr;
+        _animFC = last.fc;
+        _animTR = last.tr;
+        _animTC = last.tc;
+        _animController.forward(from: 0);
+      }
+    }
   }
 
-  // 自分の持ち駒
+  void _recomputeAtkMap() {
+    _p1AtkMap = GL.attackMap(widget.state.board, true);
+    _p2AtkMap = GL.attackMap(widget.state.board, false);
+  }
+
   Map<PieceType, int> get myHand =>
       widget.isPlayer1 ? widget.state.p1Hand : widget.state.p2Hand;
-  // 相手の持ち駒
   Map<PieceType, int> get oppHand =>
       widget.isPlayer1 ? widget.state.p2Hand : widget.state.p1Hand;
 
-  // 後手視点では盤を 180° 回転して表示
+  // 後手視点では盤を 180° 回転
   int _r(int r) => widget.isPlayer1 ? r : 8 - r;
   int _c(int c) => widget.isPlayer1 ? c : 8 - c;
 
@@ -63,87 +118,356 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // 相手の持ち駒（上）
         _buildHandRow(oppHand, isMyHand: false),
-        const SizedBox(height: 4),
-        // 盤面
-        Expanded(child: _buildBoard()),
-        const SizedBox(height: 4),
-        // 自分の持ち駒（下）
+        const SizedBox(height: 2),
+        Expanded(child: _buildBoardWithLabels()),
+        const SizedBox(height: 2),
         _buildHandRow(myHand, isMyHand: true),
+        _buildAttackMapToggle(),
       ],
     );
   }
 
-  // ── 盤面 ────────────────────────────────────────────────────
+  // ── 効きマップトグル ─────────────────────────────────────────
 
-  Widget _buildBoard() {
-    return AspectRatio(
-      aspectRatio: 1.0,
-      child: Container(
-        decoration: BoxDecoration(
-          color: _themeConfig.cell,
-          border: Border.all(color: _themeConfig.boardBorder, width: 2),
-        ),
-        child: GridView.builder(
-          physics: const NeverScrollableScrollPhysics(),
-          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 9,
+  Widget _buildAttackMapToggle() {
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          TextButton.icon(
+            onPressed: () {
+              setState(() {
+                _showAttackMap = !_showAttackMap;
+                if (_showAttackMap) _recomputeAtkMap();
+              });
+            },
+            icon: Icon(
+              _showAttackMap ? Icons.visibility : Icons.visibility_off,
+              size: 14,
+              color: Colors.white60,
+            ),
+            label: const Text('効き', style: TextStyle(fontSize: 11, color: Colors.white60)),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
           ),
-          itemCount: 81,
-          itemBuilder: (_, index) {
-            final dispRow = index ~/ 9;
-            final dispCol = index % 9;
-            // 実際の行列（視点に応じて変換）
-            final row = _r(dispRow);
-            final col = _c(dispCol);
-            return _buildCell(row, col, dispRow, dispCol);
-          },
-        ),
+        ],
       ),
     );
   }
 
-  Widget _buildCell(int row, int col, int dispRow, int dispCol) {
+  // ── 盤面 + 筋・段ラベル ──────────────────────────────────────
+
+  Widget _buildBoardWithLabels() {
+    return LayoutBuilder(builder: (context, constraints) {
+      final availH = constraints.maxHeight;
+      final availW = constraints.maxWidth;
+      final totalSz = availH < availW ? availH : availW;
+      final labelSz = totalSz * 0.065;
+      final boardSz = totalSz - labelSz;
+      final cellSz = boardSz / 9;
+
+      return Center(
+        child: SizedBox(
+          width: totalSz,
+          height: totalSz,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 筋ラベル行（9-1 または 1-9）
+              SizedBox(
+                height: labelSz,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(width: labelSz), // コーナースペーサー
+                    ...List.generate(9, (i) => SizedBox(
+                      width: cellSz,
+                      child: Text(
+                        widget.isPlayer1 ? '${9 - i}' : '${i + 1}',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: labelSz * 0.60,
+                          fontWeight: FontWeight.w300,
+                        ),
+                      ),
+                    )),
+                  ],
+                ),
+              ),
+              // 盤面 + 段ラベル列
+              SizedBox(
+                height: boardSz,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // 段ラベル（一〜九）
+                    SizedBox(
+                      width: labelSz,
+                      height: boardSz,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: List.generate(9, (i) => SizedBox(
+                          width: labelSz,
+                          height: cellSz,
+                          child: Center(
+                            child: Text(
+                              _rowKanji(widget.isPlayer1 ? i + 1 : 9 - i),
+                              style: TextStyle(
+                                color: Colors.white54,
+                                fontSize: labelSz * 0.60,
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ),
+                        )),
+                      ),
+                    ),
+                    // 盤面本体
+                    SizedBox(
+                      width: boardSz,
+                      height: boardSz,
+                      child: _buildBoardCore(boardSz, cellSz),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildBoardCore(double sz, double cellSz) {
+    final config = _themeConfig;
+    final starColor = config.cell.computeLuminance() < 0.3
+        ? Colors.white70
+        : Colors.black87;
+    final t = _anim.value;
+
+    return Container(
+      clipBehavior: Clip.hardEdge,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(5),
+        border: Border.all(color: const Color(0xFF4E342E), width: 3),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(config.cell, Colors.white, 0.10)!,
+            config.cell,
+            Color.lerp(config.cell, Colors.black, 0.14)!,
+          ],
+          stops: const [0.0, 0.5, 1.0],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(115),
+            blurRadius: 14,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Stack(
+        children: [
+          // グリッド + 星
+          CustomPaint(
+            painter: BoardPainter(
+              cellColor: config.cell,
+              borderColor: config.cellBorder,
+              starColor: starColor,
+            ),
+            size: Size(sz, sz),
+          ),
+          // 駒 + ハイライト（アニメーション中は移動先の駒を非表示）
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(9, (dispRow) {
+              final row = _r(dispRow);
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(9, (dispCol) {
+                  final col = _c(dispCol);
+                  return _buildCell(row, col, cellSz, cellSz);
+                }),
+              );
+            }),
+          ),
+          // 指し手スライドアニメーション
+          if (_animFR != null && t < 0.999)
+            _buildAnimOverlay(cellSz),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnimOverlay(double cellSz) {
+    final piece = widget.state.board[_animTR!][_animTC!];
+    if (piece == null) return const SizedBox.shrink();
+
+    final t = _anim.value;
+    final srcDispR = _r(_animFR!).toDouble();
+    final srcDispC = _c(_animFC!).toDouble();
+    final dstDispR = _r(_animTR!).toDouble();
+    final dstDispC = _c(_animTC!).toDouble();
+
+    final x = (srcDispC + (dstDispC - srcDispC) * t) * cellSz;
+    final y = (srcDispR + (dstDispR - srcDispR) * t) * cellSz;
+
+    return Positioned(
+      left: x,
+      top: y,
+      width: cellSz,
+      height: cellSz,
+      child: Center(child: _buildKomaTile(piece, cellSz, cellSz)),
+    );
+  }
+
+  Widget _buildCell(int row, int col, double cellW, double cellH) {
     final piece = widget.state.board[row][col];
     final isSelected = _selectedCell == (row, col);
     final isLegal = _legalMoves.contains((row, col));
-    final isLastMove = widget.state.moves.isNotEmpty &&
-        widget.state.moves.last.tr == row &&
-        widget.state.moves.last.tc == col;
+    final lastMove = widget.state.moves.isNotEmpty ? widget.state.moves.last : null;
+    final isLastTo = lastMove?.tr == row && lastMove?.tc == col;
+    final isLastFrom = lastMove != null && lastMove.fr >= 0 &&
+        lastMove.fr == row && lastMove.fc == col;
 
+    // アニメーション中は移動先セルの駒を非表示（オーバーレイが担当）
+    final isAnimDst = _animFR != null &&
+        _animTR == row &&
+        _animTC == col &&
+        _anim.value < 0.999;
+
+    // 背景色
     Color bg = _themeConfig.cell;
-    if (isSelected) bg = Colors.blue.shade200;
-    else if (isLegal) bg = Colors.green.shade200;
-    else if (isLastMove) bg = Colors.yellow.shade200;
+    if (isSelected) {
+      bg = Colors.amber.shade300;
+    } else if (isLastTo || isLastFrom) {
+      bg = Colors.amber.shade100;
+    }
+
+    // 効きマップ合成
+    final p1V = _showAttackMap ? (_p1AtkMap?[row][col] ?? 0) : 0;
+    final p2V = _showAttackMap ? (_p2AtkMap?[row][col] ?? 0) : 0;
+    if (_showAttackMap) {
+      if (p1V > 0 && p2V > 0) {
+        bg = Color.lerp(bg, Colors.purple.shade300, 0.22)!;
+      } else if (p1V > 0) {
+        bg = Color.lerp(bg, Colors.blue.shade300, 0.18)!;
+      } else if (p2V > 0) {
+        bg = Color.lerp(bg, Colors.red.shade300, 0.18)!;
+      }
+    }
+
+    // 境界線（ただ取り / 取れる駒）
+    final net = p1V - p2V;
+    final myP1 = widget.isPlayer1;
+    final isTadaDori = isLegal && piece != null &&
+        piece.isPlayer1 != myP1 && (myP1 ? net < 0 : net > 0);
+
+    BoxBorder cellBorder;
+    if (isTadaDori) {
+      cellBorder = Border.all(color: Colors.red.shade400, width: 2.0);
+    } else if (isLegal && piece != null) {
+      cellBorder = Border.all(color: Colors.orange.shade300, width: 1.0);
+    } else {
+      cellBorder = Border.all(color: _themeConfig.cellBorder, width: 0.5);
+    }
 
     return GestureDetector(
       onTap: () => _onTapCell(row, col),
-      child: Container(
-        decoration: BoxDecoration(
-          color: bg,
-          border: Border.all(color: _themeConfig.cellBorder, width: 0.5),
+      child: SizedBox(
+        width: cellW,
+        height: cellH,
+        child: Container(
+          decoration: BoxDecoration(color: bg, border: cellBorder),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // 駒（アニメーション中の移動先は非表示）
+              if (piece != null && !isAnimDst)
+                Center(child: _buildKomaTile(piece, cellW, cellH)),
+              // 合法手: 空マス → ドット
+              if (isLegal && piece == null)
+                Center(
+                  child: Container(
+                    width: cellW * 0.30,
+                    height: cellW * 0.30,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF2E7D5B).withAlpha(190),
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                ),
+              // 合法手: 駒あり → リング
+              if (isLegal && piece != null)
+                Center(
+                  child: Container(
+                    width: cellW * 0.94,
+                    height: cellH * 0.94,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: const Color(0xFF2E7D5B),
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                ),
+              // 効き数ラベル
+              if (_showAttackMap && net != 0)
+                Positioned(
+                  right: 1,
+                  bottom: 1,
+                  child: Text(
+                    net > 0 ? '+$net' : '$net',
+                    style: TextStyle(
+                      fontSize: cellW * 0.26,
+                      fontWeight: FontWeight.bold,
+                      color: net > 0 ? Colors.blue.shade400 : Colors.red.shade400,
+                      shadows: [
+                        Shadow(color: Colors.black.withAlpha(160), blurRadius: 2),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
-        child: piece != null ? _buildPiece(piece) : null,
       ),
     );
   }
 
-  Widget _buildPiece(Piece piece) {
-    final isEnemy = piece.isPlayer1 != widget.isPlayer1;
-    return Center(
-      child: RotatedBox(
-        quarterTurns: isEnemy ? 2 : 0,
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: Padding(
-            padding: const EdgeInsets.all(2),
+  Widget _buildKomaTile(Piece piece, double cellW, double cellH) {
+    final pointsUp = piece.isPlayer1 == widget.isPlayer1;
+    final quarterTurns = pointsUp ? 0 : 2;
+    return SizedBox(
+      width: cellW * 0.88,
+      height: cellH * 0.88,
+      child: CustomPaint(
+        painter: KomaPainter(
+          pointsUp: pointsUp,
+          fill: const Color(0xFFF4DDA6),
+          border: const Color(0xFFC49A4E),
+        ),
+        child: Center(
+          child: RotatedBox(
+            quarterTurns: quarterTurns,
             child: Text(
               piece.label,
               style: TextStyle(
-                color: piece.isPromoted ? Colors.red.shade800 : _themeConfig.pieceNormal,
+                fontSize: cellW * 0.50,
                 fontWeight: FontWeight.bold,
-                fontSize: 16,
+                color: piece.isPromoted
+                    ? const Color(0xFFB3261E)
+                    : const Color(0xFF3A2A18),
+                height: 1.0,
               ),
             ),
           ),
@@ -156,8 +480,8 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
 
   Widget _buildHandRow(Map<PieceType, int> hand, {required bool isMyHand}) {
     return Container(
-      height: 48,
-      padding: const EdgeInsets.symmetric(horizontal: 4),
+      height: 52,
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
       color: Colors.brown.shade900.withAlpha(80),
       child: Row(
         children: [
@@ -179,20 +503,54 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
                           child: Container(
                             margin: const EdgeInsets.symmetric(horizontal: 2),
                             padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 4),
+                                horizontal: 2, vertical: 2),
                             decoration: BoxDecoration(
                               color: _selectedHandPiece == e.key
-                                  ? Colors.blue.shade700
+                                  ? Colors.amber.shade700
                                   : Colors.brown.shade700,
                               borderRadius: BorderRadius.circular(4),
+                              border: _selectedHandPiece == e.key
+                                  ? Border.all(color: Colors.amber, width: 1.5)
+                                  : null,
                             ),
-                            child: Text(
-                              '${pieceLabel(e.key)}×${e.value}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                  width: 22,
+                                  height: 26,
+                                  child: CustomPaint(
+                                    painter: const KomaPainter(
+                                      pointsUp: true,
+                                      fill: Color(0xFFF4DDA6),
+                                      border: Color(0xFFC49A4E),
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        pieceLabel(e.key),
+                                        style: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.bold,
+                                          color: Color(0xFF3A2A18),
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                if (e.value > 1)
+                                  Padding(
+                                    padding: const EdgeInsets.only(left: 2),
+                                    child: Text(
+                                      '×${e.value}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                         ))
@@ -217,7 +575,6 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
       } else {
         _selectedHandPiece = type;
         _selectedCell = null;
-        // 打てるマスをハイライト
         _legalMoves = GL.dropSquares(
           widget.state.board,
           type,
@@ -283,12 +640,10 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
 
   // ── 指し手決定 ──────────────────────────────────────────────
 
-  Future<void> _commitMove(
-      (int, int) from, int toRow, int toCol) async {
+  Future<void> _commitMove((int, int) from, int toRow, int toCol) async {
     final piece = widget.state.board[from.$1][from.$2]!;
     bool promote = false;
 
-    // 成れる場合、確認ダイアログ
     if (piece.canPromote && !piece.isPromoted) {
       final inZone = widget.isPlayer1
           ? (toRow <= 2 || from.$1 <= 2)
@@ -324,7 +679,10 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
 
   Future<void> _commitDrop(PieceType type, int row, int col) async {
     final moveCount = widget.state.moveCount + 1;
-    final note = '${pieceLabel(type)}打';
+    // 常に先手視点の絶対座標（KIF標準）
+    final toFile = 9 - col;
+    final toRank = row + 1;
+    final note = '$toFile${_rowKanji(toRank)}${pieceLabel(type)}打';
     final move = KifuMove(
       moveCount,
       widget.isPlayer1,
@@ -368,8 +726,9 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget> {
 
   String _buildMoveNote(
       Piece piece, (int, int) from, int toRow, int toCol, bool promote) {
-    final col = widget.isPlayer1 ? 9 - toCol : toCol + 1;
-    final row = widget.isPlayer1 ? toRow + 1 : 9 - toRow;
+    // 常に先手視点の絶対座標（KIF標準）
+    final col = 9 - toCol;
+    final row = toRow + 1;
     final suffix = promote ? '成' : '';
     return '$col${_rowKanji(row)}${piece.label}$suffix';
   }

@@ -109,6 +109,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
   int _rating = 1000;
   int _totalAiGames = 0;
   int _aiWins = 0;
+  int _p2Wins = 0;
 
   List<SkillDimension> _dimensions = [];
   List<SkillDimension> _weakTop3 = [];
@@ -155,6 +156,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     _rating = prefs.getInt('rating_current') ?? 1000;
     _totalAiGames = prefs.getInt('total_ai_games') ?? 0;
     _aiWins = prefs.getInt('ai_wins') ?? 0;
+    _p2Wins = prefs.getInt('stats_p2_wins') ?? 0;
 
     final allKeys = prefs.getKeys();
     int tsume = 0;
@@ -195,6 +197,15 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     final openingsScore = _clamp100(_josekiAvgScore);
     final expScore = _clamp100((_totalGames + _totalAiGames) / 200.0 * 100);
     final ratingScore = _clamp100((_rating - 500) / 2000.0 * 100);
+
+    // 攻撃力: AI対局での勝率 × 80 + 手筋クリア数ボーナス × 20
+    final aiWinRate = _totalAiGames > 0 ? _aiWins / _totalAiGames : 0.0;
+    final attackScore = _clamp100(aiWinRate * 80 + (_tesujiClearedCount / 80.0 * 20));
+
+    // 防御力: 全対局での後手勝率（守りの指標）+ 詰将棋ボーナス
+    final totalAll = _totalGames + _totalAiGames;
+    final p2WinRate = totalAll > 0 ? _p2Wins / totalAll : 0.0;
+    final defenseScore = _clamp100(p2WinRate * 80 + (_tsumeClearedCount / 100.0 * 20));
 
     _dimensions = [
       SkillDimension(
@@ -261,6 +272,32 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
                 : '上位プレイヤーに挑戦してさらなる高みへ',
         practiceLabel: 'AI対局へ',
         onPractice: widget.onGoToAiGame,
+      ),
+      SkillDimension(
+        name: '攻撃力',
+        nameEn: 'Attack',
+        score: attackScore,
+        level: WeaknessLevelExt.fromScore(attackScore),
+        advice: attackScore < 40
+            ? '手筋練習でキレのある攻め筋を身につけましょう'
+            : attackScore < 60
+                ? '攻めの手筋を増やしてAI対局での勝率を上げましょう'
+                : '鋭い攻めが武器になっています。さらに磨きをかけましょう',
+        practiceLabel: '手筋練習へ',
+        onPractice: widget.onGoToTesuji,
+      ),
+      SkillDimension(
+        name: '防御力',
+        nameEn: 'Defense',
+        score: defenseScore,
+        level: WeaknessLevelExt.fromScore(defenseScore),
+        advice: defenseScore < 40
+            ? '詰将棋で相手の攻めを読む力を養いましょう'
+            : defenseScore < 60
+                ? '囲いの崩し方を学んで守りの穴を塞ぎましょう'
+                : '堅固な守りが身についています。攻守のバランスを意識しましょう',
+        practiceLabel: '詰将棋を練習',
+        onPractice: widget.onGoToTsume,
       ),
     ];
 

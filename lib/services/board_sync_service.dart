@@ -35,6 +35,10 @@ class NetworkBoardState {
     this.lastTickMs = 0,
     this.lastTurn = 1,
   });
+
+  bool get isFinished => status == 'finished' || status == 'abandoned';
+  String? get winner => winnerId;
+  int get moveCount => moves.length;
 }
 
 // ── BoardSyncService ────────────────────────────────────────────
@@ -46,23 +50,36 @@ class BoardSyncService {
 
   // ──────────────── シリアライズ ────────────────────────────────
 
+  // Firebase RTDB は配列をMap<整数キー>に変換するため、両形式を許容する
+  static List<dynamic> _toIndexedList(dynamic data, int size) {
+    if (data == null) return List.filled(size, null);
+    if (data is List) return data;
+    if (data is Map) {
+      return List.generate(size, (i) => data[i] ?? data[i.toString()]);
+    }
+    return List.filled(size, null);
+  }
+
   static List<List<Piece?>> boardFromJson(dynamic data) {
     if (data == null) return _emptyBoard();
     try {
-      final rows = data as List;
+      final rows = _toIndexedList(data, 9);
       return List.generate(9, (r) {
-        final row = r < rows.length ? rows[r] as List? : null;
-        if (row == null) return List<Piece?>.filled(9, null);
+        final rowData = r < rows.length ? rows[r] : null;
+        final row = _toIndexedList(rowData, 9);
         return List.generate(9, (c) {
           final cell = c < row.length ? row[c] : null;
           if (cell == null) return null;
-          final t  = cell['t']  as int?  ?? 0;
-          final p1 = cell['p1'] as bool? ?? true;
+          final cellMap = cell is Map ? cell : null;
+          if (cellMap == null) return null;
+          final t  = cellMap['t']  as int?  ?? 0;
+          final p1 = cellMap['p1'] as bool? ?? true;
           if (t < 0 || t >= PieceType.values.length) return null;
           return Piece(PieceType.values[t], p1);
         });
       });
-    } catch (_) {
+    } catch (e) {
+      print('[BoardSync] boardFromJson error: $e');
       return _emptyBoard();
     }
   }
@@ -70,11 +87,20 @@ class BoardSyncService {
   static List<List<Piece?>> _emptyBoard() =>
       List.generate(9, (_) => List<Piece?>.filled(9, null));
 
-  static List<List<dynamic>> boardToJson(List<List<Piece?>> board) =>
-      board.map((row) => row.map((p) {
-        if (p == null) return null;
-        return {'t': p.type.index, 'p1': p.isPlayer1};
-      }).toList()).toList();
+  // Mapとして保存することでRTDBの配列→Map変換問題を回避。
+  // null値はFirebaseが削除するため、駒がある場所のみ保存する。
+  static Map<String, dynamic> boardToJson(List<List<Piece?>> board) {
+    final result = <String, dynamic>{};
+    for (var r = 0; r < 9; r++) {
+      final rowMap = <String, dynamic>{};
+      for (var c = 0; c < 9; c++) {
+        final p = board[r][c];
+        if (p != null) rowMap[c.toString()] = {'t': p.type.index, 'p1': p.isPlayer1};
+      }
+      if (rowMap.isNotEmpty) result[r.toString()] = rowMap;
+    }
+    return result;
+  }
 
   static Map<String, int> handToJson(Map<PieceType, int> hand) =>
       hand.map((k, v) => MapEntry(k.index.toString(), v));
@@ -278,6 +304,33 @@ class BoardSyncService {
       }
     });
   }
+
+  // ──────────────── プレゼンス（クラッシュ検出）─────────────────
+
+  DatabaseReference _presenceRef(String matchId, bool isPlayer1) =>
+      _gameRef(matchId).child('presence/${isPlayer1 ? "p1" : "p2"}');
+
+  /// 入室時: onDisconnect登録 + オンライン状態を書き込む
+  Future<void> goOnline(String matchId, bool isPlayer1) async {
+    final ref = _presenceRef(matchId, isPlayer1);
+    // クラッシュ/強制終了時にサーバーが自動でfalseを書く
+    await ref.onDisconnect().set(false);
+    await ref.set(true);
+  }
+
+  /// 正常退室時: onDisconnectをキャンセルしてオフラインに
+  Future<void> goOffline(String matchId, bool isPlayer1) async {
+    final ref = _presenceRef(matchId, isPlayer1);
+    await ref.onDisconnect().cancel();
+    await ref.set(false);
+  }
+
+  /// 相手のオンライン状態を監視
+  Stream<bool> watchOpponentPresence(String matchId, bool isPlayer1) =>
+      _gameRef(matchId)
+          .child('presence/${isPlayer1 ? "p2" : "p1"}')
+          .onValue
+          .map((e) => e.snapshot.value as bool? ?? false);
 
   // ──────────────── ゲームロジック補助 ─────────────────────────
 
