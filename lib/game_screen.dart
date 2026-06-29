@@ -403,7 +403,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Timer? _aiElapsedTimer;
 
   final _boardRepaintKey = GlobalKey();
-  bool showAttackMap = true;
+  bool showAttackMap = false;
   List<List<int>>? _p1AtkMap, _p2AtkMap; // 効きマップキャッシュ（絶対：先手/後手）
   bool _analysisMode = false; // 局面分析モード
   AMove? _hintMove; // ヒント手

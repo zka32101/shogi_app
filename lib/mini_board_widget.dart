@@ -13,7 +13,9 @@ class MiniBoardWidget extends StatelessWidget {
   final bool showLabels;                  // Show rank/file labels
   final double? size;                     // Board size override
   final bool? currentIsP1;               // null=none, true=p1 is current turn, false=p2 is current turn
-  final bool boardFlipped; // ボード反転時の駒向き調整
+  final bool boardFlipped;               // ボード反転時の駒向き調整
+  final Map<PieceType, int> p1Hand;      // 先手持ち駒（表示用）
+  final Map<PieceType, int> p2Hand;      // 後手持ち駒（表示用）
 
   const MiniBoardWidget({
     super.key,
@@ -28,19 +30,17 @@ class MiniBoardWidget extends StatelessWidget {
     this.size,
     this.currentIsP1,
     this.boardFlipped = false,
+    this.p1Hand = const {},
+    this.p2Hand = const {},
   });
 
   // Colors matching game_screen.dart standard theme
   static const _cellColor = Color(0xFFDEB887);
   static const _cellBorder = Color(0xFF7A4E2B);
 
+  // 成り駒=赤、非成り=濃茶。向きは RotatedBox が示すのでP1/P2で色は変えない
   Color _pieceColor(Piece p) {
-    final effectiveP1 = boardFlipped ? !p.isPlayer1 : p.isPlayer1;
-    if (effectiveP1) {
-      return p.isPromoted ? const Color(0xFF1565C0) : Colors.black;
-    } else {
-      return p.isPromoted ? Colors.red.shade700 : Colors.red.shade900;
-    }
+    return p.isPromoted ? const Color(0xFFB3261E) : const Color(0xFF2C1A0A);
   }
 
   @override
@@ -148,12 +148,53 @@ class MiniBoardWidget extends StatelessWidget {
         ),
       );
 
-      if (!showLabels) return boardGrid;
+      // 持ち駒バー
+      Widget handRow(Map<PieceType, int> hand, String label, Color labelColor) {
+        if (hand.isEmpty) return const SizedBox.shrink();
+        final pieces = hand.entries.map((e) {
+          final pLabel = pieceLabel(e.key);
+          return Text(
+            e.value > 1 ? '$pLabel×${e.value}' : pLabel,
+            style: TextStyle(
+              fontSize: cellSize * 0.52,
+              fontWeight: FontWeight.bold,
+              color: const Color(0xFF2C1A0A),
+            ),
+          );
+        }).toList();
+        return Container(
+          width: boardSize,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          color: const Color(0xFFC8A46A),
+          child: Row(
+            children: [
+              Text('$label持駒: ',
+                  style: TextStyle(
+                      color: labelColor, fontSize: cellSize * 0.45, fontWeight: FontWeight.bold)),
+              Wrap(spacing: 6, children: pieces),
+            ],
+          ),
+        );
+      }
+
+      if (!showLabels) {
+        if (p1Hand.isEmpty && p2Hand.isEmpty) return boardGrid;
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            handRow(p2Hand, '後手', Colors.red.shade700),
+            boardGrid,
+            handRow(p1Hand, '先手', Colors.blue.shade700),
+          ],
+        );
+      }
 
       const rankKanji = ['一','二','三','四','五','六','七','八','九'];
       return Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // 後手持ち駒（盤の上）
+          if (p2Hand.isNotEmpty) handRow(p2Hand, '後手', Colors.red.shade700),
           Row(children: [
             SizedBox(width: labelSize),
             ...List.generate(9, (i) => SizedBox(
@@ -175,6 +216,8 @@ class MiniBoardWidget extends StatelessWidget {
               boardGrid,
             ],
           ),
+          // 先手持ち駒（盤の下）
+          if (p1Hand.isNotEmpty) handRow(p1Hand, '先手', Colors.blue.shade700),
         ],
       );
     });

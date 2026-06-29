@@ -22,6 +22,8 @@ class _NMProb {
   final String explanation;
   final String? sourceUrl;
   final String? sourceTitle;
+  final Map<PieceType, int> p1Hand;
+  final Map<PieceType, int> p2Hand;
 
   const _NMProb({
     required this.title,
@@ -33,6 +35,8 @@ class _NMProb {
     required this.explanation,
     this.sourceUrl,
     this.sourceTitle,
+    this.p1Hand = const {},
+    this.p2Hand = const {},
   });
 }
 
@@ -611,6 +615,7 @@ final List<_NMProb> _problems = [
     explanation: '▲5五角が正解。5五に角を打つと、右斜め前の3三飛車と左斜め前の6四金に同時に当たる両取りになります。',
     sourceUrl: 'https://tsume.glico.com',
     sourceTitle: '将棋パズル',
+    p1Hand: {PieceType.bishop: 1},
   ),
   _NMProb(
     title: '銀の攻め方',
@@ -1189,6 +1194,8 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
                     board: prob.board,
                     showLabels: true,
                     size: 280,
+                    p1Hand: prob.p1Hand,
+                    p2Hand: prob.p2Hand,
                   ),
                 ),
                 const SizedBox(height: 20),
