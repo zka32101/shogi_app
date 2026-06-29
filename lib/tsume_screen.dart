@@ -93,13 +93,31 @@ _TsumeProb? _tsumeFromJson(Map<String, dynamic> j) {
           if (_csaToType(e.key) != null) _csaToType(e.key)!: e.value as int
       };
     }
+    // 王の数チェック（先手・後手各1枚必須）
+    int p1Kings = 0, p2Kings = 0;
+    for (final row in b) {
+      for (final p in row) {
+        if (p?.type == PieceType.king) {
+          if (p!.isPlayer1) p1Kings++; else p2Kings++;
+        }
+      }
+    }
+    if (p1Kings != 1 || p2Kings != 1) return null;
+
     final sol = (j['solution'] as List<dynamic>).map((e) {
       final m = e as Map<String, dynamic>;
+      final tr = m['tr'] as int;
+      final tc = m['tc'] as int;
+      final fr = m['fr'] as int? ?? -1;
+      final fc = m['fc'] as int? ?? -1;
+      // 座標範囲チェック
+      if (tr < 0 || tr > 8 || tc < 0 || tc > 8) throw FormatException('out of bounds');
+      if (fr != -1 && (fr < 0 || fr > 8 || fc < 0 || fc > 8)) throw FormatException('out of bounds');
       return AMove(
-        fr: m['fr'] as int? ?? -1,
-        fc: m['fc'] as int? ?? -1,
-        tr: m['tr'] as int,
-        tc: m['tc'] as int,
+        fr: fr,
+        fc: fc,
+        tr: tr,
+        tc: tc,
         drop: m['drop'] != null ? _csaToType(m['drop'] as String) : null,
         promote: m['promote'] as bool? ?? false,
       );

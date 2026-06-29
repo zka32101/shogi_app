@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/friend_service.dart';
 import '../services/network_service.dart';
 import '../services/rating_service.dart';
+import '../theme/app_theme.dart';
 import 'player_profile_screen.dart';
 
 class FriendScreen extends StatefulWidget {
@@ -35,10 +36,10 @@ class _FriendScreenState extends State<FriendScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('フレンド', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('フレンド', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -87,9 +88,9 @@ class _FriendScreenState extends State<FriendScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setS) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('ユーザー検索',
-              style: TextStyle(color: Colors.white)),
+              style: TextStyle(color: AppTheme.textHigh)),
           content: SizedBox(
             width: 300,
             child: Column(
@@ -97,13 +98,13 @@ class _FriendScreenState extends State<FriendScreen>
               children: [
                 TextField(
                   controller: controller,
-                  style: const TextStyle(color: Colors.white),
+                  style: const TextStyle(color: AppTheme.textHigh),
                   decoration: InputDecoration(
                     hintText: 'ユーザー名',
                     hintStyle:
-                        const TextStyle(color: Colors.white38),
+                        const TextStyle(color: AppTheme.textLow),
                     filled: true,
-                    fillColor: Colors.grey.shade900,
+                    fillColor: AppTheme.surface,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide.none,
@@ -147,7 +148,7 @@ class _FriendScreenState extends State<FriendScreen>
                   const Padding(
                     padding: EdgeInsets.only(top: 8),
                     child: Text('見つかりませんでした',
-                        style: TextStyle(color: Colors.white38)),
+                        style: TextStyle(color: AppTheme.textLow)),
                   ),
               ],
             ),
@@ -195,7 +196,7 @@ class _FriendListTab extends StatelessWidget {
                 Icon(Icons.group, size: 64, color: Colors.white24),
                 SizedBox(height: 12),
                 Text('フレンドがいません',
-                    style: TextStyle(color: Colors.white38)),
+                    style: TextStyle(color: AppTheme.textLow)),
                 SizedBox(height: 8),
                 Text('右上のアイコンからユーザーを検索できます',
                     style:
@@ -237,7 +238,7 @@ class _FriendTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: friend.isOnline
@@ -262,7 +263,7 @@ class _FriendTile extends StatelessWidget {
               child: Text(
                 friend.username[0].toUpperCase(),
                 style: const TextStyle(
-                    color: Colors.white, fontWeight: FontWeight.bold),
+                    color: AppTheme.textHigh, fontWeight: FontWeight.bold),
               ),
             ),
             if (friend.isOnline)
@@ -285,7 +286,7 @@ class _FriendTile extends StatelessWidget {
         title: Text(
           friend.username,
           style: const TextStyle(
-              color: Colors.white, fontWeight: FontWeight.w500),
+              color: AppTheme.textHigh, fontWeight: FontWeight.w500),
         ),
         subtitle: Text(
           '${RatingService().getRankLabel(friend.rating)} (${friend.rating})',
@@ -306,7 +307,7 @@ class _FriendTile extends StatelessWidget {
                   ),
                   child: const Text('対局中',
                       style:
-                          TextStyle(color: Colors.white, fontSize: 9)),
+                          TextStyle(color: AppTheme.textHigh, fontSize: 9)),
                 ),
               ),
             IconButton(
@@ -353,12 +354,12 @@ class _FriendTile extends StatelessWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('フレンド解除',
-            style: TextStyle(color: Colors.white)),
+            style: TextStyle(color: AppTheme.textHigh)),
         content: Text(
           '${friend.username} をフレンドから解除しますか？',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AppTheme.textMid),
         ),
         actions: [
           TextButton(
@@ -409,7 +410,7 @@ class _RequestsTab extends StatelessWidget {
                 Icon(Icons.inbox, size: 64, color: Colors.white24),
                 SizedBox(height: 12),
                 Text('フレンド申請はありません',
-                    style: TextStyle(color: Colors.white38)),
+                    style: TextStyle(color: AppTheme.textLow)),
               ],
             ),
           );
@@ -423,7 +424,7 @@ class _RequestsTab extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade900,
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                     color: Colors.amber.withAlpha(60)),
@@ -434,7 +435,7 @@ class _RequestsTab extends StatelessWidget {
                     backgroundColor: Colors.brown.shade700,
                     child: Text(req.senderName[0].toUpperCase(),
                         style:
-                            const TextStyle(color: Colors.white)),
+                            const TextStyle(color: AppTheme.textHigh)),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -443,7 +444,7 @@ class _RequestsTab extends StatelessWidget {
                       children: [
                         Text(req.senderName,
                             style: const TextStyle(
-                                color: Colors.white,
+                                color: AppTheme.textHigh,
                                 fontWeight: FontWeight.w500)),
                         Text(
                           '${RatingService().getRankLabel(req.senderRating)} (${req.senderRating})',
@@ -515,7 +516,7 @@ class _ChallengesTab extends StatelessWidget {
                     size: 64, color: Colors.white24),
                 SizedBox(height: 12),
                 Text('対局招待はありません',
-                    style: TextStyle(color: Colors.white38)),
+                    style: TextStyle(color: AppTheme.textLow)),
               ],
             ),
           );
@@ -529,7 +530,7 @@ class _ChallengesTab extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade900,
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(
                     color: Colors.amber.withAlpha(80)),
@@ -549,7 +550,7 @@ class _ChallengesTab extends StatelessWidget {
                         Text(
                           '${c.senderName} から対局招待',
                           style: const TextStyle(
-                              color: Colors.white,
+                              color: AppTheme.textHigh,
                               fontWeight: FontWeight.w500),
                         ),
                         Text(
@@ -567,7 +568,7 @@ class _ChallengesTab extends StatelessWidget {
                       // TODO: MatchScreen に遷移
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green.shade700,
+                      backgroundColor: AppTheme.success,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(
                           horizontal: 12, vertical: 6),
@@ -635,19 +636,19 @@ class _SearchResultTileState extends State<_SearchResultTile> {
         backgroundColor: Colors.brown.shade700,
         child: Text(username[0].toUpperCase(),
             style: const TextStyle(
-                color: Colors.white, fontSize: 12)),
+                color: AppTheme.textHigh, fontSize: 12)),
       ),
       title: Text(username,
           style: const TextStyle(
-              color: Colors.white, fontSize: 13)),
+              color: AppTheme.textHigh, fontSize: 13)),
       subtitle: Text(
           '${RatingService().getRankLabel(rating)} ($rating)',
           style: const TextStyle(
-              color: Colors.white38, fontSize: 11)),
+              color: AppTheme.textLow, fontSize: 11)),
       trailing: isSelf
           ? const Text('自分',
               style:
-                  TextStyle(color: Colors.white38, fontSize: 11))
+                  TextStyle(color: AppTheme.textLow, fontSize: 11))
           : isBanned
               ? const Text('停止中',
                   style: TextStyle(color: Colors.red, fontSize: 11))

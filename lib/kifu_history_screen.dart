@@ -133,7 +133,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     });
   }
 
-  Future<void> _delete(int index) async {
+  Future<void> _delete(Map<String, dynamic> r) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -154,7 +154,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
       ),
     );
     if (ok == true) {
-      setState(() => _records.removeAt(index));
+      setState(() => _records.remove(r));
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('kifu_records', jsonEncode(_records));
       if (mounted) {
@@ -165,16 +165,15 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   }
 
   // ── お気に入りトグル ──────────────────────────────
-  Future<void> _toggleFavorite(int index) async {
-    final current = _records[index]['favorite'] as bool? ?? false;
-    setState(() => _records[index]['favorite'] = !current);
+  Future<void> _toggleFavorite(Map<String, dynamic> r) async {
+    setState(() => r['favorite'] = !(r['favorite'] as bool? ?? false));
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('kifu_records', jsonEncode(_records));
   }
 
   // ── コメント編集 ──────────────────────────────
-  Future<void> _editComment(int index) async {
-    final current = _records[index]['comment'] as String? ?? '';
+  Future<void> _editComment(Map<String, dynamic> r) async {
+    final current = r['comment'] as String? ?? '';
     final ctrl = TextEditingController(text: current);
     final result = await showDialog<String>(
       context: context,
@@ -212,7 +211,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     );
     ctrl.dispose();
     if (result == null) return;
-    setState(() => _records[index]['comment'] = result);
+    setState(() => r['comment'] = result);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('kifu_records', jsonEncode(_records));
     if (mounted) {
@@ -246,12 +245,17 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   }
 
   // ── シェア ────────────────────────────────────────
+  static const _aiLevelLabels = {
+    'random': 'ランダム', 'beginner': '入門', 'easy': '初級',
+    'elementary': '初中級', 'medium': '中級', 'upperMedium': '中上級',
+    'hard': '上級', 'expert': '達人',
+  };
+
   Future<void> _shareKifu(Map<String, dynamic> r) async {
     try {
-      final moves = r['moves'] as List? ?? [];
-      final kifText = _buildKifText(r, moves);
-      final subject = '将棋棋譜 ${r['date'] ?? ''} ${r['moveCount']}手 ${r['result'] ?? ''}';
-      await Share.share(kifText, subject: subject);
+      final shareText = _buildShareText(r);
+      final subject = '効棋 対局結果 ${r['date'] ?? ''}';
+      await Share.share(shareText, subject: subject);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -260,20 +264,35 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     }
   }
 
-  String _buildKifText(Map<String, dynamic> r, List moves) {
+  String _buildShareText(Map<String, dynamic> r) {
+    final result = r['result'] as String? ?? '';
+    final mode = r['mode'] as String? ?? '';
+    final aiLevelKey = r['aiLevel'] as String? ?? '';
+    final aiLabel = aiLevelKey.isNotEmpty
+        ? (_aiLevelLabels[aiLevelKey] ?? aiLevelKey)
+        : '';
+    final moveCount = r['moveCount'] ?? 0;
+    final date = r['date'] as String? ?? '';
+    final castle = r['castle'] as String? ?? '';
+    final opening = r['opening'] as String? ?? '';
+    final comment = r['comment'] as String? ?? '';
+
     final buf = StringBuffer();
-    buf.writeln('# 効棋 将棋棋譜');
-    buf.writeln('日時: ${r['date'] ?? ''}');
-    buf.writeln('手数: ${r['moveCount'] ?? moves.length}');
-    buf.writeln('結果: ${r['result'] ?? ''}');
-    buf.writeln('---');
-    for (int i = 0; i < moves.length; i++) {
-      final m = moves[i];
-      if (m is Map) {
-        final notation = m['notation'] as String? ?? '${i + 1}手目';
-        buf.writeln('${i + 1}. $notation');
-      }
+    buf.writeln('【効棋 将棋対局結果】');
+    buf.writeln('━━━━━━━━━━━━━━');
+    buf.writeln('結果: $result');
+    if (mode == 'AI対局' && aiLabel.isNotEmpty) {
+      buf.writeln('相手: AI ($aiLabel)');
+    } else if (mode.isNotEmpty) {
+      buf.writeln('形式: $mode');
     }
+    buf.writeln('手数: ${moveCount}手');
+    if (opening.isNotEmpty) buf.writeln('戦型: $opening');
+    if (castle.isNotEmpty) buf.writeln('囲い: $castle');
+    buf.writeln('日時: $date');
+    if (comment.isNotEmpty) buf.writeln('メモ: $comment');
+    buf.writeln('━━━━━━━━━━━━━━');
+    buf.writeln('#効棋 #将棋');
     return buf.toString();
   }
 
@@ -1048,7 +1067,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
                 _actionBtn(Icons.analytics_outlined, '感想戦',
                     Colors.blue.shade300, () => _openKansousen(r)),
                 _actionBtn(Icons.notes_outlined, 'メモ',
-                    Colors.teal.shade300, () => _editComment(index)),
+                    Colors.teal.shade300, () => _editComment(r)),
                 _actionBtn(Icons.download_outlined, 'KIF',
                     Colors.amber.shade300, () => _exportKif(r)),
                 _actionBtn(Icons.copy_outlined, 'コピー',
@@ -1059,10 +1078,10 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
                   isFavorite ? Icons.star : Icons.star_border,
                   'お気に入り',
                   isFavorite ? Colors.amber : Colors.white24,
-                  () => _toggleFavorite(index),
+                  () => _toggleFavorite(r),
                 ),
                 _actionBtn(Icons.delete_outline, '削除',
-                    Colors.red.shade400, () => _delete(index)),
+                    Colors.red.shade400, () => _delete(r)),
               ],
             ),
           ),

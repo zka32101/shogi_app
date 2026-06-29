@@ -63,6 +63,8 @@ import 'screens/ghost_screen.dart';
 import 'services/fcm_service.dart';
 import 'models/story_data.dart';
 import 'screens/story_overlay.dart';
+import 'screens/customize_screen.dart';
+import 'screens/theme_settings_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -91,39 +93,106 @@ void main() async {
   runApp(const ShogiApp());
 }
 
-class ShogiApp extends StatelessWidget {
+class ShogiApp extends StatefulWidget {
   const ShogiApp({super.key});
+
+  @override
+  State<ShogiApp> createState() => _ShogiAppState();
+}
+
+class _ShogiAppState extends State<ShogiApp> {
+  bool _isDarkMode = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadThemePreference();
+  }
+
+  Future<void> _loadThemePreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _isDarkMode = prefs.getBool('theme_dark_mode') ?? true;
+    });
+  }
+
+  void _onThemeChanged(bool isDark) {
+    setState(() {
+      _isDarkMode = isDark;
+    });
+  }
+
+  ThemeData _buildTheme(bool isDark) {
+    if (isDark) {
+      return ThemeData(
+        brightness: Brightness.dark,
+        colorScheme: ColorScheme.dark(
+          primary: Colors.cyan.shade600,
+          secondary: Colors.amber.shade600,
+          surface: const Color(0xFF16213E),
+          onSurface: Colors.white,
+        ),
+        useMaterial3: true,
+        scaffoldBackgroundColor: const Color(0xFF0F3460),
+        textTheme: ThemeData.dark().textTheme.apply(
+          fontFamilyFallback: const ['Noto Serif', 'Noto Sans', 'serif'],
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: const Color(0xFF16213E),
+          labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((
+            Set<WidgetState> states,
+          ) {
+            if (states.contains(WidgetState.selected)) {
+              return const TextStyle(color: Colors.white);
+            }
+            return const TextStyle(color: Colors.white70);
+          }),
+        ),
+      );
+    } else {
+      return ThemeData(
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.light(
+          primary: Colors.blue.shade600,
+          secondary: Colors.orange.shade600,
+          surface: Colors.grey.shade100,
+          onSurface: Colors.black87,
+        ),
+        useMaterial3: true,
+        scaffoldBackgroundColor: Colors.grey.shade50,
+        textTheme: ThemeData.light().textTheme.apply(
+          fontFamilyFallback: const ['Noto Serif', 'Noto Sans', 'serif'],
+        ),
+        navigationBarTheme: NavigationBarThemeData(
+          backgroundColor: Colors.white,
+          labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((
+            Set<WidgetState> states,
+          ) {
+            if (states.contains(WidgetState.selected)) {
+              return TextStyle(color: Colors.blue.shade600);
+            }
+            return const TextStyle(color: Colors.black54);
+          }),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) => MaterialApp(
     title: '効棋',
     debugShowCheckedModeBanner: false,
     locale: const Locale('ja', 'JP'),
-    theme: ThemeData(
-      colorScheme: ColorScheme.fromSeed(seedColor: Colors.brown),
-      useMaterial3: true,
-      // 将棋漢字（将・龍・馬・桂など）を日本語フォントで正しく表示
-      textTheme: ThemeData.light().textTheme.apply(
-        fontFamilyFallback: const ['Noto Serif', 'Noto Sans', 'serif'],
-      ),
-      // ナビゲーションバーのラベルテキストを白色に
-      navigationBarTheme: NavigationBarThemeData(
-        labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((
-          Set<WidgetState> states,
-        ) {
-          if (states.contains(WidgetState.selected)) {
-            return const TextStyle(color: Colors.white);
-          }
-          return const TextStyle(color: Colors.white70);
-        }),
-      ),
-    ),
-    home: const HomeScreen(),
+    theme: _buildTheme(_isDarkMode),
+    home: HomeScreen(onThemeChanged: _onThemeChanged),
   );
 }
 
 // ===== ホーム画面（BottomNavigation 4タブ） =====
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final void Function(bool)? onThemeChanged;
+
+  const HomeScreen({super.key, this.onThemeChanged});
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -737,985 +806,231 @@ class _StudyTab extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // レベル凡例
-            Row(
-              children: [
-                _levelChip('全員', Colors.green),
-                const SizedBox(width: 6),
-                _levelChip('10〜5級', Colors.blue),
-                const SizedBox(width: 6),
-                _levelChip('4級〜', Colors.orange),
-              ],
+            const Text(
+              '目的から選んで効率よく上達しましょう',
+              style: TextStyle(color: Colors.white54, fontSize: 13),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            _heroGuide(context),
+            const SizedBox(height: 22),
+            ..._buildSections(context),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // ── 全員向けセクション ──
-            _studyLevelHeader('全員向け', Colors.greenAccent, Icons.people),
-
-            // ── 初段ロードマップ ──
-            GestureDetector(
-              onTap: () => _go(context, const LearningGuideScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF1F3A5F), const Color(0xFF16213E)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: Colors.amber.withAlpha(120),
-                    width: 2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.explore, color: Colors.amber, size: 32),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '学習ガイド',
-                          style: TextStyle(
-                            color: Colors.amber,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '状況別おすすめ学習ルート',
-                          style: TextStyle(
-                            color: Colors.amber.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+  // ===== 学習ガイドのヒーローカード =====
+  Widget _heroGuide(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _go(context, const LearningGuideScreen()),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFF1F3A5F), Color(0xFF16213E)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.amber.withAlpha(120), width: 2),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 46,
+              height: 46,
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(30),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(Icons.explore, color: Colors.amber, size: 26),
+            ),
+            const SizedBox(width: 14),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '学習ガイド',
+                    style: TextStyle(
+                      color: Colors.amber,
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
                     ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
+                  ),
+                  SizedBox(height: 2),
+                  Text(
+                    '今の悩みから最適なメニューを提案',
+                    style: TextStyle(color: Colors.white60, fontSize: 12),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 10),
+            const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
+          ],
+        ),
+      ),
+    );
+  }
 
-            // ── 初級者向けセクション ──
-            _studyLevelHeader(
-              '初級者向け（10〜5級）',
-              Colors.lightBlueAccent,
-              Icons.school,
+  // ===== 目的別カテゴリ =====
+  List<Widget> _buildSections(BuildContext context) {
+    final sections = <_StudySection>[
+      _StudySection('問題で鍛える', Icons.fitness_center, const Color(0xFF42A5F5), [
+        _StudyItem('詰将棋', Icons.extension, () => _go(context, const TsumeScreen())),
+        _StudyItem('デイリー詰将棋', Icons.today, () => _go(context, const DailyTsumeScreen())),
+        _StudyItem('ローグライト', Icons.casino, () => _go(context, const TsumeRogueliteScreen())),
+        _StudyItem('タイムアタック', Icons.timer, () => _go(context, const TsumeTimeAttackScreen())),
+        _StudyItem('次の一手', Icons.lightbulb, () => _go(context, const NextMoveScreen())),
+        _StudyItem('手筋トレーニング', Icons.psychology, () => _go(context, const TesujiScreen())),
+        _StudyItem('囲い崩し道場', Icons.shield_outlined, () => _go(context, const CastleBreakScreen())),
+      ]),
+      _StudySection('定跡・囲い・基礎', Icons.menu_book, const Color(0xFF5C6BC0), [
+        _StudyItem('定跡ガイド', Icons.route, () => _go(context, const JosekiScreen())),
+        _StudyItem('囲いパターン', Icons.security, () => _go(context, const CastlePatternsScreen())),
+        _StudyItem('戦法', Icons.trending_up, () => _go(context, const StrategiesScreen())),
+        _StudyItem('将棋の格言', Icons.format_quote, () => _go(context, const ProverbsScreen())),
+        _StudyItem('駒の動き', Icons.book, () => _go(context, const RulesScreen())),
+        _StudyItem('チュートリアル', Icons.school, () => _go(context, const TutorialScreen())),
+        _StudyItem('使い方', Icons.help_outline, () => _go(context, const GuideScreen())),
+      ]),
+      _StudySection('診断・分析', Icons.analytics, const Color(0xFFAB47BC), [
+        _StudyItem('棋力診断', Icons.assessment, () => _go(context, const StrengthTestScreen())),
+        _StudyItem('棋風診断', Icons.face, () => _go(context, const PlaystyleDiagnosisScreen())),
+        _StudyItem('弱点分析', Icons.radar, () => _go(context, const WeaknessAnalysisScreen())),
+        _StudyItem('弱点採掘', Icons.travel_explore, () => _go(context, const WeaknessMiningScreen())),
+        _StudyItem('学習カレンダー', Icons.calendar_month, () => _go(context, const StudyCalendarScreen())),
+        _StudyItem('プロ棋譜', Icons.video_library, () => _go(context, const ProKifuScreen())),
+      ]),
+      _StudySection('実戦・対戦で練習', Icons.sports_kabaddi, const Color(0xFFFFA726), [
+        _StudyItem('月例トーナメント', Icons.emoji_events, () => _go(context, const MonthlyTournamentScreen())),
+        _StudyItem('友達対戦', Icons.people, () => _go(context, const FriendChallengeScreen())),
+        _StudyItem('レース対戦', Icons.speed, () => _go(context, const AsyncTrainingDuelScreen())),
+        _StudyItem('3分筋トレ', Icons.bolt, () => _go(context, const MicroTrainingScreen())),
+      ]),
+      _StudySection('AIコーチ・ツール 👑', Icons.auto_awesome, const Color(0xFF7E57C2), [
+        _StudyItem('週次AI振り返り', Icons.insights, () => _go(context, const WeeklyReviewScreen())),
+        _StudyItem('忘却曲線AI', Icons.calendar_today, () => _go(context, const SpacedRepetitionScreen())),
+        _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen())),
+        _StudyItem('自然言語Q&A', Icons.chat, () => _go(context, const NaturalLangQAScreen())),
+        _StudyItem('難易度自動調整', Icons.tune, () => _go(context, const AdaptiveDifficultyScreen(userId: 'user_default'))),
+        _StudyItem('カメラOCR', Icons.camera_alt, () => _go(context, const CameraOCRScreen())),
+        _StudyItem('音声入出力', Icons.mic, () => _go(context, const VoiceIOScreen())),
+      ]),
+      _StudySection('記録・実績', Icons.leaderboard, const Color(0xFF78909C), [
+        _StudyItem('ランキング', Icons.leaderboard, () => _go(context, const RankingScreen())),
+        _StudyItem('バッジ', Icons.military_tech, () => _go(context, const BadgeScreen())),
+      ]),
+    ];
+    final widgets = <Widget>[];
+    for (final s in sections) {
+      widgets.add(_sectionHeaderTile(s));
+      widgets.add(const SizedBox(height: 10));
+      widgets.add(_tileGrid(s));
+      widgets.add(const SizedBox(height: 22));
+    }
+    return widgets;
+  }
+
+  Widget _sectionHeaderTile(_StudySection s) {
+    return Row(
+      children: [
+        Icon(s.icon, color: s.color, size: 18),
+        const SizedBox(width: 8),
+        Text(
+          s.title,
+          style: TextStyle(
+            color: s.color,
+            fontSize: 15,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _tileGrid(_StudySection s) {
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: 0.88,
+      children: s.items
+          .map((it) => _LearnTile(item: it, color: s.color))
+          .toList(),
+    );
+  }
+
+}
+
+// ===== 学習タブ: カテゴリ／タイルのデータ =====
+class _StudySection {
+  final String title;
+  final IconData icon;
+  final Color color;
+  final List<_StudyItem> items;
+  _StudySection(this.title, this.icon, this.color, this.items);
+}
+
+class _StudyItem {
+  final String label;
+  final IconData icon;
+  final VoidCallback onTap;
+  _StudyItem(this.label, this.icon, this.onTap);
+}
+
+class _LearnTile extends StatelessWidget {
+  final _StudyItem item;
+  final Color color;
+  const _LearnTile({required this.item, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: item.onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF16213E),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withAlpha(60)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: color.withAlpha(38),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(item.icon, color: color, size: 20),
             ),
-
-            // ── 定跡練習 ──
-            GestureDetector(
-              onTap: () => _go(context, const JosekiScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.indigo.shade900, Colors.indigo.shade800],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.indigo.withAlpha(120)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.sports_martial_arts,
-                      color: Colors.indigo.shade300,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '定跡練習',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '矢倉・四間飛車など8種 盤面ガイド付き',
-                          style: TextStyle(
-                            color: Colors.indigo.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
+            const SizedBox(height: 6),
+            Text(
+              item.label,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                height: 1.15,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 10),
-
-            // ── 次の一手 ──
-            GestureDetector(
-              onTap: () => _go(context, const NextMoveScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.amber.shade900, Colors.amber.shade800],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.amber.withAlpha(100)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.lightbulb, color: Colors.amber, size: 32),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '次の一手',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '中盤・終盤の好手を見つけよう 15問【10〜5級推奨】',
-                          style: TextStyle(
-                            color: Colors.amber.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── 中級者以上セクション ──
-            _studyLevelHeader(
-              '中級者以上（4級〜）',
-              Colors.orangeAccent,
-              Icons.trending_up,
-            ),
-
-            // ── 囲い崩し道場 ──
-            GestureDetector(
-              onTap: () => _go(context, const CastleBreakScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.orange.shade900, Colors.orange.shade800],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.orange.withAlpha(100)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.shield_outlined,
-                      color: Colors.orange,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '囲い崩し道場',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '美濃・矢倉・穴熊の崩し方 12問【4級〜推奨】',
-                          style: TextStyle(
-                            color: Colors.orange.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── 詰将棋 ── (バナー)
-            GestureDetector(
-              onTap: () => _go(context, const TsumeScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.blueGrey.shade900,
-                      Colors.blueGrey.shade800,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blueGrey.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.extension,
-                      color: Colors.blueGrey,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '詰将棋',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '1〜3手詰め 6問',
-                          style: TextStyle(
-                            color: Colors.blueGrey.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── デイリー詰将棋 ──
-            GestureDetector(
-              onTap: () => _go(context, const DailyTsumeScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.green.shade900, Colors.teal.shade900],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.green.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today,
-                      color: Colors.greenAccent,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'デイリー詰将棋',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '今日の問題 • 1日3回まで',
-                          style: TextStyle(
-                            color: Colors.green.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── ローグライト ──
-            GestureDetector(
-              onTap: () => _go(context, const TsumeRogueliteScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.red.shade900, Colors.orange.shade900],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.red.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.favorite,
-                      color: Colors.redAccent,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'ローグライト',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'ライフ3つ・難易度上昇・自己ベスト更新',
-                          style: TextStyle(
-                            color: Colors.orange.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── タイムアタック ──
-            GestureDetector(
-              onTap: () => _go(context, const TsumeTimeAttackScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.cyan.shade900, Colors.teal.shade800],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.cyan.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.timer, color: Colors.cyan, size: 32),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'タイムアタック',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '3分間で何問解ける？',
-                          style: TextStyle(
-                            color: Colors.cyan.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── 棋風診断 ──
-            GestureDetector(
-              onTap: () => _go(context, const PlaystyleDiagnosisScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.purple.shade900, Colors.indigo.shade900],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.purple.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.psychology,
-                      color: Colors.purpleAccent,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '棋風診断',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '対局データからあなたの棋風を分析',
-                          style: TextStyle(
-                            color: Colors.purple.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── 棋力診断 ── (バナー)
-            GestureDetector(
-              onTap: () => _go(context, const StrengthTestScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.grey.shade800, Colors.blueGrey.shade700],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.grey.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.military_tech,
-                      color: Colors.white70,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '棋力診断',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '5問で実力を測定',
-                          style: TextStyle(
-                            color: Colors.grey.shade300,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── 手筋トレーニング ──
-            GestureDetector(
-              onTap: () => _go(context, const TesujiScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.blueGrey.shade900,
-                      Colors.blueGrey.shade700,
-                    ],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.blueGrey.withAlpha(80)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.psychology,
-                      color: Colors.blueGrey,
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '手筋トレーニング',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          '12問・4カテゴリの手筋問題【4級〜推奨】',
-                          style: TextStyle(
-                            color: Colors.blueGrey.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            _sectionLabel('コンテンツ'),
-            const SizedBox(height: 10),
-            // 弱点分析
-            GestureDetector(
-              onTap: () => _go(context, const WeaknessAnalysisScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Colors.purple.shade900, Colors.purple.shade800],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.purple.withAlpha(100)),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.analytics, color: Colors.purple, size: 32),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '弱点分析',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        Text(
-                          'レーダーチャートで苦手を把握',
-                          style: TextStyle(
-                            color: Colors.purple.shade200,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    'プロ棋譜',
-                    Icons.video_library,
-                    Colors.red.shade800,
-                    () => _go(context, const ProKifuScreen()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    '学習カレンダー',
-                    Icons.calendar_month,
-                    Colors.green.shade800,
-                    () => _go(context, const StudyCalendarScreen()),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => _go(context, const MonthlyTournamentScreen()),
-              child: Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [const Color(0xFF3D2A00), const Color(0xFF5C3D00)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFFFFD700).withAlpha(120),
-                    width: 1,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.emoji_events,
-                      color: Color(0xFFFFD700),
-                      size: 32,
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          '月例トーナメント',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const Text(
-                          '毎月開催の棋力別トーナメント',
-                          style: TextStyle(
-                            color: Color(0xFFFFD700),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    const Icon(
-                      Icons.arrow_forward_ios,
-                      color: Colors.white54,
-                      size: 14,
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            _sectionLabel('革新機能（Free）'),
-            const SizedBox(height: 10),
-            // 弱点採掘
-            GestureDetector(
-              onTap: () => _go(context, const WeaknessMiningScreen()),
-              child: _bannerButton(
-                context,
-                '弱点採掘',
-                Icons.analytics,
-                Colors.teal.shade700,
-                '繰り返す失敗パターンを検出',
-              ),
-            ),
-            const SizedBox(height: 10),
-            // 3分筋トレ
-            GestureDetector(
-              onTap: () => _go(context, const MicroTrainingScreen()),
-              child: _bannerButton(
-                context,
-                '3分筋トレ',
-                Icons.timer,
-                Colors.cyan.shade700,
-                '毎日3分で手筋をマスター',
-              ),
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    '友達対戦',
-                    Icons.people,
-                    Colors.orange.shade700,
-                    () => _go(context, const FriendChallengeScreen()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    'レース対戦',
-                    Icons.speed,
-                    Colors.purple.shade700,
-                    () => _go(context, const AsyncTrainingDuelScreen()),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '音声入出力',
-              Icons.mic,
-              Colors.blue.shade700,
-              () => _go(context, const VoiceIOScreen()),
-            ),
-            const SizedBox(height: 20),
-
-            _sectionLabel('プレミアム機能'),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '週次AI振り返り 👑',
-              Icons.analytics,
-              Colors.purple.shade700,
-              () => _go(context, const WeeklyReviewScreen()),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              'AI詰将棋ジェネレーター 👑',
-              Icons.auto_fix_high,
-              Colors.deepPurple.shade700,
-              () => _go(context, const PuzzleGeneratorScreen()),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '忘却曲線AI 👑',
-              Icons.calendar_today,
-              Colors.deepOrange.shade700,
-              () => _go(context, const SpacedRepetitionScreen()),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              'AI棋風コーチ 👑',
-              Icons.person,
-              Colors.red.shade700,
-              () => _go(context, const CoachPersonalityScreen()),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '自然言語Q&A 👑',
-              Icons.chat,
-              Colors.indigo.shade700,
-              () => _go(context, const NaturalLangQAScreen()),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '難易度自動調整 👑',
-              Icons.trending_up,
-              Colors.green.shade700,
-              () => _go(
-                context,
-                const AdaptiveDifficultyScreen(userId: 'user_default'),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              'カメラOCR 👑',
-              Icons.camera_alt,
-              Colors.amber.shade700,
-              () => _go(context, const CameraOCRScreen()),
-            ),
-            const SizedBox(height: 20),
-
-            _sectionLabel('将棋を学ぶ'),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    'チュートリアル',
-                    Icons.school,
-                    Colors.blueGrey.shade700,
-                    () => _go(context, const TutorialScreen()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    '駒の動き',
-                    Icons.book,
-                    Colors.blueGrey.shade700,
-                    () => _go(context, const RulesScreen()),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    '使い方',
-                    Icons.help_outline,
-                    Colors.blueGrey.shade700,
-                    () => _go(context, const GuideScreen()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    'ランキング',
-                    Icons.leaderboard,
-                    Colors.blueGrey.shade700,
-                    () => _go(context, const RankingScreen()),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              'バッジ',
-              Icons.military_tech,
-              Colors.blueGrey.shade700,
-              () => _go(context, const BadgeScreen()),
-            ),
-            const SizedBox(height: 20),
-
-            _sectionLabel('戦術・囲い'),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    '囲いパターン',
-                    Icons.security,
-                    Colors.blueGrey.shade700,
-                    () => _go(context, const CastlePatternsScreen()),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _bigButton(
-                    context,
-                    '戦法',
-                    Icons.trending_up,
-                    Colors.blueGrey.shade700,
-                    () => _go(context, const StrategiesScreen()),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '定跡ガイド',
-              Icons.route,
-              Colors.blueGrey.shade700,
-              () => _go(context, const JosekiScreen()),
-            ),
-            const SizedBox(height: 10),
-            _bigButton(
-              context,
-              '将棋の格言',
-              Icons.menu_book,
-              Colors.blueGrey.shade700,
-              () => _go(context, const ProverbsScreen()),
-            ),
-            const SizedBox(height: 24),
           ],
         ),
       ),
     );
   }
 }
+
 
 // ===== タブ 3: 設定 =====
 class _SettingsTab extends StatelessWidget {
@@ -2029,6 +1344,23 @@ class _SettingsTab extends StatelessWidget {
             ]),
             const SizedBox(height: 20),
 
+            // ── アイコン設定 ──
+            _sectionLabel('アイコン設定'),
+            const SizedBox(height: 8),
+            _settingCard([
+              Builder(
+                builder: (ctx) => ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(Icons.face, color: Colors.amber),
+                  title: const Text('キャラクターアイコン', style: TextStyle(color: Colors.white, fontSize: 14)),
+                  subtitle: const Text('対局中に表示されるアイコンを変更', style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  trailing: const Icon(Icons.chevron_right, color: Colors.white38),
+                  onTap: () => Navigator.push(ctx, MaterialPageRoute(builder: (_) => const CustomizeScreen())),
+                ),
+              ),
+            ]),
+            const SizedBox(height: 20),
+
             // ── 言語設定 ──
             _sectionLabel('言語 / Language'),
             const SizedBox(height: 8),
@@ -2164,41 +1496,6 @@ Widget _sectionLabel(String text) => Text(
 );
 
 // レベルバッジ: 学習機能の対象レベルを示す小さなチップ
-Widget _levelChip(String label, Color color) => Container(
-  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-  decoration: BoxDecoration(
-    color: color.withAlpha(40),
-    borderRadius: BorderRadius.circular(4),
-    border: Border.all(color: color.withAlpha(120), width: 1),
-  ),
-  child: Text(
-    label,
-    style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
-  ),
-);
-
-// 学習カテゴリ見出し
-Widget _studyLevelHeader(String level, Color color, IconData icon) => Padding(
-  padding: const EdgeInsets.only(top: 16, bottom: 6),
-  child: Row(
-    children: [
-      Icon(icon, color: color, size: 14),
-      const SizedBox(width: 6),
-      Text(
-        level,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 1,
-        ),
-      ),
-      const SizedBox(width: 8),
-      Expanded(child: Container(height: 1, color: color.withAlpha(60))),
-    ],
-  ),
-);
-
 Widget _bigButton(
   BuildContext context,
   String label,
@@ -2225,55 +1522,6 @@ Widget _bigButton(
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
         ),
-      ],
-    ),
-  );
-}
-
-Widget _bannerButton(
-  BuildContext context,
-  String label,
-  IconData icon,
-  Color color,
-  String subtitle,
-) {
-  return Container(
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      gradient: LinearGradient(
-        colors: [color.withAlpha(180), color.withAlpha(220)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: color.withAlpha(100)),
-    ),
-    child: Row(
-      children: [
-        Icon(icon, color: Colors.white, size: 28),
-        const SizedBox(width: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            Text(
-              subtitle,
-              style: TextStyle(
-                color: Colors.white.withAlpha(200),
-                fontSize: 12,
-              ),
-            ),
-          ],
-        ),
-        const Spacer(),
-        const Icon(Icons.arrow_forward_ios, color: Colors.white54, size: 14),
       ],
     ),
   );

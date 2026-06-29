@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../services/network_achievement_service.dart';
 import '../services/network_service.dart';
+import '../theme/app_theme.dart';
 
 class AchievementScreen extends StatelessWidget {
   const AchievementScreen({super.key});
@@ -11,10 +12,10 @@ class AchievementScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('実績', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('実績', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: const _AchievementBody(),
@@ -49,7 +50,7 @@ class _AchievementBody extends StatelessWidget {
             // ヘッダー
             Container(
               padding: const EdgeInsets.all(16),
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               child: Row(
                 children: [
                   const Text('🏆', style: TextStyle(fontSize: 32)),
@@ -60,7 +61,7 @@ class _AchievementBody extends StatelessWidget {
                       Text(
                         '$unlockedCount / $total 解除',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -72,7 +73,7 @@ class _AchievementBody extends StatelessWidget {
                           borderRadius: BorderRadius.circular(4),
                           child: LinearProgressIndicator(
                             value: total > 0 ? unlockedCount / total : 0,
-                            backgroundColor: Colors.grey.shade800,
+                            backgroundColor: AppTheme.surfaceHigh,
                             valueColor: const AlwaysStoppedAnimation<Color>(
                                 Colors.amber),
                             minHeight: 6,
@@ -173,7 +174,7 @@ class _AchievementBody extends StatelessWidget {
                   Text(
                     title,
                     style: const TextStyle(
-                      color: Colors.white70,
+                      color: AppTheme.textMid,
                       fontSize: 13,
                       fontWeight: FontWeight.bold,
                     ),
@@ -182,7 +183,7 @@ class _AchievementBody extends StatelessWidget {
                   Text(
                     '$catUnlocked/${ids.length}',
                     style: const TextStyle(
-                        color: Colors.white38, fontSize: 12),
+                        color: AppTheme.textLow, fontSize: 12),
                   ),
                 ],
               ),
@@ -229,8 +230,8 @@ class _AchievementCard extends StatelessWidget {
       child: Container(
         decoration: BoxDecoration(
           color: isUnlocked
-              ? const Color(0xFF16213E)
-              : Colors.grey.shade900,
+              ? AppTheme.surface
+              : AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isUnlocked
@@ -257,7 +258,7 @@ class _AchievementCard extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: isUnlocked ? Colors.white : Colors.white24,
+                  color: isUnlocked ? AppTheme.textHigh : Colors.white24,
                   fontSize: 10,
                   fontWeight: FontWeight.w500,
                 ),
@@ -273,7 +274,7 @@ class _AchievementCard extends StatelessWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Row(
           children: [
             Text(isUnlocked ? def.emoji : '🔒',
@@ -283,7 +284,7 @@ class _AchievementCard extends StatelessWidget {
               child: Text(
                 def.title,
                 style: TextStyle(
-                  color: isUnlocked ? Colors.white : Colors.white38,
+                  color: isUnlocked ? AppTheme.textHigh : AppTheme.textLow,
                   fontSize: 16,
                 ),
               ),
@@ -292,7 +293,7 @@ class _AchievementCard extends StatelessWidget {
         ),
         content: Text(
           def.description,
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AppTheme.textMid),
         ),
         actions: [
           if (isUnlocked)

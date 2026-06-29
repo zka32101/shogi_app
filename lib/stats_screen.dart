@@ -476,20 +476,66 @@ class _RatingCard extends StatelessWidget {
   }
 }
 
-// ── 成長グラフ（CustomPaint）──────────────────────────────
-class _RatingGraph extends StatelessWidget {
+// ── 成長グラフ（対局軸 / 時間軸 トグル）──────────────────────
+class _RatingGraph extends StatefulWidget {
   final List<_RatingRecord> history;
   const _RatingGraph({required this.history});
 
   @override
+  State<_RatingGraph> createState() => _RatingGraphState();
+}
+
+class _RatingGraphState extends State<_RatingGraph> {
+  bool _byTime = false;
+
+  @override
   Widget build(BuildContext context) {
-    final recent = history.length > 20 ? history.sublist(history.length - 20) : history;
-    return SizedBox(
-      height: 120,
-      child: ClipRect(
-        child: CustomPaint(
-          size: const Size(double.infinity, 120),
-          painter: _GraphPainter(records: recent),
+    final recent = widget.history.length > 50
+        ? widget.history.sublist(widget.history.length - 50)
+        : widget.history;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            _axisChip('対局軸', !_byTime, () => setState(() => _byTime = false)),
+            const SizedBox(width: 6),
+            _axisChip('時間軸', _byTime, () => setState(() => _byTime = true)),
+          ],
+        ),
+        const SizedBox(height: 6),
+        SizedBox(
+          height: 130,
+          child: ClipRect(
+            child: CustomPaint(
+              size: const Size(double.infinity, 130),
+              painter: _byTime
+                  ? _TimeAxisGraphPainter(records: recent)
+                  : _GraphPainter(records: recent),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _axisChip(String label, bool selected, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+        decoration: BoxDecoration(
+          color: selected ? Colors.amber.shade700 : Colors.white12,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Colors.black : Colors.white54,
+            fontSize: 11,
+            fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+          ),
         ),
       ),
     );
@@ -605,6 +651,120 @@ class _GraphPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_GraphPainter old) => old.records != records;
+}
+
+// ── 時間軸グラフ ──────────────────────────────────────────
+class _TimeAxisGraphPainter extends CustomPainter {
+  final List<_RatingRecord> records;
+  _TimeAxisGraphPainter({required this.records});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (records.isEmpty) return;
+    canvas.clipRect(Offset.zero & size);
+
+    // 日付を DateTime に変換
+    final dates = records.map((r) {
+      try { return DateTime.parse(r.date); }
+      catch (_) { return DateTime.now(); }
+    }).toList();
+
+    final minMs = dates.first.millisecondsSinceEpoch.toDouble();
+    final maxMs = dates.last.millisecondsSinceEpoch.toDouble();
+    final timeRange = (maxMs - minMs).clamp(1.0, double.infinity);
+
+    final minR = records.map((e) => e.rating).reduce(min) - 30;
+    final maxR = records.map((e) => e.rating).reduce(max) + 30;
+    final rRange = (maxR - minR).clamp(1, 99999);
+
+    double xOf(int i) => timeRange == 0
+        ? size.width / 2
+        : size.width * (dates[i].millisecondsSinceEpoch - minMs) / timeRange;
+    double yOf(int r) => size.height - (r - minR) / rRange * size.height * 0.82 - size.height * 0.05;
+
+    // グリッド
+    final gridPaint = Paint()..color = Colors.white12..strokeWidth = 0.5;
+    canvas.drawLine(Offset(0, yOf(1000)), Offset(size.width, yOf(1000)), gridPaint);
+
+    // 段級位境界線
+    const boundaryLines = [(1000, '3級'), (1150, '初段'), (1300, '二段')];
+    final bPaint = Paint()..color = Colors.white24..strokeWidth = 0.5..style = PaintingStyle.stroke;
+    for (final entry in boundaryLines) {
+      final r = entry.$1;
+      if (r >= minR && r <= maxR) {
+        final y = yOf(r);
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), bPaint);
+        final tp = TextPainter(
+          text: TextSpan(text: entry.$2, style: const TextStyle(color: Colors.white38, fontSize: 9)),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, Offset(size.width - tp.width - 2, y - tp.height - 1));
+      }
+    }
+
+    // 折れ線
+    final linePaint = Paint()
+      ..color = Colors.cyan.withAlpha(200)
+      ..strokeWidth = 2.0
+      ..style = PaintingStyle.stroke
+      ..strokeJoin = StrokeJoin.round;
+    final path = Path();
+    for (int i = 0; i < records.length; i++) {
+      final x = xOf(i);
+      final y = yOf(records[i].rating);
+      if (i == 0) path.moveTo(x, y); else path.lineTo(x, y);
+    }
+    canvas.drawPath(path, linePaint);
+
+    // グラデーション塗りつぶし
+    final fillPath = Path.from(path)
+      ..lineTo(xOf(records.length - 1), size.height)
+      ..lineTo(xOf(0), size.height)
+      ..close();
+    canvas.drawPath(fillPath, Paint()
+      ..shader = LinearGradient(
+        colors: [Colors.cyan.withAlpha(60), Colors.cyan.withAlpha(0)],
+        begin: Alignment.topCenter, end: Alignment.bottomCenter,
+      ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
+
+    // ドット（勝ち/負け色分け）
+    for (int i = 0; i < records.length; i++) {
+      final rec = records[i];
+      final dotColor = rec.delta > 0 ? Colors.green : rec.delta < 0 ? Colors.red : Colors.white54;
+      canvas.drawCircle(Offset(xOf(i), yOf(rec.rating)),
+          i == records.length - 1 ? 5 : 3, Paint()..color = dotColor);
+    }
+
+    // 最新値ラベル
+    final last = records.last;
+    final tp = TextPainter(
+      text: TextSpan(
+        text: '${last.rating}',
+        style: TextStyle(color: ratingToColor(last.rating), fontSize: 11, fontWeight: FontWeight.bold),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final lx = (xOf(records.length - 1) - tp.width / 2).clamp(0.0, size.width - tp.width);
+    tp.paint(canvas, Offset(lx, yOf(last.rating) - 16));
+
+    // 日付ラベル（最初・最後）
+    if (records.length > 1) {
+      _drawDateLabel(canvas, size, dates.first.toString().substring(0, 10), 0, 0);
+      _drawDateLabel(canvas, size, dates.last.toString().substring(0, 10), size.width, 1);
+    }
+  }
+
+  void _drawDateLabel(Canvas canvas, Size size, String label, double x, int align) {
+    final tp = TextPainter(
+      text: TextSpan(text: label, style: const TextStyle(color: Colors.white38, fontSize: 8)),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final dx = align == 0 ? x : x - tp.width;
+    tp.paint(canvas, Offset(dx.clamp(0, size.width - tp.width), size.height - tp.height));
+  }
+
+  @override
+  bool shouldRepaint(_TimeAxisGraphPainter old) => old.records != records;
 }
 
 // ── 勝率ドーナツグラフ ─────────────────────────────────────

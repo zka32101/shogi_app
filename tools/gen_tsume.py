@@ -23,6 +23,40 @@ BASE = {TO:FU,NY:KY,NK:KE,NG:GI,UM:KA,RY:HI}  # 成り前
 PROM = {FU:TO,KY:NY,KE:NK,GI:NG,KA:UM,HI:RY}  # 成り後
 PROM_SET = set(PROM)
 
+# 将棋標準の駒数上限（両者合計）
+_PIECE_MAX = {FU:18, KY:4, KE:4, GI:4, KI:4, KA:2, HI:2}
+
+def _valid_square(r, pt, pl):
+    """その段に置けるか（香・桂の後段制限）"""
+    if pt == KY: return not (pl == 1 and r == 0) and not (pl == 2 and r == 8)
+    if pt == KE: return not (pl == 1 and r <= 1) and not (pl == 2 and r >= 7)
+    return True
+
+def _valid_board_placement(b):
+    """盤面全駒の配置が合法か確認"""
+    for r in range(9):
+        for c in range(9):
+            sq = b[r][c]
+            if sq is None: continue
+            pl, pt = sq
+            if not _valid_square(r, pt, pl): return False
+    return True
+
+def _valid_piece_count(b, h1, h2):
+    """盤上＋両者持ち駒の基本駒数が標準ルール内か確認"""
+    c = {}
+    for row in b:
+        for sq in row:
+            if sq is None: continue
+            base = BASE.get(sq[1], sq[1])
+            if base == OU: continue
+            c[base] = c.get(base, 0) + 1
+    for h in (h1, h2):
+        for pt, n in h.items():
+            base = BASE.get(pt, pt)
+            c[base] = c.get(base, 0) + n
+    return all(c.get(pt, 0) <= maxn for pt, maxn in _PIECE_MAX.items())
+
 # ── 移動方向（P1視点: "前" = row-1）────────────────────────────────────────
 _K8 = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,-1),(1,0),(1,1)]
 _G6 = [(-1,-1),(-1,0),(-1,1),(0,-1),(0,1),(1,0)]
@@ -220,10 +254,19 @@ def solve(b, h1, h2, depth, pl, nc, limit=120_000):
         return None
 
 # ── ランダム局面生成 ─────────────────────────────────────────────────────────
-# P2玉の配置候補（端・角が詰ませやすい）
+# P2玉の配置候補（端・角・中段まで多様化）
+# 重み付けのため端・角は複数回登録
 _P2_KING_SPOTS = [
-    (0,0),(0,1),(0,2),(0,6),(0,7),(0,8),
-    (1,0),(1,8),(2,0),(2,8),
+    # 1段（最上段）
+    (0,0),(0,0),(0,1),(0,2),(0,6),(0,7),(0,8),(0,8),
+    # 2段
+    (1,0),(1,0),(1,8),(1,8),
+    # 3段
+    (2,0),(2,8),(2,4),
+    # 中段（3〜5段：多様性のため追加）
+    (3,0),(3,8),(3,4),
+    (4,0),(4,8),
+    (5,0),(5,8),
 ]
 
 def _gen_one(n_moves, rng):
@@ -237,21 +280,26 @@ def _gen_one(n_moves, rng):
         kr,kc = rng.choice(_P2_KING_SPOTS)
         b[kr][kc]=(2,OU); used.add((kr,kc))
 
-        # P1玉（遠い位置）
+        # P1玉（P2玉から遠い位置、かつ下段寄り）
         for _ in range(100):
-            p1kr=rng.randint(5,8); p1kc=rng.randint(0,8)
+            p1kr=rng.randint(max(kr+3,5),8); p1kc=rng.randint(0,8)
             if (p1kr,p1kc) not in used:
                 b[p1kr][p1kc]=(1,OU); used.add((p1kr,p1kc)); break
+        else:
+            for _ in range(100):
+                p1kr=rng.randint(5,8); p1kc=rng.randint(0,8)
+                if (p1kr,p1kc) not in used:
+                    b[p1kr][p1kc]=(1,OU); used.add((p1kr,p1kc)); break
 
-        # 手数ごとのパラメータ
+        # 手数ごとのパラメータ（飛/竜偏重を緩和）
         if n_moves==1:
-            pool=[HI,KI,KA,RY,UM,GI,HI,KI]  # 重み付け(重複=高確率)
+            pool=[KI,KA,GI,UM,RY,KE,KI,GI,KA,HI]  # 金銀角を増やし飛を抑制
             n_board=rng.randint(1,2); n_hand=rng.randint(0,1)
         elif n_moves==3:
-            pool=[HI,KI,GI,KA,RY,UM,KE,KI,GI,HI]
+            pool=[KI,GI,KA,UM,RY,KE,KI,GI,HI,KA]  # バランス化
             n_board=rng.randint(1,3); n_hand=rng.randint(0,2)
         else:  # 5手
-            pool=[HI,KI,GI,KA,RY,UM,KE,KY,FU,KI,GI,HI]
+            pool=[KI,GI,KA,RY,UM,KE,KY,FU,KI,GI,HI,KA]  # 幅広く
             n_board=rng.randint(2,4); n_hand=rng.randint(1,3)
 
         # P1攻め駒（盤上）
@@ -260,7 +308,7 @@ def _gen_one(n_moves, rng):
             for __ in range(60):
                 r=rng.randint(max(0,kr-3),min(8,kr+3))
                 c=rng.randint(max(0,kc-3),min(8,kc+3))
-                if (r,c) not in used:
+                if (r,c) not in used and _valid_square(r,pt,1):
                     b[r][c]=(1,pt); used.add((r,c)); break
 
         # P1持ち駒（成り駒は持ち駒に持てない）
@@ -276,13 +324,15 @@ def _gen_one(n_moves, rng):
             for __ in range(30):
                 r=rng.randint(max(0,kr-2),min(8,kr+2))
                 c=rng.randint(max(0,kc-2),min(8,kc+2))
-                if (r,c) not in used:
+                if (r,c) not in used and _valid_square(r,pt2,2):
                     b[r][c]=(2,pt2); used.add((r,c)); break
 
         # バリデーション
+        if not _valid_board_placement(b): continue  # 香・桂の配置不正 → 除外
         if in_check(b,2): continue      # 最初から王手 → 除外
         if in_check(b,1): continue      # P1が王手されている → 除外
         if not legal_moves(b,h1,h2,2): continue  # すでに詰んでいる → 除外
+        if not _valid_piece_count(b,h1,h2): continue  # 駒枚数が標準ルール違反 → 除外
 
         # 詰み探索
         nc=[0]
@@ -307,14 +357,30 @@ def hand_to_dict(h):
     """アプリの parseHand(Map<String,dynamic>) 形式に合わせる"""
     return {CSA[pt]: n for pt,n in h.items() if n>0}
 
-def move_to_dict(m):
-    fr,fc,tr,tc,_,drop = m
+def move_to_dict(m, cur_board=None):
+    fr,fc,tr,tc,prom,drop = m
     d = {'fr':fr,'fc':fc,'tr':tr,'tc':tc}
-    if drop is not None: d['drop']=CSA[drop]
+    if drop is not None:
+        csa_code = CSA[drop]
+        d['drop'] = csa_code
+        d['piece'] = csa_code
+    else:
+        if cur_board is not None and cur_board[fr][fc] is not None:
+            d['piece'] = CSA[cur_board[fr][fc][1]]
+        if prom:
+            d['promote'] = True
     return d
 
 def make_entry(b, h1, h2, sol, pid, n_moves):
     diff = '初級' if n_moves<=2 else ('中級' if n_moves<=4 else '上級')
+    sol_dicts = []
+    cb = [row[:] for row in b]
+    ch1, ch2 = h1.copy(), h2.copy()
+    mover = 1
+    for m in sol:
+        sol_dicts.append(move_to_dict(m, cb))
+        cb, ch1, ch2 = apply_move(cb, ch1, ch2, m, mover)
+        mover = 3 - mover
     return {
         'id':       pid,
         'title':    f'{n_moves}手詰め',
@@ -323,7 +389,8 @@ def make_entry(b, h1, h2, sol, pid, n_moves):
         'board':    board_to_flat(b),
         'p1Hand':   hand_to_dict(h1),
         'p2Hand':   hand_to_dict(h2),
-        'solution': [move_to_dict(m) for m in sol],
+        'solution': sol_dicts,
+        'explanation': f'{n_moves}手詰めです。連続王手で玉を逃がさず詰ましましょう。',
     }
 
 # ── メイン ──────────────────────────────────────────────────────────────────

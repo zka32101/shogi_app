@@ -116,6 +116,61 @@ class YaneuraouService {
     }
   }
 
+  /// 局面の評価値を取得（単位: cp セント）
+  /// 正=先手有利、負=後手有利
+  /// 例: 300cp = 先手が約3目良い
+  static Future<int?> evaluatePosition({
+    required List<List<Piece?>> board,
+    required Map<PieceType, int> p1Hand,
+    required Map<PieceType, int> p2Hand,
+    required bool p1Turn,
+    int depth = 10,
+  }) async {
+    if (!_isReady) {
+      final ok = await initialize();
+      if (!ok) return null;
+    }
+
+    final sfen = boardToSfen(board, p1Hand, p2Hand, p1Turn);
+
+    try {
+      // YaneuraOu に 'eval' コマンドで評価値を取得
+      final evalCompleter = Completer<int?>();
+      final messageListener = (html.MessageEvent e) {
+        final data = e.data;
+        if (data is Map && data['type'] == 'eval') {
+          final score = data['score'] as int?;
+          if (!evalCompleter.isCompleted) {
+            evalCompleter.complete(score);
+          }
+        }
+      };
+
+      _worker!.onMessage.listen(messageListener, onDone: () {
+        if (!evalCompleter.isCompleted) {
+          evalCompleter.complete(null);
+        }
+      });
+
+      _worker!.postMessage({
+        'type': 'eval',
+        'sfen': sfen,
+        'depth': depth,
+      });
+
+      return await evalCompleter.future.timeout(
+        Duration(seconds: 10),
+        onTimeout: () {
+          _worker?.postMessage({'type': 'stop'});
+          return null;
+        },
+      );
+    } catch (e) {
+      print('evaluatePosition error: $e');
+      return null;
+    }
+  }
+
   static String boardToSfen(
     List<List<Piece?>> board,
     Map<PieceType, int> p1Hand,

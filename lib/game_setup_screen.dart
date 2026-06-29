@@ -22,7 +22,6 @@ class GameSetupScreen extends StatefulWidget {
 
 class _GameSetupScreenState extends State<GameSetupScreen> {
   // ── 設定値 ──
-  AILevel _aiLevel = AILevel.easy;
   bool _aiIsP2 = true; // AI が後手か
   int? _timeLimitSec;
   int? _byoyomiSec;
@@ -52,7 +51,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   static const _timeLabels = ['なし', '3分', '5分', '10分', '15分', '30分'];
 
   static const _openingMoves = {
-    'shiken': [[6,2,5,2],[7,7,7,5],[2,1,3,1],[6,4,5,4]],
+    'shiken': [[6,2,5,2],[7,7,7,3],[2,1,3,1],[6,3,5,3]],
     'chuuhi': [[6,2,5,2],[7,7,7,4],[2,1,3,1],[2,7,3,7]],
     'bogin':  [[6,2,5,2],[6,7,5,7],[5,7,4,7],[2,1,3,1],[8,6,7,6],[2,6,3,6]],
     'yagura': [[6,2,5,2],[8,2,7,3],[7,3,6,2],[6,3,5,3],[2,1,3,1],[0,2,1,3]],
@@ -74,7 +73,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   Widget _openingSection() {
     const options = [
       ('none', '初期局面', '通常の初期配置'),
-      ('shiken', '四間飛車形', '飛車を4筋に振る'),
+      ('shiken', '四間飛車形', '飛車を6筋(6八)に振る'),
       ('chuuhi', '中飛車形', '飛車を5筋(中央)に'),
       ('bogin', '棒銀形', '銀を前線へ繰り出す'),
       ('yagura', '矢倉形', '銀・歩で矢倉の形'),
@@ -118,9 +117,10 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   }
 
   Future<void> _startGame() async {
+    final prefs = await SharedPreferences.getInstance();
+
     // ローカル対局の場合、無料プラン対戦5回制限をチェック
     if (widget.mode == GameMode.pvp && !PurchaseService.isPremium) {
-      final prefs = await SharedPreferences.getInstance();
       final today = DateTime.now().toIso8601String().substring(0, 10);
       final savedDate = prefs.getString('local_game_date') ?? '';
       int count = savedDate == today ? (prefs.getInt('local_game_count') ?? 0) : 0;
@@ -164,9 +164,13 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       await prefs.setInt('local_game_count', count + 1);
     }
 
+    // レーティングからAIレベルを自動決定
+    final currentRating = prefs.getInt('rating_current') ?? 700;
+    final autoAiLevel = autoAiLevelFromRating(currentRating);
+
     final settings = GameSettings(
       mode: widget.mode,
-      aiLevel: _aiLevel,
+      aiLevel: autoAiLevel,
       aiIsP2: _aiIsP2,
       timeLimitSec: _timeLimitSec,
       byoyomiSec: _byoyomiSec,
@@ -221,16 +225,9 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // ── AI 難易度セクション ──────────────────
+                // ── AI 自動適応 ──────────────────
                 if (isVsAI) ...[
-                  _sectionHeader(Icons.computer, 'AI難易度'),
-                  const SizedBox(height: 10),
-                  _aiLevelSection(),
-                  const SizedBox(height: 6),
-                  Text(
-                    _aiLevel.rankDesc,
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
-                  ),
+                  _autoAiInfoBanner(),
                   const SizedBox(height: 16),
                   _sectionHeader(Icons.swap_horiz, 'AIの担当'),
                   const SizedBox(height: 10),
@@ -248,11 +245,6 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                       onChanged: (v) => setState(() => _aiRated = v),
                     ),
                   ]),
-                  const SizedBox(height: 20),
-                  // ── 変則将棋（vsAI） ──────────────────
-                  _sectionHeader(Icons.auto_awesome, '変則ルール'),
-                  const SizedBox(height: 10),
-                  _variantSection(),
                   const SizedBox(height: 20),
                   // ── 囲いガイドモード ──────────────────
                   _sectionHeader(Icons.castle, '囲いガイドモード'),
@@ -279,20 +271,8 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 ],
 
                 // ── pvp 専用セクション ──────────────────
-                if (!isVsAI) ...[
-                  // 駒落ち
-                  _sectionHeader(Icons.layers_outlined, '駒落ち'),
-                  const SizedBox(height: 10),
-                  _handicapSection(),
-                  const SizedBox(height: 10),
-                  _handicapPreview(),
-                  const SizedBox(height: 20),
-                  // 変則将棋（pvp）
-                  _sectionHeader(Icons.auto_awesome, '変則ルール'),
-                  const SizedBox(height: 10),
-                  _variantSection(),
-                  const SizedBox(height: 20),
-                ],
+                // 変則将棋・駒落ちは一時無効（近日公開）
+
 
                 // ── 共通: オープニング局面 ──────────────────
                 _sectionHeader(Icons.play_circle_outline, 'オープニング局面'),
@@ -345,68 +325,41 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     );
   }
 
-  // ── AI難易度カード ──────────────────────────────────────
-  // 弱い順に並べた表示用リスト
-  static const _aiLevelOrder = [
-    AILevel.random,
-    AILevel.beginner,
-    AILevel.easy,
-    AILevel.elementary,
-    AILevel.medium,
-    AILevel.upperMedium,
-    AILevel.hard,
-    AILevel.expert,
-  ];
-
-  Widget _aiLevelSection() {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _aiLevelOrder.map((lv) {
-        final sel = _aiLevel == lv;
-        return GestureDetector(
-          onTap: () => setState(() => _aiLevel = lv),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-            decoration: BoxDecoration(
-              color: sel ? Colors.brown.shade800 : const Color(0xFF16213E),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: sel ? Colors.amber : Colors.white24,
-                width: sel ? 2 : 1,
-              ),
-              boxShadow: sel
-                  ? [BoxShadow(color: Colors.amber.withAlpha(60), blurRadius: 6)]
-                  : null,
-            ),
+  // ── AI自動適応バナー ──────────────────────────────────────
+  Widget _autoAiInfoBanner() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF16213E),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.withAlpha(80)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, color: Colors.amber, size: 28),
+          const SizedBox(width: 12),
+          const Expanded(
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  lv.rankLabel,
+                  'AIはあなたの棋力に自動調整',
                   style: TextStyle(
-                    color: sel ? Colors.amber : Colors.white70,
-                    fontSize: 14,
+                    color: Colors.amber,
+                    fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                const SizedBox(height: 2),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: List.generate(4, (i) => Icon(
-                    i * 2 < lv.stars ? Icons.star : Icons.star_border,
-                    size: 9,
-                    color: sel
-                        ? Colors.amber.withAlpha(i * 2 < lv.stars ? 220 : 80)
-                        : Colors.white38.withAlpha(i * 2 < lv.stars ? 160 : 60),
-                  )),
+                SizedBox(height: 2),
+                Text(
+                  '現在のレーティングに合わせたAIと対局します',
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
                 ),
               ],
             ),
           ),
-        );
-      }).toList(),
+        ],
+      ),
     );
   }
 

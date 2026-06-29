@@ -3,7 +3,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import '../models/user_profile.dart';
 import '../models/match.dart';
 import '../models/report.dart';
@@ -34,10 +34,17 @@ class NetworkService {
   // ── ユーザー認証 ────────────────────────────
   Future<bool> initFirebase() async {
     try {
-      await Firebase.initializeApp();
+      // Firebase.initializeApp() は main.dart で実行済み
+      if (_auth.currentUser == null) {
+        await _auth.signInAnonymously()
+            .timeout(const Duration(seconds: 5));
+        print('Anonymous sign-in successful: ${_auth.currentUser?.uid}');
+      } else {
+        print('Already signed in: ${_auth.currentUser?.uid}');
+      }
       return true;
     } catch (e) {
-      print('Firebase init error: $e');
+      print('Firebase initFirebase error: $e');
       return false;
     }
   }
@@ -152,28 +159,21 @@ class NetworkService {
     String? winnerId,
     String result,
   ) async {
+    // RTDBを先に更新（必須: MatchScreenのboardStreamが終了を検知する）
+    await FirebaseDatabase.instance.ref('games/$matchId').update({
+      'status':    'finished',
+      'winner_id': winnerId,
+      'result':    result,
+    });
+    // Firestoreへの更新（オプション: 認証エラー時はスキップ）
     try {
-      // Firestoreの対局ステータスを更新するだけ
-      // ELO計算はCloud Functions (onMatchFinished) が自動実行
       await _firestore.collection('matches').doc(matchId).update({
         'status':      'finished',
         'winner_id':   winnerId,
         'result':      result,
         'finished_at': FieldValue.serverTimestamp(),
       });
-
-      // 非同期: 実績・デイリーチャレンジ更新（fire-and-forget）
-      Future.microtask(() async {
-        try {
-          final prefs = await SharedPreferences.getInstance();
-          // バッジ・実績はローカルで処理
-          final _ = prefs; // 将来の実装用
-        } catch (_) {}
-      });
-    } catch (e) {
-      // フォールバック: Firestoreへの書き込みが失敗した場合
-      rethrow;
-    }
+    } catch (_) {}
   }
 
   // ── 報告機能 ────────────────────────────
@@ -363,6 +363,73 @@ class NetworkService {
       }
     } catch (e) {
       print('Unban user error: $e');
+    }
+  }
+
+  // ── ブロック機能 ────────────────────────────────────────────
+
+  /// 指定ユーザーをブロック（Firestore の blocked_users サブコレクションに保存）
+  Future<void> blockUser(String targetUserId) async {
+    final me = currentUser;
+    if (me == null) return;
+    try {
+      await _firestore
+          .collection('users')
+          .doc(me.uid)
+          .collection('blocked_users')
+          .doc(targetUserId)
+          .set({'blocked_at': FieldValue.serverTimestamp()});
+    } catch (e) {
+      print('Block user error: $e');
+    }
+  }
+
+  /// ブロック解除
+  Future<void> unblockUser(String targetUserId) async {
+    final me = currentUser;
+    if (me == null) return;
+    try {
+      await _firestore
+          .collection('users')
+          .doc(me.uid)
+          .collection('blocked_users')
+          .doc(targetUserId)
+          .delete();
+    } catch (e) {
+      print('Unblock user error: $e');
+    }
+  }
+
+  /// ブロック済みかどうかを確認
+  Future<bool> isBlocked(String targetUserId) async {
+    final me = currentUser;
+    if (me == null) return false;
+    try {
+      final doc = await _firestore
+          .collection('users')
+          .doc(me.uid)
+          .collection('blocked_users')
+          .doc(targetUserId)
+          .get();
+      return doc.exists;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// ブロック済みユーザー一覧を取得
+  Future<List<String>> getBlockedUserIds() async {
+    final me = currentUser;
+    if (me == null) return [];
+    try {
+      final snap = await _firestore
+          .collection('users')
+          .doc(me.uid)
+          .collection('blocked_users')
+          .get();
+      return snap.docs.map((d) => d.id).toList();
+    } catch (e) {
+      return [];
     }
   }
 

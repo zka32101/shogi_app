@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'utils/shogi_data_validator.dart';
 
 enum _Difficulty { beginner, intermediate, advanced }
 
@@ -42,6 +43,15 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
   _Difficulty? _selectedDifficulty;
   String? _selectedSource;
 
+  // 検証用の主要将棋サイト
+  static const _verificationSources = {
+    'elmo': 'https://www.elmo.fun/',
+    '将棋DB2': 'https://www2.aoba.c.u-tokyo.ac.jp/shogi/',
+    'ニコニコ将棋': 'https://www.nicovideo.jp/tag/%E5%B0%86%E6%A3%8B',
+    '棋譜ぐんぐん': 'https://kifu.gg/',
+    '将棋連盟': 'https://www.jsa.or.jp/',
+  };
+
   List<Map<String, dynamic>> get _strategies => [
     // 既存戦法
     {
@@ -66,41 +76,41 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
     },
     {
       'name': '四間飛車（先手）',
-      'description': '先手が飛車を4筋（4八）に移動させる振飛車。バランスが良い基本の戦法。',
+      'description': '先手が飛車を6筋（6八）に振る基本の振飛車。玉を右の美濃囲いに収め、攻守のバランスが良い。',
       'memo': '攻守バランスが良く、多くの対局で見られる振飛車の代表格です。',
       'difficulty': _Difficulty.intermediate,
       'sourceTitle': '',
       'boardBuilder': () => _shikenbishaBoard(),
-      'highlights': const {(7, 5)},
+      'highlights': const {(7, 3)},
     },
     {
       'name': '四間飛車（後手）',
-      'description': '後手が飛車を6二に振る四間飛車。先手と左右が逆になります。',
+      'description': '後手が飛車を4二に振る四間飛車。先手の6八と左右が逆になります。',
       'memo': '後手番での振飛車は居飛車穴熊対策として有力です。',
       'difficulty': _Difficulty.intermediate,
       'sourceTitle': '',
       'boardBuilder': () => _shikenbishaLeftBoard(),
-      'highlights': const {(1, 3)},
+      'highlights': const {(1, 5)},
     },
     {
       'name': '三間飛車（先手）',
-      'description': '飛車を3筋（3八）に移動させる戦法。攻撃的なスタイルが特徴。',
+      'description': '飛車を7筋（7八）に振る戦法。攻撃的なスタイルが特徴で、石田流にも発展する。',
       'memo': '急戦もできる攻撃的な振飛車です。',
       'difficulty': _Difficulty.intermediate,
       'sourceTitle': '将棋研究',
       'sourceUrl': 'https://www.shougi.jp/learn/strategy/',
       'boardBuilder': () => _sankenbishaBoard(),
-      'highlights': const {(7, 6)},
+      'highlights': const {(7, 2)},
     },
     {
       'name': '三間飛車（後手）',
-      'description': '後手が飛車を7二に振る三間飛車。石田流など多彩な変化があります。',
+      'description': '後手が飛車を3二に振る三間飛車。石田流など多彩な変化があります。',
       'memo': '石田流三間飛車は積極的な攻めが持ち味です。',
       'difficulty': _Difficulty.intermediate,
       'sourceTitle': '将棋研究',
       'sourceUrl': 'https://www.shougi.jp/learn/strategy/',
       'boardBuilder': () => _sankenbishaLeftBoard(),
-      'highlights': const {(1, 2)},
+      'highlights': const {(1, 6)},
     },
     // 新規戦法
     {
@@ -115,12 +125,12 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
     },
     {
       'name': '相振飛車',
-      'description': '先手も後手も飛車を振る珍しい戦法。どちらが優位になるか未知数。',
+      'description': '先手も後手も飛車を振る戦法。ここでは両者が三間飛車に構えた形。',
       'memo': '振飛車同士の対抗形は独特の魅力があります。',
       'difficulty': _Difficulty.intermediate,
       'sourceTitle': '',
       'boardBuilder': () => _aivibrBoard(),
-      'highlights': const {(1, 3), (7, 5)},
+      'highlights': const {(1, 6), (7, 2)},
     },
     {
       'name': '中飛車',
@@ -150,7 +160,37 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
       'sourceTitle': '将棋研究',
       'sourceUrl': 'https://www.shougi.jp/learn/strategy/',
       'boardBuilder': () => _ishidaryuBoard(),
-      'highlights': const {(7, 6), (6, 5)},
+      'highlights': const {(5, 2), (4, 2)},
+    },
+    {
+      'name': '向かい飛車',
+      'description': '飛車を8筋（8八）に振り、相手の飛車と正面から向かい合う振り飛車。角を7七に上がってから振るのがコツ。',
+      'memo': '相手の飛車先を直接受け止め、8筋での殴り合いを狙う個性的な戦法です。',
+      'difficulty': _Difficulty.intermediate,
+      'sourceTitle': '将棋研究',
+      'sourceUrl': 'https://www.shougi.jp/learn/strategy/',
+      'boardBuilder': () => _mukaibishaBoard(),
+      'highlights': const {(7, 1)},
+    },
+    {
+      'name': '棒銀',
+      'description': '飛車先の歩を伸ばし、銀を2七→2六と真っ直ぐ繰り出して相手の飛車先を突破する居飛車の基本戦法。',
+      'memo': '攻め方が分かりやすく、初心者が最初に覚える攻撃戦法として最適です。',
+      'difficulty': _Difficulty.beginner,
+      'sourceTitle': '将棋講座.com',
+      'sourceUrl': 'https://xn--pet04dr1n5x9a.com/strategy/',
+      'boardBuilder': () => _boginBoard(),
+      'highlights': const {(6, 7)},
+    },
+    {
+      'name': '右四間飛車',
+      'description': '居飛車のまま飛車を4筋（4八）に据え、玉の反対側の4筋から一気に攻める戦法。振り飛車の四間（6八）とは別物。',
+      'memo': '攻撃力が高く、対振り飛車・対矢倉どちらでも使える人気の急戦策です。',
+      'difficulty': _Difficulty.intermediate,
+      'sourceTitle': '将棋研究',
+      'sourceUrl': 'https://www.shougi.jp/learn/strategy/',
+      'boardBuilder': () => _migishikenBoard(),
+      'highlights': const {(7, 5)},
     },
   ];
 
@@ -213,52 +253,53 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
   }
 
   List<List<Piece?>> _yokofuBoard() {
-    // 横歩取り: 後手の3四歩を先手飛車が取りに行く
+    // 横歩取り: 後手の3四歩を先手飛車が3四で取った形（▲3四飛）
     final b = _baseBoard();
-    b[6][2] = null; // 先手3六歩を突く
-    b[3][2] = null; // 後手3四歩
+    b[2][6] = null;                              // 後手3筋歩は3四へ進み飛車に取られて消える
+    b[7][7] = null;                              // 先手飛車を2八から移動
+    b[3][6] = const Piece(PieceType.rook, true); // ▲3四飛（横歩を取った形）
     return b;
   }
 
   List<List<Piece?>> _shikenbishaLeftBoard() {
-    // 左四間飛車: 後手から見た四間飛車（後手が6二へ）
+    // 四間飛車(後手): 後手飛車を4二 (row=1, col=5) へ振る
     final b = _baseBoard();
-    b[1][1] = null; // 後手飛車を移動
-    b[1][3] = const Piece(PieceType.rook, false); // 後手6二へ
+    b[1][1] = null;                               // 後手飛車を8二から移動
+    b[1][5] = const Piece(PieceType.rook, false); // 後手4二へ
     return b;
   }
 
   List<List<Piece?>> _sankenbishaLeftBoard() {
-    // 左三間飛車: 後手が7二へ
+    // 三間飛車(後手): 後手飛車を3二 (row=1, col=6) へ振る
     final b = _baseBoard();
     b[1][1] = null;
-    b[1][2] = const Piece(PieceType.rook, false); // 後手7二へ
+    b[1][6] = const Piece(PieceType.rook, false); // 後手3二へ
     return b;
   }
 
   List<List<Piece?>> _shikenbishaBoard() {
-    // 四間飛車: 先手飛車を4八 (row=7, col=5) に移動
+    // 四間飛車: 先手飛車を6八 (row=7, col=3) に振る
     final b = _baseBoard();
     b[7][7] = null;                                    // 2八から飛車を除去
-    b[7][5] = const Piece(PieceType.rook, true);       // 4八に飛車
+    b[7][3] = const Piece(PieceType.rook, true);       // 6八に飛車
     return b;
   }
 
   List<List<Piece?>> _sankenbishaBoard() {
-    // 三間飛車: 先手飛車を3八 (row=7, col=6) に移動
+    // 三間飛車: 先手飛車を7八 (row=7, col=2) に振る
     final b = _baseBoard();
     b[7][7] = null;                                    // 2八から飛車を除去
-    b[7][6] = const Piece(PieceType.rook, true);       // 3八に飛車
+    b[7][2] = const Piece(PieceType.rook, true);       // 7八に飛車
     return b;
   }
 
   List<List<Piece?>> _aivibrBoard() {
-    // 相振飛車: 先手も後手も飛車を振る
+    // 相振飛車: 先手も後手も三間飛車に振った形
     final b = _baseBoard();
     b[1][1] = null;
-    b[1][3] = const Piece(PieceType.rook, false); // 後手6二へ
+    b[1][6] = const Piece(PieceType.rook, false); // 後手3二へ（三間）
     b[7][7] = null;
-    b[7][5] = const Piece(PieceType.rook, true);  // 先手4八へ
+    b[7][2] = const Piece(PieceType.rook, true);  // 先手7八へ（三間）
     return b;
   }
 
@@ -276,12 +317,40 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
   }
 
   List<List<Piece?>> _ishidaryuBoard() {
-    // 石田流: 三間飛車の一種で、歩を6五に突く準備
+    // 石田流: 三間飛車から飛車を7六に浮き、7五歩を突いた本組の形
     final b = _baseBoard();
-    b[7][7] = null;
-    b[7][6] = const Piece(PieceType.rook, true); // 3八に飛車
-    b[6][5] = null; // 6五歩を突く
-    b[3][5] = const Piece(PieceType.pawn, true);
+    b[7][7] = null;                              // 飛車を2八から移動
+    b[6][2] = null;                              // 7七歩は7五まで伸びる
+    b[4][2] = const Piece(PieceType.pawn, true); // ▲7五歩
+    b[5][2] = const Piece(PieceType.rook, true); // ▲7六飛（浮き飛車）
+    return b;
+  }
+
+  List<List<Piece?>> _mukaibishaBoard() {
+    // 向かい飛車: 角を7七に上がってから飛車を8八(8筋)に振る
+    final b = _baseBoard();
+    b[7][1] = null;                                 // 角を8八から移動
+    b[6][2] = const Piece(PieceType.bishop, true);  // ▲7七角（8八を空ける）
+    b[7][7] = null;                                 // 飛車を2八から移動
+    b[7][1] = const Piece(PieceType.rook, true);    // ▲8八飛（向かい飛車）
+    return b;
+  }
+
+  List<List<Piece?>> _boginBoard() {
+    // 棒銀: 飛車先の歩を伸ばし、右銀を2七へ繰り出した居飛車の攻め形
+    final b = _baseBoard();
+    b[6][7] = null;                                 // 2七歩を2六へ
+    b[5][7] = const Piece(PieceType.pawn, true);    // ▲2六歩
+    b[8][6] = null;                                 // 3九銀を繰り出す
+    b[6][7] = const Piece(PieceType.silver, true);  // ▲2七銀（棒銀）
+    return b;
+  }
+
+  List<List<Piece?>> _migishikenBoard() {
+    // 右四間飛車: 居飛車のまま飛車を4八(右の4筋)に据えて4筋から攻める
+    final b = _baseBoard();
+    b[7][7] = null;                                 // 2八から飛車を移動
+    b[7][5] = const Piece(PieceType.rook, true);    // ▲4八飛（右四間飛車）
     return b;
   }
 
@@ -644,8 +713,98 @@ class _DetailedStrategy extends StatelessWidget {
                 ),
               ),
             ),
+            const SizedBox(height: 12),
+            // 盤面検証ボタン
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () => _showValidationResult(context),
+                icon: const Icon(Icons.check_circle_outline),
+                label: const Text('盤面を検証'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
           ],
         ),
+      ),
+    );
+  }
+
+  void _showValidationResult(BuildContext context) {
+    final result = ShogiDataValidator.validateBoardData(board);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF1A1A2E),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Row(
+          children: [
+            Icon(
+              result.isValid ? Icons.check_circle : Icons.error_outline,
+              color: result.isValid ? Colors.green : Colors.red,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              '盤面検証結果',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                result.summary,
+                style: TextStyle(
+                  color: result.isValid ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              if (result.p1PieceCount != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  '駒数: 先手 ${result.p1PieceCount}枚 / 後手 ${result.p2PieceCount}枚',
+                  style: const TextStyle(color: Colors.white70, fontSize: 13),
+                ),
+              ],
+              if (result.errors.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text(
+                  'エラー内容:',
+                  style: const TextStyle(
+                    color: Colors.orange,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                ...result.errors.map((e) => Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    '• $e',
+                    style: const TextStyle(color: Colors.red, fontSize: 11),
+                  ),
+                )),
+              ],
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('閉じる', style: TextStyle(color: Colors.cyan)),
+          ),
+        ],
       ),
     );
   }

@@ -1,14 +1,14 @@
 // lib/services/chat_service.dart
-// 対局中チャット + 定型文メッセージ
+// 対局中チャット + 定型文メッセージ（RTDB版：低遅延・Firestoreルール不要）
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class ChatMessage {
   final String id;
   final String senderId;
   final String senderName;
   final String text;
-  final bool isPreset; // 定型文かどうか
+  final bool isPreset;
   final DateTime sentAt;
 
   ChatMessage({
@@ -26,18 +26,18 @@ class ChatMessage {
         'sender_name': senderName,
         'text': text,
         'is_preset': isPreset,
-        'sent_at': sentAt,
+        'sent_at': sentAt.millisecondsSinceEpoch,
       };
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json) => ChatMessage(
-        id: json['id'] as String,
-        senderId: json['sender_id'] as String,
-        senderName: json['sender_name'] as String,
-        text: json['text'] as String,
+  factory ChatMessage.fromJson(String id, Map<dynamic, dynamic> json) =>
+      ChatMessage(
+        id: id,
+        senderId: json['sender_id'] as String? ?? '',
+        senderName: json['sender_name'] as String? ?? '?',
+        text: json['text'] as String? ?? '',
         isPreset: json['is_preset'] as bool? ?? false,
-        sentAt: json['sent_at'] is Timestamp
-            ? (json['sent_at'] as Timestamp).toDate()
-            : DateTime.parse(json['sent_at'].toString()),
+        sentAt: DateTime.fromMillisecondsSinceEpoch(
+            json['sent_at'] as int? ?? 0),
       );
 }
 
@@ -46,9 +46,8 @@ class ChatService {
   factory ChatService() => _instance;
   ChatService._internal();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseDatabase _rtdb = FirebaseDatabase.instance;
 
-  // 定型文リスト（将棋の礼儀・対局中のコミュニケーション）
   static const List<String> presetMessages = [
     'よろしくお願いします🙇',
     'ありがとうございました🙏',
@@ -60,81 +59,54 @@ class ChatService {
     '参りました🙇',
   ];
 
-  // ── メッセージ送信 ────────────────────────────
+  DatabaseReference _chatRef(String matchId) =>
+      _rtdb.ref('games/$matchId/chat');
 
-  Future<void> sendMessage({
-    required String matchId,
-    required String senderId,
-    required String senderName,
-    required String text,
-    bool isPreset = false,
-  }) async {
-    try {
-      // チャットは1マッチ100件まで（スパム防止）
-      final count = await _getMessageCount(matchId);
-      if (count >= 100) return;
-
-      final ref = _firestore
-          .collection('matches')
-          .doc(matchId)
-          .collection('chat')
-          .doc();
-
-      final msg = ChatMessage(
-        id: ref.id,
-        senderId: senderId,
-        senderName: senderName,
-        text: text,
-        isPreset: isPreset,
-        sentAt: DateTime.now(),
-      );
-
-      await ref.set(msg.toJson());
-    } catch (e) {
-      print('Send message error: $e');
-    }
-  }
+  // ── 対局中チャット（RTDB） ──────────────────────────────
 
   Future<void> sendPresetMessage({
     required String matchId,
     required String senderId,
     required String senderName,
     required String presetText,
-  }) =>
-      sendMessage(
-        matchId: matchId,
-        senderId: senderId,
-        senderName: senderName,
-        text: presetText,
-        isPreset: true,
-      );
-
-  // ── メッセージ取得 ────────────────────────────
+  }) async {
+    try {
+      final ref = _chatRef(matchId).push();
+      await ref.set({
+        'id': ref.key,
+        'sender_id': senderId,
+        'sender_name': senderName,
+        'text': presetText,
+        'is_preset': true,
+        'sent_at': ServerValue.timestamp,
+      });
+    } catch (e) {
+      print('Send preset message error: $e');
+    }
+  }
 
   Stream<List<ChatMessage>> watchMessages(String matchId) {
-    return _firestore
-        .collection('matches')
-        .doc(matchId)
-        .collection('chat')
-        .orderBy('sent_at', descending: false)
-        .limit(100)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => ChatMessage.fromJson(d.data()))
-            .toList());
+    return _chatRef(matchId).onValue.map((event) {
+      final raw = event.snapshot.value;
+      if (raw == null) return <ChatMessage>[];
+      try {
+        final map = Map<dynamic, dynamic>.from(raw as Map);
+        final entries = map.entries.toList()
+          ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+        return entries.map((e) {
+          final data = Map<dynamic, dynamic>.from(e.value as Map);
+          return ChatMessage.fromJson(e.key.toString(), data);
+        }).toList();
+      } catch (_) {
+        return <ChatMessage>[];
+      }
+    });
   }
 
-  Future<int> _getMessageCount(String matchId) async {
-    final snap = await _firestore
-        .collection('matches')
-        .doc(matchId)
-        .collection('chat')
-        .count()
-        .get();
-    return snap.count ?? 0;
-  }
+  // ── 感想戦チャット（RTDB） ──────────────────────────────
 
-  // ── 対局後チャット（観戦・感想戦） ────────────────────────────
+  DatabaseReference _postChatRef(String matchId) =>
+      _rtdb.ref('games/$matchId/post_chat');
 
   Future<void> sendPostMatchMessage({
     required String matchId,
@@ -143,18 +115,14 @@ class ChatService {
     required String text,
   }) async {
     try {
-      final ref = _firestore
-          .collection('matches')
-          .doc(matchId)
-          .collection('post_chat')
-          .doc();
-
+      final ref = _postChatRef(matchId).push();
       await ref.set({
-        'id': ref.id,
+        'id': ref.key,
         'sender_id': senderId,
         'sender_name': senderName,
         'text': text,
-        'sent_at': DateTime.now(),
+        'is_preset': false,
+        'sent_at': ServerValue.timestamp,
       });
     } catch (e) {
       print('Send post match message error: $e');
@@ -162,15 +130,20 @@ class ChatService {
   }
 
   Stream<List<ChatMessage>> watchPostMatchMessages(String matchId) {
-    return _firestore
-        .collection('matches')
-        .doc(matchId)
-        .collection('post_chat')
-        .orderBy('sent_at', descending: false)
-        .limit(50)
-        .snapshots()
-        .map((snap) => snap.docs
-            .map((d) => ChatMessage.fromJson(d.data()))
-            .toList());
+    return _postChatRef(matchId).onValue.map((event) {
+      final raw = event.snapshot.value;
+      if (raw == null) return <ChatMessage>[];
+      try {
+        final map = Map<dynamic, dynamic>.from(raw as Map);
+        final entries = map.entries.toList()
+          ..sort((a, b) => a.key.toString().compareTo(b.key.toString()));
+        return entries.map((e) {
+          final data = Map<dynamic, dynamic>.from(e.value as Map);
+          return ChatMessage.fromJson(e.key.toString(), data);
+        }).toList();
+      } catch (_) {
+        return <ChatMessage>[];
+      }
+    });
   }
 }

@@ -1,9 +1,17 @@
 {
   "rules": {
+    "matchmaking": {
+      ".read": true,
+      ".write": true
+    },
+    "rooms": {
+      ".read": true,
+      ".write": true
+    },
     "games": {
       "$matchId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": true,
+        ".write": true
       }
     }
   }

@@ -400,19 +400,40 @@ const _val = {
 
 // ===== 千日手・持将棋判定 =====
 class RepetitionChecker {
-  // 局面ハッシュ → 出現回数
   final Map<String, int> _posCount = {};
+  // 局面ハッシュ → その局面で手番プレイヤーが王手されていたか（初回記録時）
+  final Map<String, bool> _posInCheck = {};
 
-  /// 現局面のハッシュを生成して記録し、千日手かどうかを返す
+  /// 現局面を記録し、千日手かどうかを返す。
+  /// [p1Turn] は次に指す手番（移動後の状態に対して呼ぶこと）。
   bool record(List<List<Piece?>> board, Map<PieceType, int> p1Hand,
       Map<PieceType, int> p2Hand, bool p1Turn) {
     final hash = _hash(board, p1Hand, p2Hand, p1Turn);
+    // 初回訪問時に王手状態を記録
+    if (!_posInCheck.containsKey(hash)) {
+      _posInCheck[hash] = inCheck(board, p1Turn);
+    }
     final count = (_posCount[hash] ?? 0) + 1;
     _posCount[hash] = count;
-    return count >= 4; // 4回同一局面 = 千日手
+    return count >= 4;
   }
 
-  void reset() => _posCount.clear();
+  /// 4回目の繰り返しが「連続王手による千日手」かどうかを返す。
+  /// true の場合、手番プレイヤー（p1Turn 側）に王手をかけ続けた相手が負け。
+  bool isConsecutiveCheck(List<List<Piece?>> board, Map<PieceType, int> p1Hand,
+      Map<PieceType, int> p2Hand, bool p1Turn) {
+    final hash = _hash(board, p1Hand, p2Hand, p1Turn);
+    return _posInCheck[hash] ?? false;
+  }
+
+  void reset() {
+    _posCount.clear();
+    _posInCheck.clear();
+  }
+
+  // 現局面で p1Turn 側が王手されているか（inCheck の static wrapper）
+  static bool inCheck(List<List<Piece?>> board, bool p1Turn) =>
+      GL.inCheck(board, p1Turn);
 
   static String _hash(List<List<Piece?>> board, Map<PieceType, int> p1Hand,
       Map<PieceType, int> p2Hand, bool p1Turn) {
@@ -424,7 +445,6 @@ class RepetitionChecker {
         buf.write(p == null ? '.' : '${p.isPlayer1 ? "P" : "p"}${p.type.index}');
       }
     }
-    // 持ち駒
     for (final e in p1Hand.entries) buf.write('H${e.key.index}=${e.value}');
     buf.write('|');
     for (final e in p2Hand.entries) buf.write('h${e.key.index}=${e.value}');

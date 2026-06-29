@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/club_service.dart';
 import '../services/network_service.dart';
+import '../theme/app_theme.dart';
 
 class ClubScreen extends StatefulWidget {
   const ClubScreen({super.key});
@@ -34,10 +35,10 @@ class _ClubScreenState extends State<ClubScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('クラブ', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('クラブ', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
@@ -78,15 +79,15 @@ class _ClubScreenState extends State<ClubScreen>
       context: context,
       builder: (_) => StatefulBuilder(
         builder: (ctx, setDlgState) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
-          title: const Text('クラブを作成', style: TextStyle(color: Colors.white)),
+          backgroundColor: AppTheme.surface,
+          title: const Text('クラブを作成', style: TextStyle(color: AppTheme.textHigh)),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameCtrl,
                 maxLength: 24,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppTheme.textHigh),
                 decoration: const InputDecoration(
                   labelText: 'クラブ名 *',
                   labelStyle: TextStyle(color: Colors.white54),
@@ -99,7 +100,7 @@ class _ClubScreenState extends State<ClubScreen>
                 controller: descCtrl,
                 maxLength: 100,
                 maxLines: 2,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppTheme.textHigh),
                 decoration: const InputDecoration(
                   labelText: '説明',
                   labelStyle: TextStyle(color: Colors.white54),
@@ -110,7 +111,7 @@ class _ClubScreenState extends State<ClubScreen>
               ),
               const SizedBox(height: 8),
               Row(children: [
-                const Text('公開クラブ', style: TextStyle(color: Colors.white70)),
+                const Text('公開クラブ', style: TextStyle(color: AppTheme.textMid)),
                 const Spacer(),
                 Switch(
                   value: isPublic,
@@ -268,7 +269,7 @@ class _ClubTile extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 8),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.grey.shade900,
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isMine ? Colors.amber.withAlpha(80) : Colors.white12,
@@ -287,7 +288,7 @@ class _ClubTile extends StatelessWidget {
               child: Text(
                 club.name.isNotEmpty ? club.name[0] : '?',
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textHigh,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -304,7 +305,7 @@ class _ClubTile extends StatelessWidget {
                     child: Text(
                       club.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
                       ),
@@ -327,14 +328,14 @@ class _ClubTile extends StatelessWidget {
                   const SizedBox(width: 3),
                   Text(
                     '${club.memberCount}人',
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    style: const TextStyle(color: AppTheme.textLow, fontSize: 11),
                   ),
                   const SizedBox(width: 10),
                   const Icon(Icons.military_tech, color: Colors.white38, size: 13),
                   const SizedBox(width: 3),
                   Text(
                     '平均${club.avgRating}',
-                    style: const TextStyle(color: Colors.white38, fontSize: 11),
+                    style: const TextStyle(color: AppTheme.textLow, fontSize: 11),
                   ),
                 ]),
               ],
@@ -380,10 +381,10 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
     final isOwner = widget.club.ownerId == myUid;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: Text(widget.club.name, style: const TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: Text(widget.club.name, style: const TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           if (_isMember && !isOwner)
@@ -398,7 +399,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
           // ヘッダー
           Container(
             padding: const EdgeInsets.all(16),
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             child: Row(children: [
               Container(
                 width: 56,
@@ -411,7 +412,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
                   child: Text(
                     widget.club.name.isNotEmpty ? widget.club.name[0] : '?',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppTheme.textHigh,
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                     ),
@@ -426,7 +427,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
                     Text(
                       widget.club.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -472,7 +473,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
               child: Text(
                 'メンバー',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: AppTheme.textMid,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1,
@@ -525,11 +526,11 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('退会確認', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('退会確認', style: TextStyle(color: AppTheme.textHigh)),
         content: Text(
           '${widget.club.name} を退会しますか？',
-          style: const TextStyle(color: Colors.white70),
+          style: const TextStyle(color: AppTheme.textMid),
         ),
         actions: [
           TextButton(
@@ -538,7 +539,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
             child: const Text('退会'),
           ),
         ],
@@ -610,7 +611,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
       // 投稿フォーム
       Container(
         padding: const EdgeInsets.all(12),
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         child: Row(children: [
           Expanded(
             child: TextField(
@@ -618,13 +619,13 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
               maxLength: 200,
               maxLines: 2,
               minLines: 1,
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppTheme.textHigh),
               decoration: InputDecoration(
                 hintText: '掲示板に投稿...',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: const TextStyle(color: AppTheme.textLow),
                 counterStyle: const TextStyle(color: Colors.white24),
                 filled: true,
-                fillColor: Colors.grey.shade900,
+                fillColor: AppTheme.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide.none,
@@ -656,7 +657,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                   children: [
                     Icon(Icons.forum, color: Colors.white24, size: 48),
                     SizedBox(height: 12),
-                    Text('まだ投稿がありません', style: TextStyle(color: Colors.white38)),
+                    Text('まだ投稿がありません', style: TextStyle(color: AppTheme.textLow)),
                   ],
                 ),
               );
@@ -677,7 +678,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                   decoration: BoxDecoration(
                     color: isMe
                         ? Colors.indigo.shade900.withAlpha(120)
-                        : Colors.grey.shade900,
+                        : AppTheme.surface,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                       color: isMe ? Colors.indigo.withAlpha(80) : Colors.white12,
@@ -690,7 +691,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                         Text(
                           d['author_name'] as String? ?? '?',
                           style: TextStyle(
-                            color: isMe ? Colors.lightBlue.shade300 : Colors.white70,
+                            color: isMe ? Colors.lightBlue.shade300 : AppTheme.textMid,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -701,7 +702,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                       const SizedBox(height: 4),
                       Text(
                         d['text'] as String? ?? '',
-                        style: const TextStyle(color: Colors.white, fontSize: 13),
+                        style: const TextStyle(color: AppTheme.textHigh, fontSize: 13),
                       ),
                     ],
                   ),
@@ -744,7 +745,7 @@ class _MemberTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(children: [
@@ -753,7 +754,7 @@ class _MemberTile extends StatelessWidget {
           child: Text(
             '$rank',
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white38, fontSize: 13),
+            style: const TextStyle(color: AppTheme.textLow, fontSize: 13),
           ),
         ),
         const SizedBox(width: 8),
@@ -762,7 +763,7 @@ class _MemberTile extends StatelessWidget {
           backgroundColor: Colors.brown.shade700,
           child: Text(
             member.username.isNotEmpty ? member.username[0].toUpperCase() : '?',
-            style: const TextStyle(color: Colors.white, fontSize: 13),
+            style: const TextStyle(color: AppTheme.textHigh, fontSize: 13),
           ),
         ),
         const SizedBox(width: 10),
@@ -770,7 +771,7 @@ class _MemberTile extends StatelessWidget {
           child: Row(children: [
             Text(
               member.username,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
+              style: const TextStyle(color: AppTheme.textHigh, fontSize: 13),
             ),
             const SizedBox(width: 6),
             if (isOwner)

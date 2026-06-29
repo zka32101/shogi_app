@@ -846,7 +846,7 @@ class _Page7Opening extends StatelessWidget {
           const SizedBox(height: 16),
           _OpeningCard('矢倉', '居飛車の代表的な定跡。右辺から攻め、玉を左辺に囲う。', '△', Colors.blue.shade700),
           const SizedBox(height: 8),
-          _OpeningCard('四間飛車', '振り飛車の基本。飛車を4筋に振り、銀冠や美濃囲いと組み合わせる。', '◆', Colors.green.shade700),
+          _OpeningCard('四間飛車', '振り飛車の基本。飛車を6筋(6八)に振り、美濃囲いと組み合わせる。', '◆', Colors.green.shade700),
           const SizedBox(height: 8),
           _OpeningCard('中飛車', '飛車を5筋（中央）に置き、中央突破を狙う積極的な戦法。', '◎', Colors.orange.shade700),
           const SizedBox(height: 8),

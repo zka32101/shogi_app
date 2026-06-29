@@ -32,6 +32,38 @@ class CastleGuideService {
       (PieceType.gold,   7, 1),
       (PieceType.gold,   7, 2),
     ],
+    // 銀冠: 7七玉・8七金・6七銀（玉を7七に上がる現代囲い）
+    'ginkan': [
+      (PieceType.king,   6, 2),
+      (PieceType.gold,   6, 1),
+      (PieceType.silver, 6, 3),
+    ],
+    // 左美濃: 2八玉・3八金・3七銀（振り飛車の左側囲い）
+    'hidarimino': [
+      (PieceType.king,   7, 7),
+      (PieceType.gold,   7, 6),
+      (PieceType.silver, 6, 6),
+    ],
+    // 雁木: 6八玉・7七銀・6七銀（歩を突かずに銀で組む）
+    'gangi': [
+      (PieceType.king,   7, 3),
+      (PieceType.silver, 6, 2),
+      (PieceType.silver, 6, 3),
+      (PieceType.gold,   7, 2),
+    ],
+    // 松尾流穴熊: 9九玉・9八香・8八銀（左穴熊の発展形）
+    'matsuoanaguma': [
+      (PieceType.king,   8, 0),
+      (PieceType.lance,  8, 1),
+      (PieceType.silver, 7, 1),
+      (PieceType.gold,   7, 0),
+    ],
+    // elmo囲い: 6八玉・5八金・7七銀（コンピュータ将棋由来）
+    'elmo': [
+      (PieceType.king,   7, 3),
+      (PieceType.gold,   7, 4),
+      (PieceType.silver, 6, 2),
+    ],
   };
 
   static String castleName(String key) => const {
@@ -39,6 +71,11 @@ class CastleGuideService {
     'mino': '美濃',
     'anaguma': '穴熊',
     'kinmusou': '金無双',
+    'ginkan': '銀冠',
+    'hidarimino': '左美濃',
+    'gangi': '雁木',
+    'matsuoanaguma': '松尾流穴熊',
+    'elmo': 'elmo囲い',
   }[key] ?? '美濃';
 
   /// 現在の盤面で未完成の目標マスを返す（優先度順）

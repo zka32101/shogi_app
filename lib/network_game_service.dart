@@ -1,8 +1,12 @@
 // lib/network_game_service.dart — Firebase Realtime DB を使ったネットワーク対局
 import 'dart:async';
 import 'dart:math';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'piece.dart';
+import 'logic.dart';
+import 'services/board_sync_service.dart';
 
 /// Firebase Realtime DB 構造:
 /// /rooms/{6桁コード}/
@@ -32,6 +36,7 @@ class NetworkGameService {
   static bool get firebaseReady => _firebaseReady;
 
   static String? _roomCode;
+  static String? _matchId;
   static bool _isHost = false;
   static bool _isSpectator = false;
   static bool _hostIsP1 = true;
@@ -50,8 +55,9 @@ class NetworkGameService {
   static Stream<ReceivedEmoji>  get emojiStream  => _emojiCtrl.stream;
 
   // マッチング用
-  static StreamSubscription? _matchWatchSub;
-  static String?              _myMatchKey;
+  static StreamSubscription?     _matchWatchSub;
+  static String?                 _myMatchKey;
+  static Completer<MatchResult>? _activeCompleter; // キャンセル用
 
   static String? get roomCode     => _roomCode;
   static bool    get isHost       => _isHost;
@@ -69,131 +75,272 @@ class NetworkGameService {
     String strengthPref = 'any',
     bool rated = true,
   }) async {
-    if (!_firebaseReady) {
-      throw Exception('Firebase が設定されていません。\nfirebase_options.dart の設定を確認してください。');
-    }
+    if (!_firebaseReady) throw Exception('Firebase未設定');
     cancelMatchmaking();
+
+    // Completer を先に登録（auth中でもキャンセル可能にするため）
+    final completer = Completer<MatchResult>();
+    _activeCompleter = completer;
+
+    // 匿名認証（5秒タイムアウト付き、失敗してもランダムIDで続行）
+    if (FirebaseAuth.instance.currentUser == null) {
+      try {
+        await FirebaseAuth.instance.signInAnonymously()
+            .timeout(const Duration(seconds: 5));
+        print('[MATCH] 匿名認証完了: ${FirebaseAuth.instance.currentUser?.uid}');
+      } on TimeoutException {
+        print('[MATCH] 匿名認証タイムアウト（ランダムIDで続行）');
+      } catch (e) {
+        print('[MATCH] 匿名認証失敗（ランダムIDで続行）: $e');
+      }
+    }
+    if (completer.isCompleted) return completer.future;
+
     final myId  = _generateUserId();
     final mqRef = FirebaseDatabase.instance.ref('matchmaking');
 
-    // ── 古いエントリ（3分超）を掃除 ─────────────────────────────────────────
-    try {
-      final cutoff = DateTime.now()
-          .subtract(const Duration(minutes: 3))
-          .millisecondsSinceEpoch;
-      final oldSnap = await mqRef
-          .orderByChild('createdAt')
-          .endAt(cutoff)
-          .get();
-      if (oldSnap.exists) {
-        for (final child in oldSnap.children) {
-          await child.ref.remove();
-        }
-      }
-    } catch (_) {}
-
-    // ── 待機中エントリを探して Atomic クレーム ────────────────────────────────
-    try {
-      final waitSnap = await mqRef
-          .orderByChild('status')
-          .equalTo('waiting')
-          .limitToFirst(5) // 複数取って 1 つ以上クレームできるまで試みる
-          .get();
-
-      if (waitSnap.exists) {
-        for (final entry in waitSnap.children) {
-          // 自分が以前残したエントリはスキップ
-          final entryData = entry.value as Map?;
-          final entryUserId = entryData?['userId'];
-          if (entryUserId == myId) continue;
-
-          // 強さフィルタチェック
-          final entryRating = (entryData?['rating'] as num?)?.toInt() ?? 1000;
-          if (strengthPref == 'weak'   && entryRating > myRating + 50) continue;
-          if (strengthPref == 'strong' && entryRating < myRating - 50) continue;
-
-          // Atomic に status を 'matched' にする
-          bool claimed = false;
-          try {
-            final txResult = await entry.ref.runTransaction((current) {
-              if (current == null) return Transaction.abort();
-              final data = Map<String, dynamic>.from(current as Map);
-              if (data['status'] != 'waiting') return Transaction.abort();
-              data['status'] = 'matched_pending';
-              data['matchedBy'] = myId;
-              return Transaction.success(data);
-            });
-            claimed = txResult.committed;
-          } catch (_) {}
-
-          if (!claimed) continue;
-
-          // クレーム成功 → ルーム作成してエントリに roomCode を書き込む
-          final code = await _createRoomInternal();
-          await entry.ref.update({'roomCode': code, 'status': 'matched'});
-
-          // 自分もルームを購読（ホスト = P1）
-          _isHost = true;
-          _subscribeRoom(code);
-          return MatchResult(roomCode: code, isHost: true);
-        }
-      }
-    } catch (_) {}
-
-    // ── 自分を待機キューに追加 ────────────────────────────────────────────────
+    // ── Step1: 自分のエントリを追加 ───────────────────────────────────────
     final myRef = mqRef.push();
-    _myMatchKey = myRef.key;
-    await myRef.set({
-      'userId':       myId,
-      'status':       'waiting',
-      'createdAt':    ServerValue.timestamp,
-      'roomCode':     null,
-      'rating':       myRating,
-      'strengthPref': strengthPref,
-      'rated':        rated,
-    });
+    _myMatchKey = myRef.key!;
+    print('[MATCH] 参加 myKey=$_myMatchKey uid=$myId');
 
-    // ── ルームコードが届くのを待つ ────────────────────────────────────────────
-    final completer = Completer<MatchResult>();
-    _matchWatchSub = myRef.onValue.listen((event) {
-      if (completer.isCompleted) return;
-      final data = event.snapshot.value as Map?;
-      if (data == null) return;
-      final status   = data['status'] as String?;
-      final roomCode = data['roomCode'] as String?;
-      if ((status == 'matched' || status == 'matched_pending') &&
-          roomCode != null) {
-        _matchWatchSub?.cancel();
-        // 自分はゲスト（P2/後手）
-        _isHost = false;
-        _roomCode = roomCode;
-        _lastMoveCount = 0;
-        _subscribeRoom(roomCode);
-        completer.complete(MatchResult(roomCode: roomCode, isHost: false));
+    try {
+      await myRef.set({
+        'userId':       myId,
+        'status':       'open',
+        'rating':       myRating,
+        'strengthPref': strengthPref,
+        'createdAt':    ServerValue.timestamp,
+      });
+      print('[MATCH] RTDBエントリ作成完了 key=$_myMatchKey');
+    } catch (e) {
+      print('[MATCH] RTDBエントリ作成失敗: $e');
+      if (!completer.isCompleted) {
+        completer.completeError(Exception('RTDB接続エラー: $e'));
       }
-    });
+      return completer.future;
+    }
+    if (completer.isCompleted) return completer.future;
+
+    // ── Step2: 少し待ってから全エントリを一度読む ─────────────────────────
+    await Future.delayed(const Duration(milliseconds: 800));
+    if (completer.isCompleted) return completer.future;
+
+    // 古いエントリをクリーンアップ（120秒以上前のエントリを削除）
+    final nowMs = DateTime.now().millisecondsSinceEpoch;
+
+    String? foundHostKey;
+    try {
+      final snap = await mqRef.get();
+      if (snap.exists) {
+        final myKey = _myMatchKey;
+        if (myKey == null || completer.isCompleted) {
+          if (!completer.isCompleted) completer.completeError(const MatchCancelledException());
+          return completer.future;
+        }
+        final all = Map<String, dynamic>.from(snap.value as Map);
+        for (final kv in all.entries) {
+          if (completer.isCompleted) break;
+          final key = kv.key as String;
+          if (key == myKey) continue;
+          // 自分より先に来た人（キーが小さい = 先着）のみ対象
+          if (key.compareTo(myKey) >= 0) continue;
+          final d = Map<String, dynamic>.from(kv.value as Map);
+          if (d['status'] != 'open') continue;
+          // 古すぎるエントリは無視してクリーンアップ（120秒以上前）
+          final createdAt = (d['createdAt'] as num?)?.toInt() ?? 0;
+          if (createdAt > 0 && nowMs - createdAt > 120000) {
+            mqRef.child(key).remove().catchError((_) {});
+            print('[MATCH] 古いエントリ削除: $key');
+            continue;
+          }
+          // 強さフィルタ
+          final r = (d['rating'] as num?)?.toInt() ?? 1000;
+          if (strengthPref == 'weak'   && r > myRating + 50) continue;
+          if (strengthPref == 'strong' && r < myRating - 50) continue;
+          // 最も古いホスト（最小キー）を選ぶ
+          if (foundHostKey == null || key.compareTo(foundHostKey!) < 0) {
+            foundHostKey = key;
+          }
+        }
+      }
+    } catch (e) {
+      print('[MATCH] スキャンエラー: $e');
+    }
+
+    if (foundHostKey != null) {
+      // ══ ゲストとして参加 ════════════════════════════════════════════════
+      print('[MATCH] GUEST → ホスト=$foundHostKey');
+      final hostKey = foundHostKey;
+
+      // 自分のエントリは不要なので削除
+      myRef.remove().catchError((_) {});
+      _myMatchKey = null;
+
+      // ホストのエントリに「参加通知」
+      await mqRef.child(hostKey).update({
+        'status':      'matched',
+        'guestId':     myId,
+        'guestRating': myRating,
+      });
+
+      // ホストがマッチを作成してmatchId(=roomCode)を書くのを待つ
+      _matchWatchSub = mqRef.child(hostKey).onValue.listen((event) async {
+        if (completer.isCompleted) return;
+        final data = event.snapshot.value as Map?;
+        if (data == null) return;
+        final matchId = data['roomCode'] as String?;
+        if (matchId == null || matchId.isEmpty) return;
+
+        print('[MATCH] GUEST完了: matchId=$matchId');
+        _matchWatchSub?.cancel();
+        _isHost   = false;
+        _matchId  = matchId;
+        _roomCode = matchId;
+
+        // Firestoreのplayer2_idをゲストの実際のFirebase UIDで上書き
+        try {
+          await FirebaseFirestore.instance
+              .collection('matches').doc(matchId)
+              .update({'player2_id': myId});
+        } catch (_) {}
+
+        // ホストのエントリを削除
+        mqRef.child(hostKey).remove().catchError((_) {});
+
+        if (!completer.isCompleted) {
+          completer.complete(MatchResult(
+            matchId:    matchId,
+            isPlayer1:  false,
+            myPlayerId: myId,
+          ));
+        }
+      });
+
+    } else {
+      // ══ ホストとして待機 ════════════════════════════════════════════════
+      print('[MATCH] HOST 待機中 myKey=$_myMatchKey');
+      _isHost = true;
+      bool _roomCreating = false;
+
+      _matchWatchSub = myRef.onValue.listen((event) async {
+        if (completer.isCompleted || _roomCreating) return;
+        final data = event.snapshot.value as Map?;
+        if (data == null) return;
+        if (data['status'] != 'matched') return;
+
+        _roomCreating = true;
+        _matchWatchSub?.cancel();
+        print('[MATCH] HOST: ゲスト参加確認 → マッチ作成');
+
+        try {
+          final hostUid  = myId;
+          final guestUid = data['guestId'] as String? ?? 'guest_${Random().nextInt(9999)}';
+
+          // RTDBにgames/{matchId}を作成（matchIdはRTDBのpushKeyで生成）
+          final gamesRef = FirebaseDatabase.instance.ref('games');
+          final gameEntry = gamesRef.push();
+          final matchId   = gameEntry.key!;
+
+          final boardSync = BoardSyncService();
+          await boardSync.initMatchBoard(
+            matchId,
+            board:     GL.initialBoard(),
+            player1Id: hostUid,
+            player2Id: guestUid,
+          );
+
+          // Firestoreにmatches documentを作成（オプション: 認証エラー時はスキップ）
+          try {
+            await FirebaseFirestore.instance.collection('matches').doc(matchId).set({
+              'id':           matchId,
+              'player1_id':   hostUid,
+              'player2_id':   guestUid,
+              'player1_name': 'プレイヤー1',
+              'player2_name': 'プレイヤー2',
+              'status':       'playing',
+              'result':       null,
+              'winner_id':    null,
+              'created_at':   FieldValue.serverTimestamp(),
+            });
+          } catch (fe) {
+            print('[MATCH] HOST: Firestore作成スキップ（RTDBのみで続行）: $fe');
+          }
+
+          _matchId  = matchId;
+          _roomCode = matchId;
+          print('[MATCH] HOST: matchId=$matchId');
+
+          // ゲストにmatchIdをroomCodeとして通知
+          await myRef.update({'roomCode': matchId, 'status': 'playing'});
+
+          // エントリ削除（ゲストが読んだ後）
+          await Future.delayed(const Duration(seconds: 3));
+          myRef.remove().catchError((_) {});
+
+          if (!completer.isCompleted) {
+            completer.complete(MatchResult(
+              matchId:    matchId,
+              isPlayer1:  true,
+              myPlayerId: hostUid,
+            ));
+          }
+        } catch (e) {
+          print('[MATCH] HOST: マッチ作成失敗 $e');
+          try {
+            await myRef.update({
+              'status':      'open',
+              'guestId':     null,
+              'guestRating': null,
+            });
+          } catch (_) {}
+          _roomCreating = false;
+          if (!completer.isCompleted) {
+            completer.completeError(Exception('マッチ作成失敗: $e'));
+          }
+        }
+      });
+    }
 
     return completer.future.timeout(
       const Duration(seconds: 60),
       onTimeout: () {
         cancelMatchmaking();
-        throw TimeoutException('マッチングがタイムアウトしました', const Duration(seconds: 60));
+        throw TimeoutException('マッチングタイムアウト', const Duration(seconds: 60));
       },
     );
   }
 
-  /// マッチングをキャンセル（自分のエントリを削除）
-  static Future<void> cancelMatchmaking() async {
+  /// マッチングをキャンセル（UIをブロックしない同期的キャンセル）
+  static void cancelMatchmaking() {
+    print('[CLEANUP] マッチングキャンセル');
+
+    // Active completer を即時エラーで完了させる（startMatchmaking のawaitを解放）
+    final c = _activeCompleter;
+    _activeCompleter = null;
+    if (c != null && !c.isCompleted) {
+      c.completeError(const MatchCancelledException());
+    }
+
     _matchWatchSub?.cancel();
     _matchWatchSub = null;
-    if (_myMatchKey != null) {
-      try {
-        await FirebaseDatabase.instance
-            .ref('matchmaking/$_myMatchKey')
-            .remove();
-      } catch (_) {}
-      _myMatchKey = null;
+
+    // Firebase削除はfire-and-forget（UIをブロックしない）
+    final keyToDelete = _myMatchKey;
+    _myMatchKey = null;
+    if (keyToDelete != null) {
+      FirebaseDatabase.instance
+          .ref('matchmaking/$keyToDelete')
+          .remove()
+          .catchError((_) {});
     }
+    if (_isHost && _roomCode != null) {
+      FirebaseDatabase.instance
+          .ref('rooms/$_roomCode')
+          .remove()
+          .catchError((_) {});
+    }
+    _roomCode = null;
   }
 
   // ルームだけを内部作成（dispose を呼ばない版）
@@ -208,10 +355,10 @@ class NetworkGameService {
     return code;
   }
 
-  // ランダムユーザーID（セッション内一意）
+  // Firebase Anonymous Auth UID（fallback: ランダム文字列）
   static String _generateUserId() {
-    final r = Random.secure();
-    return List.generate(16, (_) => r.nextInt(36).toRadixString(36)).join();
+    return FirebaseAuth.instance.currentUser?.uid ??
+        List.generate(16, (_) => Random.secure().nextInt(36).toRadixString(36)).join();
   }
 
   // ─── ルーム作成（先後はランダム決定）────────────────────────────────────────
@@ -358,11 +505,17 @@ class NetworkGameService {
     _statusSub = null;
     _reactionSub = null;
     _matchWatchSub = null;
+    // ルームを削除（ホストのみ）
+    if (_isHost && _roomCode != null) {
+      FirebaseDatabase.instance.ref('rooms/$_roomCode').remove().catchError((_) {});
+      print('[CLEANUP] dispose: ルーム削除 $_roomCode');
+    }
     _myMatchKey = null;
     _roomCode = null;
     _lastMoveCount = 0;
     _isSpectator = false;
     _hostIsP1 = true;
+    _isHost = false;
   }
 
   // ─── 内部: ルーム購読 ────────────────────────────────────────────────────
@@ -392,6 +545,17 @@ class NetworkGameService {
           } else if (result != null) {
             _statusCtrl.add(NetworkStatus.ended);
           }
+          // 対局終了後、ルームを削除（ホストのみ）
+          Future.delayed(const Duration(seconds: 2), () async {
+            if (_isHost && _roomCode != null) {
+              try {
+                await FirebaseDatabase.instance.ref('rooms/$_roomCode').remove();
+                print('[CLEANUP] 対局終了後、ルーム削除: $_roomCode');
+              } catch (e) {
+                print('[CLEANUP] ルーム削除失敗: $e');
+              }
+            }
+          });
         case 'waiting':
           break;
       }
@@ -496,13 +660,22 @@ enum NetworkStatus { playing, opponentResigned, ended }
 enum JoinResult { ok, notFound, full, error }
 
 class MatchResult {
-  final String roomCode;
-  final bool   isHost; // true=P1/先手  false=P2/後手
-  const MatchResult({required this.roomCode, required this.isHost});
+  final String matchId;
+  final bool   isPlayer1;  // true=先手  false=後手
+  final String myPlayerId; // 自分のプレイヤーID（勝敗判定用）
+  const MatchResult({
+    required this.matchId,
+    required this.isPlayer1,
+    required this.myPlayerId,
+  });
 }
 
 class ReceivedEmoji {
   final String emoji;
   final bool   isP1;
   const ReceivedEmoji({required this.emoji, required this.isP1});
+}
+
+class MatchCancelledException implements Exception {
+  const MatchCancelledException();
 }

@@ -26,18 +26,26 @@ dependencies:
   google_mobile_ads: ^5.3.0
   in_app_purchase: ^3.2.0
 
-  # Firebase（ネットワーク対局・報告機能）
+  # Firebase（ネットワーク対局・報告機能・Cloud Functions）
   firebase_core: ^3.6.0
   firebase_database: ^11.1.0
+  firebase_storage: ^12.4.10
   cloud_firestore: ^5.0.0
   firebase_auth: ^5.0.0
   firebase_messaging: ^15.0.0
   firebase_crashlytics: ^4.0.0
+  cloud_functions: ^5.0.0
   network_info_plus: ^6.0.0
   share_plus: ^10.0.0
 
+  # HTTP クライアント（lishogi API 等外部連携）
+  http: ^1.2.2
+
   # URL リンク
   url_launcher: ^6.1.10
+
+  # グラフ・チャート
+  fl_chart: ^0.65.0
 
 dev_dependencies:
   flutter_test:

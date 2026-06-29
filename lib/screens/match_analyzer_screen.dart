@@ -2,11 +2,14 @@
 // ポストマッチ棋譜アナライザー（ネットワーク対局後の手の分析）
 
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/board_sync_service.dart';
 import '../services/network_service.dart';
+import '../services/kifu_export_service.dart';
 import '../piece.dart';
 import '../logic.dart';
+import '../theme/app_theme.dart';
 
 // ── モデル ──────────────────────────────────────────────────────
 
@@ -298,27 +301,38 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
 
   Future<void> _analyze() async {
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('matches')
-          .doc(widget.matchId)
+      // Firestore（ルール制限あり）ではなくRTDBから読む
+      final snap = await FirebaseDatabase.instance
+          .ref('games/${widget.matchId}')
           .get();
 
-      if (!doc.exists) throw Exception('対局データが見つかりません');
+      if (!snap.exists || snap.value == null) {
+        setState(() {
+          _loading = false;
+          _error = '対局データが見つかりません';
+        });
+        return;
+      }
 
-      final data = doc.data()!;
-      final p1Name = data['player1_name'] as String? ?? '先手';
-      final p2Name = data['player2_name'] as String? ?? '後手';
+      final data = Map<String, dynamic>.from(snap.value as Map);
 
-      final movesRaw = data['moves'] as List? ?? [];
-      final moves = movesRaw
-          .map((m) => BoardSyncService.moveFromJson(
-              (m as Map).cast<String, dynamic>()))
-          .toList();
+      // RTDBのmovesはpushキーのMap形式
+      final moves = <KifuMove>[];
+      final movesRaw = data['moves'];
+      if (movesRaw != null) {
+        final movesMap = Map<String, dynamic>.from(movesRaw as Map);
+        final entries = movesMap.entries.toList()
+          ..sort((a, b) => a.key.compareTo(b.key));
+        for (final e in entries) {
+          final m = BoardSyncService.moveFromJson(e.value);
+          if (m != null) moves.add(m);
+        }
+      }
 
       if (moves.isEmpty) {
         setState(() {
           _loading = false;
-          _error = '棋譜データがありません';
+          _error = '棋譜データがありません（手が指されていない可能性があります）';
         });
         return;
       }
@@ -326,8 +340,8 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
       final result = await SimpleAnalyzer.analyze(
         matchId: widget.matchId,
         moves: moves,
-        player1Name: p1Name,
-        player2Name: p2Name,
+        player1Name: '先手',
+        player2Name: '後手',
         matchData: data,
       );
 
@@ -350,11 +364,19 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('棋譜分析', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('棋譜分析', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          if (_result != null)
+            IconButton(
+              icon: const Icon(Icons.share, color: Colors.white70),
+              tooltip: 'KIF形式で共有',
+              onPressed: _exportKif,
+            ),
+        ],
       ),
       body: _loading
           ? const Center(
@@ -376,6 +398,20 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                       style: const TextStyle(color: Colors.red)))
               : _buildContent(),
     );
+  }
+
+  Future<void> _exportKif() async {
+    final result = _result;
+    if (result == null) return;
+
+    final moves = result.analyzedMoves.map((am) => am.move).toList();
+    final kifText = KifuExportService.toKifString(
+      moves,
+      p1Name: result.player1Name,
+      p2Name: result.player2Name,
+    );
+
+    await Share.share(kifText, subject: '棋譜_${widget.matchId}');
   }
 
   Widget _buildContent() {
@@ -407,13 +443,13 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             color: _selectedMoveIndex < 0
                 ? Colors.brown.shade900
-                : const Color(0xFF16213E),
+                : AppTheme.surface,
             child: Row(
               children: [
                 const Icon(Icons.summarize, size: 14, color: Colors.amber),
                 const SizedBox(width: 6),
                 const Text('概要',
-                    style: TextStyle(color: Colors.white, fontSize: 13)),
+                    style: TextStyle(color: AppTheme.textHigh, fontSize: 13)),
               ],
             ),
           ),
@@ -448,7 +484,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                           style: TextStyle(
                             color: isCritical
                                 ? Colors.orange
-                                : Colors.white38,
+                                : AppTheme.textLow,
                             fontSize: 11,
                           ),
                         ),
@@ -458,7 +494,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                         child: Text(
                           am.move.note,
                           style: const TextStyle(
-                              color: Colors.white70, fontSize: 11),
+                              color: AppTheme.textMid, fontSize: 11),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -487,7 +523,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
           Text(
             '${result.player1Name} vs ${result.player2Name}',
             style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.textHigh,
                 fontSize: 18,
                 fontWeight: FontWeight.bold),
           ),
@@ -501,7 +537,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
           const Text(
             '手の品質',
             style: TextStyle(
-                color: Colors.white70,
+                color: AppTheme.textMid,
                 fontSize: 14,
                 fontWeight: FontWeight.bold),
           ),
@@ -520,7 +556,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
             const Text(
               '注目の局面',
               style: TextStyle(
-                  color: Colors.white70,
+                  color: AppTheme.textMid,
                   fontSize: 14,
                   fontWeight: FontWeight.bold),
             ),
@@ -543,7 +579,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                           child: Text(
                             '$n 手目',
                             style: const TextStyle(
-                                color: Colors.white, fontSize: 12),
+                                color: AppTheme.textHigh, fontSize: 12),
                           ),
                         ),
                       ))
@@ -584,14 +620,14 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
               width: 90,
               child: Text(label,
                   style:
-                      const TextStyle(color: Colors.white70, fontSize: 12)),
+                      const TextStyle(color: AppTheme.textMid, fontSize: 12)),
             ),
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(4),
                 child: LinearProgressIndicator(
                   value: ratio,
-                  backgroundColor: Colors.grey.shade800,
+                  backgroundColor: AppTheme.surfaceHigh,
                   valueColor: AlwaysStoppedAnimation<Color>(color),
                   minHeight: 12,
                 ),
@@ -664,7 +700,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
           Expanded(
             child: Text(
               advice,
-              style: const TextStyle(color: Colors.white, height: 1.5),
+              style: const TextStyle(color: AppTheme.textHigh, height: 1.5),
             ),
           ),
         ],
@@ -695,7 +731,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                 child: Text(
                   '第${am.moveNum}手 ${am.move.p1 ? "▲先手" : "△後手"}',
                   style: const TextStyle(
-                      color: Colors.white, fontSize: 13),
+                      color: AppTheme.textHigh, fontSize: 13),
                 ),
               ),
               const SizedBox(width: 12),
@@ -708,7 +744,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
           Text(
             am.move.note,
             style: const TextStyle(
-                color: Colors.white,
+                color: AppTheme.textHigh,
                 fontSize: 24,
                 fontWeight: FontWeight.bold),
           ),
@@ -718,13 +754,13 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(8),
             ),
             child: Text(
               am.comment,
               style: const TextStyle(
-                  color: Colors.white70, height: 1.5),
+                  color: AppTheme.textMid, height: 1.5),
             ),
           ),
           const SizedBox(height: 16),
@@ -750,7 +786,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                 icon: const Icon(Icons.arrow_back, size: 16),
                 label: const Text('前の手'),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade800,
+                    backgroundColor: AppTheme.surfaceHigh,
                     foregroundColor: Colors.white),
               ),
               ElevatedButton.icon(
@@ -762,7 +798,7 @@ class _MatchAnalyzerScreenState extends State<MatchAnalyzerScreen> {
                 icon: const Icon(Icons.arrow_forward, size: 16),
                 label: const Text('次の手'),
                 style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade800,
+                    backgroundColor: AppTheme.surfaceHigh,
                     foregroundColor: Colors.white),
               ),
             ],
@@ -847,7 +883,7 @@ class _StatBox extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
@@ -864,7 +900,7 @@ class _StatBox extends StatelessWidget {
             ),
             Text(label,
                 style:
-                    const TextStyle(color: Colors.white38, fontSize: 11)),
+                    const TextStyle(color: AppTheme.textLow, fontSize: 11)),
           ],
         ),
       ),

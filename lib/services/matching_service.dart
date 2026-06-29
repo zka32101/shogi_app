@@ -103,9 +103,19 @@ class MatchingService {
           .limit(50)             // limit to prevent full table scan
           .get();
 
+      // ブロック済みユーザーIDを取得（自分がブロックした相手を除外）
+      final blockedSnap = await _firestore
+          .collection('users')
+          .doc(queue.userId)
+          .collection('blocked_users')
+          .get();
+      final blocked = blockedSnap.docs.map((d) => d.id).toSet();
+
       final candidates = <MatchingQueue>[];
       for (final doc in otherQueues.docs) {
         final otherQueue = MatchingQueue.fromJson(doc.data());
+        // ブロック済みはスキップ
+        if (blocked.contains(otherQueue.userId)) continue;
         // 双方向でレーティング範囲内か確認
         if (queue.canMatch(otherQueue.rating) &&
             otherQueue.canMatch(queue.rating)) {

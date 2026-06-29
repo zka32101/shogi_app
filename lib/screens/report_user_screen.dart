@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import '../services/network_service.dart';
 import '../models/report.dart';
+import '../theme/app_theme.dart';
 
 class ReportUserScreen extends StatefulWidget {
   final String reportedUserId;
@@ -26,6 +27,47 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
   String? _selectedReason;
   final _detailsController = TextEditingController();
   bool _isSubmitting = false;
+  bool _isBlocking = false;
+  bool _isBlocked = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _checkBlockStatus();
+  }
+
+  Future<void> _checkBlockStatus() async {
+    final blocked = await _networkService.isBlocked(widget.reportedUserId);
+    if (mounted) setState(() => _isBlocked = blocked);
+  }
+
+  Future<void> _toggleBlock() async {
+    setState(() => _isBlocking = true);
+    try {
+      if (_isBlocked) {
+        await _networkService.unblockUser(widget.reportedUserId);
+        if (mounted) setState(() => _isBlocked = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('ブロックを解除しました')),
+          );
+        }
+      } else {
+        await _networkService.blockUser(widget.reportedUserId);
+        if (mounted) setState(() => _isBlocked = true);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.reportedUsername} をブロックしました'),
+              backgroundColor: Colors.orange.shade700,
+            ),
+          );
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isBlocking = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -36,10 +78,10 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('ユーザーを報告', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('ユーザーを報告', style: TextStyle(color: AppTheme.textHigh)),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -53,7 +95,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade900,
+                  color: AppTheme.surface,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Column(
@@ -61,13 +103,13 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                   children: [
                     const Text(
                       '報告対象ユーザー',
-                      style: TextStyle(color: Colors.white70, fontSize: 12),
+                      style: TextStyle(color: AppTheme.textMid, fontSize: 12),
                     ),
                     const SizedBox(height: 8),
                     Text(
                       widget.reportedUsername,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppTheme.textHigh,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -82,17 +124,29 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
               const Text(
                 '報告理由',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textHigh,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
               ),
               const SizedBox(height: 12),
 
-              // ラジオボタン
+              // ── 不正行為 ──────────────────────────────
+              _buildCategoryLabel('不正行為'),
               _buildReasonOption('soft_play', 'ソフト指し（AI支援）'),
-              _buildReasonOption('time_cheat', 'タイムチート'),
-              _buildReasonOption('other', 'その他の不正'),
+              _buildReasonOption('time_cheat', 'タイムチート（時間操作）'),
+
+              // ── 嫌がらせ行為 ──────────────────────────
+              _buildCategoryLabel('嫌がらせ行為'),
+              _buildReasonOption('abandoned_game', '途中放棄・逃げ'),
+              _buildReasonOption(
+                  'intentional_stalling', '遅延行為（わざとゆっくり指す）'),
+              _buildReasonOption('abusive_chat', '暴言・ハラスメント'),
+              _buildReasonOption('griefing', 'その他の嫌がらせ・妨害'),
+
+              // ── その他 ──────────────────────────────
+              _buildCategoryLabel('その他'),
+              _buildReasonOption('other', 'その他の不正・問題行動'),
 
               const SizedBox(height: 24),
 
@@ -100,7 +154,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
               const Text(
                 '詳細（オプション）',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppTheme.textHigh,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -110,12 +164,12 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
               TextField(
                 controller: _detailsController,
                 maxLines: 4,
-                style: const TextStyle(color: Colors.white),
+                style: const TextStyle(color: AppTheme.textHigh),
                 decoration: InputDecoration(
                   hintText: '不正の詳細を記入してください',
-                  hintStyle: TextStyle(color: Colors.white30),
+                  hintStyle: TextStyle(color: AppTheme.textLow),
                   filled: true,
-                  fillColor: Colors.grey.shade900,
+                  fillColor: AppTheme.surface,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: const BorderSide(color: Colors.transparent),
@@ -129,6 +183,36 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
 
               const SizedBox(height: 32),
 
+              // ブロックボタン
+              OutlinedButton.icon(
+                onPressed: _isBlocking ? null : _toggleBlock,
+                icon: _isBlocking
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        _isBlocked ? Icons.person_add : Icons.block,
+                        size: 18,
+                      ),
+                label: Text(_isBlocked
+                    ? '${widget.reportedUsername} のブロックを解除'
+                    : '${widget.reportedUsername} をブロック'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor:
+                      _isBlocked ? Colors.grey : Colors.orange.shade300,
+                  side: BorderSide(
+                    color: _isBlocked
+                        ? Colors.grey.shade600
+                        : Colors.orange.shade700,
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
               // 警告テキスト
               Container(
                 padding: const EdgeInsets.all(12),
@@ -138,7 +222,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                 ),
                 child: const Text(
                   '⚠️ 虚偽の報告は禁止です。不正な報告を繰り返すと、あなたのアカウントがペナルティを受ける可能性があります。',
-                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                  style: TextStyle(color: AppTheme.textMid, fontSize: 12),
                 ),
               ),
 
@@ -150,7 +234,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                     ? null
                     : _submitReport,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: AppTheme.danger,
                   foregroundColor: Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                 ),
@@ -173,6 +257,21 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
     );
   }
 
+  Widget _buildCategoryLabel(String label) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 8, bottom: 6),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: AppTheme.textMid,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+
   Widget _buildReasonOption(String value, String label) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
@@ -180,7 +279,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
         decoration: BoxDecoration(
           color: _selectedReason == value
               ? Colors.brown.shade700.withAlpha(100)
-              : Colors.grey.shade900,
+              : AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: _selectedReason == value
@@ -192,7 +291,7 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
           value: value,
           groupValue: _selectedReason,
           onChanged: (v) => setState(() => _selectedReason = v),
-          title: Text(label, style: const TextStyle(color: Colors.white)),
+          title: Text(label, style: const TextStyle(color: AppTheme.textHigh)),
           activeColor: Colors.amber,
         ),
       ),

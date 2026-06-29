@@ -34,28 +34,39 @@ class KifEncoder {
       ..writeln('先手：先手')
       ..writeln('後手：後手')
       ..writeln('手数----指手---------消費時間--');
-    for (final km in moves) sb.writeln(_line(km));
+    int p1Cum = 0, p2Cum = 0;
+    for (final km in moves) {
+      if (km.p1) p1Cum += km.elapsedSec; else p2Cum += km.elapsedSec;
+      sb.writeln(_line(km, km.p1 ? p1Cum : p2Cum));
+    }
     if (result != null && result.isNotEmpty) {
       sb.writeln('まで${moves.length}手で$result');
     }
     return sb.toString();
   }
 
-  static String _line(KifuMove km) {
+  static String _line(KifuMove km, int cumSec) {
+    final et = km.elapsedSec;
+    final em = (et ~/ 60).toString().padLeft(2, '0');
+    final es = (et % 60).toString().padLeft(2, '0');
+    final ch = cumSec ~/ 3600;
+    final cm = ((cumSec % 3600) ~/ 60).toString().padLeft(2, '0');
+    final cs = (cumSec % 60).toString().padLeft(2, '0');
+    final timeStr = '($em:$es/$ch:$cm:$cs)';
+
     final toFile = 9 - km.tc;
     final toRank = km.tr + 1;
     final toSq = '${_fwFiles[toFile - 1]}${_kanjiRanks[toRank - 1]}';
     final num = km.num.toString().padLeft(4);
 
     if (km.drop != null) {
-      return '$num $toSq${pieceLabel(km.drop!)}打   (00:00/00:00:00)';
+      return '$num $toSq${pieceLabel(km.drop!)}打   $timeStr';
     }
-    // piece char from note[2] (destination is first 2 chars of note)
     final pc = km.note.length > 2 ? km.note[2] : '?';
     final prom = km.promote ? '成' : '';
     final fromFile = 9 - km.fc;
     final fromRank = km.fr + 1;
-    return '$num $toSq$pc$prom($fromFile$fromRank)   (00:00/00:00:00)';
+    return '$num $toSq$pc$prom($fromFile$fromRank)   $timeStr';
   }
 
   static String _today() => DateTime.now().toString().substring(0, 10);

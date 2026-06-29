@@ -2,8 +2,8 @@
 // 対局中チャット UI（MatchScreen に埋め込み）
 
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
-import '../services/network_service.dart';
 
 class MatchChatWidget extends StatefulWidget {
   final String matchId;
@@ -21,7 +21,6 @@ class MatchChatWidget extends StatefulWidget {
 
 class _MatchChatWidgetState extends State<MatchChatWidget> {
   final ChatService _chatService = ChatService();
-  final NetworkService _networkService = NetworkService();
   final ScrollController _scrollController = ScrollController();
   bool _showPresets = false;
 
@@ -44,15 +43,13 @@ class _MatchChatWidgetState extends State<MatchChatWidget> {
   }
 
   Future<void> _sendPreset(String text) async {
-    final user = _networkService.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final profile =
-        await _networkService.getUserProfile(user.uid);
     await _chatService.sendPresetMessage(
       matchId: widget.matchId,
       senderId: user.uid,
-      senderName: profile?.username ?? user.uid,
+      senderName: '自分',
       presetText: text,
     );
     if (mounted) setState(() => _showPresets = false);
@@ -89,7 +86,7 @@ class _MatchChatWidgetState extends State<MatchChatWidget> {
                 itemBuilder: (_, i) => _MessageBubble(
                   message: messages[i],
                   isMe: messages[i].senderId ==
-                      _networkService.currentUser?.uid,
+                      FirebaseAuth.instance.currentUser?.uid,
                 ),
               );
             },
@@ -101,40 +98,31 @@ class _MatchChatWidgetState extends State<MatchChatWidget> {
           duration: const Duration(milliseconds: 200),
           child: _showPresets
               ? Container(
-                  height: 120,
                   color: const Color(0xFF0F0F2E),
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(8),
-                    scrollDirection: Axis.horizontal,
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 4,
-                      crossAxisSpacing: 4,
-                      childAspectRatio: 0.35,
-                    ),
-                    itemCount: ChatService.presetMessages.length,
-                    itemBuilder: (_, i) {
-                      final text = ChatService.presetMessages[i];
+                  padding: const EdgeInsets.all(8),
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: ChatService.presetMessages.map((text) {
                       return GestureDetector(
                         onTap: () => _sendPreset(text),
                         child: Container(
-                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 6),
                           decoration: BoxDecoration(
                             color: Colors.brown.shade800,
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Text(
                             text,
-                            textAlign: TextAlign.center,
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 11,
+                              fontSize: 12,
                             ),
                           ),
                         ),
                       );
-                    },
+                    }).toList(),
                   ),
                 )
               : const SizedBox.shrink(),
@@ -233,7 +221,6 @@ class PostMatchChatWidget extends StatefulWidget {
 
 class _PostMatchChatWidgetState extends State<PostMatchChatWidget> {
   final ChatService _chatService = ChatService();
-  final NetworkService _networkService = NetworkService();
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
@@ -244,21 +231,48 @@ class _PostMatchChatWidgetState extends State<PostMatchChatWidget> {
     super.dispose();
   }
 
-  Future<void> _send() async {
-    final text = _controller.text.trim();
-    if (text.isEmpty) return;
+  // 禁止ワードリスト（追加可能）
+  static const _bannedWords = [
+    'バカ', 'ばか', '馬鹿', 'アホ', 'あほ', '阿呆',
+    'クソ', 'くそ', '糞', 'キモい', 'きもい', '気持ち悪い',
+    'うざい', 'ウザい', 'うざ', 'ウザ', '死ね', 'しね',
+    '消えろ', 'ゴミ', 'ごみ', 'ハゲ', 'デブ', 'ブス',
+    'カス', 'かす', 'チート', '不正', 'ソフト指し',
+  ];
 
-    final user = _networkService.currentUser;
+  String? _filterMessage(String text) {
+    for (final word in _bannedWords) {
+      if (text.contains(word)) return null; // null = 送信禁止
+    }
+    return text;
+  }
+
+  Future<void> _send() async {
+    final rawText = _controller.text.trim();
+    if (rawText.isEmpty) return;
+
+    final filtered = _filterMessage(rawText);
+    if (filtered == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('不適切な言葉が含まれています。'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final profile = await _networkService.getUserProfile(user.uid);
     _controller.clear();
 
     await _chatService.sendPostMatchMessage(
       matchId: widget.matchId,
       senderId: user.uid,
-      senderName: profile?.username ?? user.uid,
-      text: text,
+      senderName: '自分',
+      text: filtered,
     );
   }
 
@@ -285,7 +299,7 @@ class _PostMatchChatWidgetState extends State<PostMatchChatWidget> {
                 itemBuilder: (_, i) => _MessageBubble(
                   message: msgs[i],
                   isMe: msgs[i].senderId ==
-                      _networkService.currentUser?.uid,
+                      FirebaseAuth.instance.currentUser?.uid,
                 ),
               );
             },

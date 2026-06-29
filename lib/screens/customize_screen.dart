@@ -9,6 +9,7 @@ import '../badge_service.dart';
 import '../services/network_service.dart';
 import '../character_icons.dart';
 import '../purchase_service.dart';
+import '../theme/app_theme.dart';
 
 class CustomizeScreen extends StatefulWidget {
   const CustomizeScreen({super.key});
@@ -117,10 +118,10 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('カスタマイズ', style: TextStyle(color: Colors.white)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('カスタマイズ', style: TextStyle(color: AppTheme.textHigh)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           TextButton(
@@ -145,7 +146,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     '対局中に表示されるアイコンを選択',
-                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                    style: TextStyle(color: AppTheme.textLow, fontSize: 11),
                   ),
                   const SizedBox(height: 12),
                   _buildCharIconPicker(),
@@ -162,7 +163,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
                   const SizedBox(height: 4),
                   const Text(
                     '解除済みの実績から称号を選択できます',
-                    style: TextStyle(color: Colors.white38, fontSize: 11),
+                    style: TextStyle(color: AppTheme.textLow, fontSize: 11),
                   ),
                   const SizedBox(height: 12),
                   _buildTitlePicker(),
@@ -180,7 +181,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -202,7 +203,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
                     : const Text(
                         'A',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontSize: 30,
                           fontWeight: FontWeight.bold,
                         ),
@@ -215,7 +216,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
         Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Text(
             charIcon != null ? charIcon.name : 'プレビュー',
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: AppTheme.textHigh, fontSize: 16, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 4),
           if (_selectedTitle != null)
@@ -232,7 +233,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
               ),
             )
           else
-            const Text('称号未設定', style: TextStyle(color: Colors.white38, fontSize: 12)),
+            const Text('称号未設定', style: TextStyle(color: AppTheme.textLow, fontSize: 12)),
         ]),
       ]),
     );
@@ -317,7 +318,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
-          color: selected ? icon.bgColor.withAlpha(60) : const Color(0xFF16213E),
+          color: selected ? icon.bgColor.withAlpha(60) : AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: selected ? icon.bgColor : Colors.white12,
@@ -332,7 +333,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
             Text(
               icon.name,
               style: TextStyle(
-                color: locked ? Colors.white38 : Colors.white70,
+                color: locked ? AppTheme.textLow : AppTheme.textMid,
                 fontSize: 10,
               ),
             ),
@@ -370,7 +371,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
         decoration: BoxDecoration(
-          color: selected ? Colors.white.withAlpha(12) : const Color(0xFF16213E),
+          color: selected ? Colors.white.withAlpha(12) : AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected ? Colors.white54 : Colors.white12,
@@ -386,12 +387,12 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(name, style: TextStyle(
-              color: selected ? Colors.white : Colors.white70,
+              color: selected ? AppTheme.textHigh : AppTheme.textMid,
               fontSize: 14,
               fontWeight: selected ? FontWeight.bold : FontWeight.normal,
             )),
             if (sub.isNotEmpty)
-              Text(sub, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+              Text(sub, style: const TextStyle(color: AppTheme.textLow, fontSize: 11)),
           ]),
         ]),
       ),
@@ -444,12 +445,12 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
       return Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         child: const Text(
           '実績を解除すると称号が使えるようになります',
-          style: TextStyle(color: Colors.white38, fontSize: 13),
+          style: TextStyle(color: AppTheme.textLow, fontSize: 13),
           textAlign: TextAlign.center,
         ),
       );
@@ -472,7 +473,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
         decoration: BoxDecoration(
           color: selected
               ? Colors.amber.withAlpha(20)
-              : const Color(0xFF16213E),
+              : AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected ? Colors.amber : Colors.white12,
@@ -491,13 +492,13 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
               Text(
                 title,
                 style: TextStyle(
-                  color: selected ? Colors.amber : Colors.white,
+                  color: selected ? Colors.amber : AppTheme.textHigh,
                   fontSize: 14,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,
                 ),
               ),
               if (subtitle.isNotEmpty)
-                Text(subtitle, style: const TextStyle(color: Colors.white38, fontSize: 11)),
+                Text(subtitle, style: const TextStyle(color: AppTheme.textLow, fontSize: 11)),
             ]),
           ),
         ]),
@@ -508,7 +509,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
   Widget _sectionHeader(String title) => Text(
     title,
     style: const TextStyle(
-      color: Colors.white70,
+      color: AppTheme.textMid,
       fontSize: 13,
       fontWeight: FontWeight.bold,
       letterSpacing: 1,
