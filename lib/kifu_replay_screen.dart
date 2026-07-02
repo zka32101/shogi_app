@@ -53,11 +53,23 @@ class KifuReplayScreen extends StatefulWidget {
   final String title;
   final String handicap;
 
+  /// フィルターモード: 特定手番のstepリスト（1-based）
+  final List<int>? filterIndices;
+
+  /// フィルターラベル（例: "悪手", "好手"）
+  final String? filterLabel;
+
+  /// 開始ステップ（フィルターの最初の手に自動ジャンプ）
+  final int initialStep;
+
   const KifuReplayScreen({
     super.key,
     required this.moves,
     required this.title,
     this.handicap = '平手',
+    this.filterIndices,
+    this.filterLabel,
+    this.initialStep = 0,
   });
 
   @override
@@ -78,12 +90,16 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
   /// 再生制御用フィールド
   Timer? _playTimer;
   bool _isPlaying = false;
+
+  /// フィルターモード: 現在のフィルター位置（0-based index into filterIndices）
+  int _filterPos = 0;
   double _speed = 1.0; // 再生速度 (0.5x / 1x / 2x)
 
   @override
   void initState() {
     super.initState();
-    _resetToStep(0);
+    final start = widget.initialStep.clamp(0, widget.moves.length);
+    _resetToStep(start);
   }
 
   @override
@@ -168,6 +184,25 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
   void _goLast() {
     _stopReplay();
     _resetToStep(widget.moves.length);
+  }
+
+  // ===== フィルターナビゲーション =====
+  void _filterPrev() {
+    final fi = widget.filterIndices;
+    if (fi == null || fi.isEmpty) return;
+    _stopReplay();
+    final newPos = (_filterPos - 1).clamp(0, fi.length - 1);
+    setState(() => _filterPos = newPos);
+    _resetToStep(fi[newPos]);
+  }
+
+  void _filterNext() {
+    final fi = widget.filterIndices;
+    if (fi == null || fi.isEmpty) return;
+    _stopReplay();
+    final newPos = (_filterPos + 1).clamp(0, fi.length - 1);
+    setState(() => _filterPos = newPos);
+    _resetToStep(fi[newPos]);
   }
 
   // ===== 再生制御 =====
@@ -410,12 +445,55 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
             ? '終局（$total手）'
             : '$_step手目 / $total手';
 
+    final fi = widget.filterIndices;
+    final fl = widget.filterLabel ?? '';
+
     return Container(
       color: const Color(0xFF16213E),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // フィルターバナー
+          if (fi != null && fi.isNotEmpty) ...[
+            Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: fl == '悪手'
+                    ? Colors.orange.shade900.withAlpha(180)
+                    : Colors.lightBlue.shade900.withAlpha(180),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.skip_previous, size: 20),
+                    color: _filterPos > 0 ? Colors.white : Colors.white30,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: _filterPos > 0 ? _filterPrev : null,
+                  ),
+                  Text(
+                    '$fl ${_filterPos + 1} / ${fi.length}手目',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.skip_next, size: 20),
+                    color: _filterPos < fi.length - 1 ? Colors.white : Colors.white30,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                    onPressed: _filterPos < fi.length - 1 ? _filterNext : null,
+                  ),
+                ],
+              ),
+            ),
+          ],
           // ボタン行（再生制御）
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -570,9 +648,18 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
               itemCount: widget.moves.length,
               itemBuilder: (context, i) {
                 final m = widget.moves[i];
-                final isCurrent = i + 1 == _step;
+                final step = i + 1;
+                final isCurrent = step == _step;
+                final isFiltered = widget.filterIndices?.contains(step) ?? false;
+                final isBlunderMode = widget.filterLabel == '悪手';
                 return GestureDetector(
-                  onTap: () => _resetToStep(i + 1),
+                  onTap: () {
+                    if (isFiltered && widget.filterIndices != null) {
+                      final pos = widget.filterIndices!.indexOf(step);
+                      if (pos >= 0) setState(() => _filterPos = pos);
+                    }
+                    _resetToStep(step);
+                  },
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 8,
@@ -581,21 +668,47 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
                     decoration: BoxDecoration(
                       color: isCurrent
                           ? Colors.lightBlue.withAlpha(60)
-                          : Colors.transparent,
+                          : isFiltered
+                              ? (isBlunderMode
+                                  ? Colors.orange.withAlpha(40)
+                                  : Colors.lightBlue.withAlpha(30))
+                              : Colors.transparent,
                       borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Text(
-                      m.text,
-                      style: TextStyle(
-                        color: isCurrent
-                            ? Colors.lightBlueAccent
-                            : m.p1
-                                ? Colors.white70
-                                : Colors.lightBlue.shade200,
-                        fontSize: 13,
-                        fontWeight:
-                            isCurrent ? FontWeight.bold : FontWeight.normal,
-                      ),
+                    child: Row(
+                      children: [
+                        if (isFiltered)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: Icon(
+                              isBlunderMode ? Icons.warning_amber : Icons.star,
+                              size: 12,
+                              color: isBlunderMode
+                                  ? Colors.orange
+                                  : Colors.lightBlueAccent,
+                            ),
+                          ),
+                        Expanded(
+                          child: Text(
+                            m.text,
+                            style: TextStyle(
+                              color: isCurrent
+                                  ? Colors.lightBlueAccent
+                                  : isFiltered
+                                      ? (isBlunderMode
+                                          ? Colors.orange.shade200
+                                          : Colors.lightBlueAccent)
+                                      : m.p1
+                                          ? Colors.white70
+                                          : Colors.lightBlue.shade200,
+                              fontSize: 13,
+                              fontWeight: isCurrent || isFiltered
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 );

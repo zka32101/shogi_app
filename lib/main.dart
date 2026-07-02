@@ -61,8 +61,7 @@ import 'playstyle_diagnosis_screen.dart';
 import 'ghost_service.dart';
 import 'screens/ghost_screen.dart';
 import 'services/fcm_service.dart';
-import 'models/story_data.dart';
-import 'screens/story_overlay.dart';
+
 import 'screens/customize_screen.dart';
 import 'screens/theme_settings_screen.dart';
 
@@ -217,10 +216,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _initializeApp() async {
     await _checkFirstLaunch();
-    // 📖 プロローグストーリーを表示（初回または表示済みでない場合）
-    if (mounted) {
-      await StoryManager.showStoryIfNeeded(context, prologue);
-    }
   }
 
   Future<void> _checkFirstLaunch() async {
