@@ -30,11 +30,14 @@ import 'weakness_analysis_screen.dart';
 import 'tsume_screen.dart';
 import 'shodan_roadmap_screen.dart';
 import 'kifu_history_screen.dart';
-import 'models/story_data.dart';
-import 'screens/story_overlay.dart';
-import 'services/character_bond_service.dart';
+import 'kifu_replay_screen.dart';
+import 'screens/personal_blunder_quiz_screen.dart';
+
 import 'services/firebase_logging_service.dart';
+import 'services/kifu_analytics_service.dart';
+import 'models/game_analysis.dart';
 import 'defeat_experience_widget.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'defeat_screen.dart';
 import 'practice_points_system.dart';
 
@@ -1469,16 +1472,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   // ===== 手番終了処理（責任分離版） =====
   void _endTurn() {
-    final prevEval = _evalScore;
-    _evalScore = AI.eval(board, p1Hand, p2Hand);
-    _evalHistory.add(_evalScore);
-    if (kifu.length >= 15 && kifu.length % 5 == 0 && _openingLabel.isEmpty) {
-      _openingLabel = _detectOpening();
-    }
+    try {
+      final prevEval = _evalScore;
+      _evalScore = AI.eval(board, p1Hand, p2Hand);
+      _evalHistory.add(_evalScore);
+      if (kifu.length >= 15 && kifu.length % 5 == 0 && _openingLabel.isEmpty) {
+        _openingLabel = _detectOpening();
+      }
 
-    _updateGameState();
-    _applyPostMoveEffects(prevEval);
-    _decideAIMove();
+      _updateGameState();
+      _applyPostMoveEffects(prevEval);
+      _decideAIMove();
+    } catch (e, st) {
+      FirebaseLoggingService.logError(
+        errorType: 'end_turn_crash',
+        message: '$e',
+        context: 'game_screen_endTurn',
+      );
+      if (mounted) {
+        setState(() => _aiThinking = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('エラーが発生しました。対局を継続できます。'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   // ゲーム状態を更新（千日手・詰み判定・ゲーム終了判定）
@@ -1620,8 +1640,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   // ゲーム終了ダイアログ
-  void _showGameEndDialog() {
+  Future<void> _showGameEndDialog() async {
     if (!mounted || result == null) return;
+
+    GameAnalysis? analysis;
+
     // 棋譜保存（詰み・時間切れ・その他の終局を一括カバー）
     if (!_kifuSaved) {
       _kifuSaved = true;
@@ -1638,6 +1661,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       SharedPreferences.getInstance().then((prefs) {
         prefs.setBool('has_game_snapshot', false);
       });
+
+      // 棋譜を分析・保存（Phase 1）
+      try {
+        analysis = await KifuAnalyticsService().analyzeAndSaveGame(
+          evalHistory: _evalHistory,
+          moveNotations: kifu.map((m) => m.note).toList(),
+          playerWon: result != null && result!.contains(_userIsP2 ? '後手' : '先手'),
+          openingName: _openingLabel.isNotEmpty ? _openingLabel : null,
+          playerIsP1: !_userIsP2,
+        );
+        print('✅ 棋譜分析完了: 悪手${analysis.blunders.length}個, 好手${analysis.goodMoves.length}個');
+      } catch (e) {
+        print('❌ 棋譜分析エラー: $e');
+      }
     }
     if (vsAI && s.opponentCharacterId != null) {
       final aiWon = result!.contains(s.aiIsP2 ? '後手' : '先手');
@@ -1651,14 +1688,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (!playerWon && vsAI && mounted) {
       _showDefeatExperienceSheet();
       return; // ここで従来のダイアログは表示しない
-    }
-
-    // ───────────────────────────────────────────────────
-    // 📖 棋霊絆システム統合：プレイヤーがAI（棋霊）に勝利した場合
-    // ───────────────────────────────────────────────────
-    if (playerWon && vsAI && s.opponentCharacterId != null) {
-      final characterId = s.opponentCharacterId!;
-      _recordCharacterBond(characterId);
     }
 
     // 段位認定チェック（非同期）
@@ -1752,6 +1781,102 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   },
                 ),
               const SizedBox(height: 6),
+
+              // 悪手クイズ（Phase 2）
+              if (analysis != null && analysis!.blunders.isNotEmpty)
+                _postGameBtn(
+                  icon: Icons.quiz,
+                  label: '悪手を復習（${analysis!.blunders.length}問）',
+                  color: Colors.red.shade700,
+                  onTap: () async {
+                    Navigator.pop(ctx);
+                    // 過去の悪手パターンを取得
+                    final historicalBlunders = <BlunderInfo>[];
+                    try {
+                      final allGames = await KifuAnalyticsService().getAllAnalyses();
+                      for (final blunder in analysis!.blunders) {
+                        final matching = allGames
+                            .expand((g) => g.blunders)
+                            .where((b) =>
+                                b.toSquare == blunder.toSquare &&
+                                b.pieceMoved == blunder.pieceMoved)
+                            .toList();
+                        historicalBlunders.addAll(matching);
+                      }
+                    } catch (e) {
+                      print('⚠️ 過去の悪手取得エラー: $e');
+                    }
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PersonalBlunderQuizScreen(
+                            blunders: analysis!.blunders,
+                            historicalBlunders: historicalBlunders,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              if (analysis != null && analysis!.blunders.isNotEmpty)
+                const SizedBox(height: 6),
+
+              // 悪手・好手フィルター振り返り
+              if (_evalHistory.length >= 4) ...[
+                Builder(builder: (context) {
+                  final blunders = _filterMoveIndices(blunder: true);
+                  final goods = _filterMoveIndices(blunder: false);
+                  return Column(
+                    children: [
+                      if (blunders.isNotEmpty)
+                        _postGameBtn(
+                          icon: Icons.warning_amber_outlined,
+                          label: '悪手を振り返る（${blunders.length}手）',
+                          color: Colors.orange.shade800,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => KifuReplayScreen(
+                                  moves: kifu,
+                                  title: '悪手の振り返り',
+                                  filterIndices: blunders,
+                                  filterLabel: '悪手',
+                                  initialStep: blunders.first,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      if (blunders.isNotEmpty) const SizedBox(height: 6),
+                      if (goods.isNotEmpty)
+                        _postGameBtn(
+                          icon: Icons.star_outline,
+                          label: '好手を振り返る（${goods.length}手）',
+                          color: Colors.lightBlue.shade800,
+                          onTap: () {
+                            Navigator.pop(ctx);
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => KifuReplayScreen(
+                                  moves: kifu,
+                                  title: '好手の振り返り',
+                                  filterIndices: goods,
+                                  filterLabel: '好手',
+                                  initialStep: goods.first,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      if (goods.isNotEmpty) const SizedBox(height: 6),
+                    ],
+                  );
+                }),
+              ],
 
               // 弱点を分析・練習
               _postGameBtn(
@@ -1909,49 +2034,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  // ===== 棋霊絆管理：勝利記録 & 解放セリフ表示 =====
-  Future<void> _recordCharacterBond(String characterId) async {
-    final isFirstWin = await CharacterBondService.isFirstWin(characterId);
-    await CharacterBondService.addWin(characterId);
-
-    // 初勝利の場合、解放セリフを表示
-    if (isFirstWin && characterReleaseDialogues.containsKey(characterId)) {
-      final storyEvent = characterReleaseDialogues[characterId]!;
-      if (mounted) {
-        await StoryManager.showStoryIfNeeded(context, storyEvent);
-      }
-    }
-
-    // 全棋霊の絆完成を確認
-    if (mounted) {
-      final stats = await CharacterBondService.getBondStatistics();
-      if (stats.canUnlockCoexistenceEnding) {
-        // エンディング選択画面を表示
-        await showDialog(
-          context: context,
-          barrierDismissible: false,
-          builder: (BuildContext ctx) => EndingChoiceScreen(
-            onChoose: (endingType) async {
-              // エンディング選択を保存
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.setString('selected_ending', endingType.toString());
-
-              // 成功メッセージを表示（オプション）
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('エンディング: ${endingType.name} を選択しました'),
-                    duration: const Duration(seconds: 2),
-                  ),
-                );
-              }
-            },
-          ),
-        );
-      }
-    }
-  }
-
   // ===== 対局振り返りサマリー =====
   Widget _buildGameReviewSummary() {
     if (_evalHistory.length < 2) return const SizedBox.shrink();
@@ -2033,6 +2115,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  // ===== 悪手・好手フィルター手番計算 =====
+  // 戻り値: 1-based step インデックスのリスト（KifuReplayScreen._step に対応）
+  List<int> _filterMoveIndices({required bool blunder}) {
+    final result = <int>[];
+    if (_evalHistory.length < 2) return result;
+    for (int i = 1; i < _evalHistory.length && i <= kifu.length; i++) {
+      final delta = _evalHistory[i] - _evalHistory[i - 1];
+      final isP1 = kifu[i - 1].p1;
+      final playerDelta = isP1 ? delta : -delta;
+      if (blunder && playerDelta <= -80) result.add(i);
+      if (!blunder && playerDelta >= 150) result.add(i);
+    }
+    return result;
+  }
+
   // 対局後アクションボタン共通Widget
   Widget _postGameBtn({
     required IconData icon,
@@ -2087,7 +2184,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final depthBonus = pers?.depthBonus ?? 0;
       final effectiveDepth = (s.aiDepth + depthBonus).clamp(1, 6);
       // 時間予算テーブル（depth 1..6 に対応）
-      const budgetTable = [200, 350, 600, 1000, 1800, 3200];
+      const budgetTable = [150, 250, 350, 600, 1100, 1800];
       final budgetMs = budgetTable[(effectiveDepth - 1).clamp(0, 5)];
       final aiIsP1 = !s.aiIsP2;
       if (mv == null) {
@@ -2974,14 +3071,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         );
       }
 
-      // 絆レベル更新（対局で使用したキャラがいれば +1）
-      String? charId = s.opponentCharacterId;
-      if (charId != null) {
-        final key = 'character_bond_level_$charId';
-        final currentLevel = prefs.getInt(key) ?? 0;
-        await prefs.setInt(key, currentLevel + 1);
-      }
-
       // リベンジ用：敗着検出（プレイヤーが負けた場合）
       if (playerWon == false && kifu.length >= 2) {
         _detectDefeatMove();
@@ -3634,7 +3723,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       case PieceTheme.dark:
         return const Color(0xFF6B5310);
       case PieceTheme.textured:
-        return const Color(0xD4AF87); // 上品な金茶色
+        return const Color(0xFFD4AF87); // 上品な金茶色
       case PieceTheme.standard:
       case PieceTheme.emerald:
       case PieceTheme.cherry:
@@ -3647,7 +3736,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       case PieceTheme.dark:
         return const Color(0xFF3D2F0A);
       case PieceTheme.textured:
-        return const Color(0x8D6E63); // 質感用ボーダー
+        return const Color(0xFF8D6E63); // 質感用ボーダー
       case PieceTheme.standard:
       case PieceTheme.emerald:
       case PieceTheme.cherry:
@@ -3657,14 +3746,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   Color? get _gradientTop {
     if (s.theme == PieceTheme.textured) {
-      return const Color(0x3E2723); // グラデーション上部（濃い茶）
+      return const Color(0xFF3E2723); // グラデーション上部（濃い茶）
     }
     return null;
   }
 
   Color? get _gradientBottom {
     if (s.theme == PieceTheme.textured) {
-      return const Color(0x5D4037); // グラデーション下部
+      return const Color(0xFF5D4037); // グラデーション下部
     }
     return null;
   }
@@ -4213,15 +4302,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   '▲先手',
                   style: TextStyle(color: Colors.blue.shade300, fontSize: 10),
                 ),
-                Row(
+                Flexible(
+                  child: Row(
                   children: [
-                    Text(
+                    Flexible(
+                      child: Text(
                       label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                         color: Colors.white54,
                         fontSize: 10,
                       ),
-                    ),
+                    )),
                     if (_openingLabel.isNotEmpty) ...[
                       const SizedBox(width: 6),
                       Container(
@@ -4235,6 +4328,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         ),
                         child: Text(
                           _openingLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.amber,
                             fontSize: 9,
@@ -4247,7 +4342,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       Icon(Icons.show_chart, color: Colors.white30, size: 12),
                     ],
                   ],
-                ),
+                )),
                 Text(
                   '△後手',
                   style: TextStyle(color: Colors.red.shade300, fontSize: 10),
@@ -4513,6 +4608,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ),
               child: Text(
                 _aiDialogue!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 11,
