@@ -33,6 +33,7 @@ import 'kifu_history_screen.dart';
 import 'kifu_replay_screen.dart';
 import 'screens/personal_blunder_quiz_screen.dart';
 import 'screens/game_review_screen.dart';
+import 'kansousen_screen.dart';
 
 import 'services/firebase_logging_service.dart';
 import 'services/kifu_analytics_service.dart';
@@ -3239,11 +3240,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           suggestedBestMove: analysisData.$2,
           failedMove: analysisData.$1,
           onViewAnalysis: () {
-            // 感想戦画面へのナビゲーション
             Navigator.pop(context);
-            // TODO: kansousen_screen への遷移（今後実装）
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('感想戦機能は準備中です')),
+            final initialBoard = _boardSnaps.isNotEmpty
+                ? _boardSnaps.first
+                : _initBoard(s.handicap);
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => KansousenScreen(
+                  moves: List.from(kifu),
+                  initialBoard: initialBoard,
+                  title: '${kifu.length}手の対局',
+                  pieceTheme: s.theme,
+                ),
+              ),
             );
           },
           onPlayAgain: () {

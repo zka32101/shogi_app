@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'ai_personality.dart';
 import 'premium_defeat_analysis.dart';
+import 'screens/premium_screen.dart';
 
 class DefeatExperienceWidget extends StatelessWidget {
   final String result;
@@ -241,7 +242,10 @@ class DefeatExperienceWidget extends StatelessWidget {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                // TODO: PremiumScreen へ遷移
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFD700),

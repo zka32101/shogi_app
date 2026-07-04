@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 import 'ai_personality.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'screens/premium_screen.dart';
 
 /// 敗北分析データモデル
 class DefeatAnalysis {
@@ -815,8 +816,11 @@ class _DefeatScreenState extends State<DefeatScreen> {
             width: double.infinity,
             child: ElevatedButton(
               onPressed: () {
-                // TODO: PremiumScreen へ遷移
                 Navigator.pop(context);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFD700),

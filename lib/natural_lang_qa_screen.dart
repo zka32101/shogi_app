@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'dart:async';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'services/ai_service.dart';
 
 // ────────────────────────────────────────
 // NaturalLangQAScreen - 自然言語で盤面を質問するプレミアム機能
@@ -97,52 +98,9 @@ class _NaturalLangQAScreenState extends State<NaturalLangQAScreen> {
     return board.toString(); // Simple serialization for mock
   }
 
-  /// AI サービス呼び出し（現在はモック実装）
-  /// TODO: 実際の Gemini/Claude API に置き換える
+  /// AI サービス呼び出し（Claude API via Cloud Functions）
   Future<String> _askAboutPosition(String question) async {
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    // Mock responses based on question pattern
-    if (question.contains('ダメ') || question.contains('なぜ')) {
-      return '''（AIサービス実装予定）この手は相手に反撃の隙を与えます。
-
-▼ より良い選択肢：
-1. ７六歩 - 駒の活用を急ぐプロの指し方
-2. ２六歩 - 美濃囲い方面の争いを制する狙い
-
-▼ コメント：
-序盤の選択は流行の進化に左右されます。ここではプロ間でも意見が分かれる局面です。''';
-    } else if (question.contains('初心者') || question.contains('簡単') || question.contains('教えて')) {
-      return '''（AIサービス実装予定）簡単に言うと、この手は相手の攻撃を招きやすいということです。
-
-▼ 初心者向けの考え方：
-• 駒を相手から遠い位置に置く
-• 王様の周りに味方を集める（囲いを作る）
-• 急に攻める前に準備を整える
-
-▼ 次の一手：
-７六歩 が安全でおすすめです。''';
-    } else if (question.contains('定跡') || question.contains('棋書')) {
-      return '''（AIサービス実装予定）この局面は矢倉戦型です。
-
-▼ 参考図書：
-• 「矢倉の急所」- 渡辺竜王の最新理論
-• 「基本定跡ABC」- 初心者向けの標準定跡書
-
-▼ 最新の定跡：
-最近の AI の影響で、従来の指し方が見直されています。''';
-    } else {
-      return '''（AIサービス実装予定）盤面を分析しています。
-
-▼ 現局面の評価：
-位置は互角ですが、次の数手で勝敗が分かれやすい場面です。
-
-▼ 参考手：
-７六歩、２六歩、３六歩 などが候補です。
-
-さらに詳しい質問をしていただけますか？''';
-    }
+    return AIService.explainPosition(_boardToJson(), question);
   }
 
   /// 質問を送信
