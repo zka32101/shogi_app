@@ -192,6 +192,12 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
               _sectionLabel('対局'),
               _menuGrid([
                 MenuTile(
+                  icon: Icons.military_tech,
+                  label: 'ランク対戦',
+                  categoryColor: AppTheme.catPlay,
+                  onTap: _isLoading ? null : () => _startRankMatch(context),
+                ),
+                MenuTile(
                   icon: Icons.groups,
                   label: 'クラブ対戦',
                   categoryColor: AppTheme.catPlay,
@@ -450,6 +456,55 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
       setState(() => _queueId = queueId);
 
       // ④ マッチング結果を待機
+      if (mounted) {
+        _showMatchingWaitDialog(context, queueId);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('エラー: $e')),
+        );
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  /// ランク対戦（同じ段級位の相手とのみマッチング）
+  Future<void> _startRankMatch(BuildContext context) async {
+    setState(() => _isLoading = true);
+    try {
+      final currentUser = _networkService.currentUser;
+      if (currentUser == null) throw Exception('ログインが必要です');
+
+      final isBanned = await _networkService.isUserBanned(currentUser.uid);
+      if (isBanned) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => AlertDialog(
+              title: const Text('アカウント停止'),
+              content: const Text('このアカウントは停止されています。'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる')),
+              ],
+            ),
+          );
+        }
+        return;
+      }
+
+      final userProfile = await _networkService.getUserProfile(currentUser.uid);
+      if (userProfile == null) throw Exception('ユーザー情報が見つかりません');
+
+      // ランク帯限定マッチング（同じ段級位の相手のみ）
+      final queueId = await _matchingService.joinMatchingQueue(
+        currentUser.uid,
+        userProfile,
+        0, // rankTierOnly=true の場合は無視される
+        rankTierOnly: true,
+      );
+
+      setState(() => _queueId = queueId);
       if (mounted) {
         _showMatchingWaitDialog(context, queueId);
       }

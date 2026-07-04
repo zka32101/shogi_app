@@ -584,7 +584,7 @@ class _MatchScreenState extends State<MatchScreen> {
         for (int c = 0; c < 9; c++) {
           final p = b[r][c];
           if (p == null || p.isPlayer1 != isP1 || p.type == PieceType.king) continue;
-          final base = p.type == PieceType.rook || p.type == PieceType.bishop ? 5 : 1;
+          final base = p.baseType == PieceType.rook || p.baseType == PieceType.bishop ? 5 : 1;
           pts += base;
         }
       }
@@ -690,7 +690,7 @@ class _MatchScreenState extends State<MatchScreen> {
         for (int c = 0; c < 9; c++) {
           final p = board[r][c];
           if (p == null || p.isPlayer1 != isP1 || p.type == PieceType.king) continue;
-          pts += (p.type == PieceType.rook || p.type == PieceType.bishop) ? 5 : 1;
+          pts += (p.baseType == PieceType.rook || p.baseType == PieceType.bishop) ? 5 : 1;
         }
       }
       final hand = isP1 ? p1Hand : p2Hand;

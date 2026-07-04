@@ -32,6 +32,7 @@ import 'shodan_roadmap_screen.dart';
 import 'kifu_history_screen.dart';
 import 'kifu_replay_screen.dart';
 import 'screens/personal_blunder_quiz_screen.dart';
+import 'screens/game_review_screen.dart';
 
 import 'services/firebase_logging_service.dart';
 import 'services/kifu_analytics_service.dart';

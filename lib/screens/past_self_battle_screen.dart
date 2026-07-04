@@ -3,6 +3,7 @@ import '../services/kifu_analytics_service.dart';
 import '../services/growth_share_service.dart';
 import '../models/game_analysis.dart';
 import '../widgets/growth_story_card.dart';
+import 'past_self_battle_game_screen.dart';
 
 class PastSelfBattleScreen extends StatefulWidget {
   const PastSelfBattleScreen();
@@ -32,60 +33,6 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
       print('❌ ゲーム読み込みエラー: $e');
       setState(() => _isLoading = false);
     }
-  }
-
-  void _selectDate(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text(
-          '過去のあなたと対戦',
-          style: TextStyle(color: Colors.cyan),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _DateOptionButton(
-              label: '3ヶ月前のあなた',
-              daysAgo: 90,
-              onTap: () {
-                Navigator.pop(ctx);
-                _startBattle(90);
-              },
-            ),
-            const SizedBox(height: 8),
-            _DateOptionButton(
-              label: '1ヶ月前のあなた',
-              daysAgo: 30,
-              onTap: () {
-                Navigator.pop(ctx);
-                _startBattle(30);
-              },
-            ),
-            const SizedBox(height: 8),
-            _DateOptionButton(
-              label: '2週間前のあなた',
-              daysAgo: 14,
-              onTap: () {
-                Navigator.pop(ctx);
-                _startBattle(14);
-              },
-            ),
-            const SizedBox(height: 8),
-            _DateOptionButton(
-              label: '1週間前のあなた',
-              daysAgo: 7,
-              onTap: () {
-                Navigator.pop(ctx);
-                _startBattle(7);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
   }
 
   void _startBattle(int daysAgo) {
@@ -142,7 +89,18 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
             ),
           ),
           TextButton(
-            onPressed: () => Navigator.pop(ctx),
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => PastSelfBattleGameScreen(
+                    daysAgo: daysAgo,
+                    dateLabel: _getDateLabel(daysAgo),
+                  ),
+                ),
+              );
+            },
             child: const Text(
               '対戦開始',
               style: TextStyle(color: Colors.amber),
@@ -153,7 +111,22 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
     );
   }
 
+  String _getDateLabel(int daysAgo) {
+    if (daysAgo == 90) return '3ヶ月前';
+    if (daysAgo == 30) return '1ヶ月前';
+    if (daysAgo == 14) return '2週間前';
+    if (daysAgo == 7) return '1週間前';
+    return '${daysAgo}日前';
+  }
+
   Future<void> _shareGrowthStory(int daysAgo) async {
+    if (_allGames == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('対局データがありません')),
+      );
+      return;
+    }
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('成長ストーリーを作成中...'),
@@ -161,9 +134,41 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
       ),
     );
 
-    // TODO: GrowthStoryImageGenerator.generateImage() で画像生成
-    // その後 GrowthShareService.shareGrowthStory() で共有
-    print('✅ 成長ストーリー共有処理: $daysAgo日前');
+    try {
+      // 画像生成
+      final imageBytes = await GrowthStoryImageGenerator.generateImage(
+        allGames: _allGames!,
+        daysAgo: daysAgo,
+      );
+
+      if (imageBytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('画像生成に失敗しました')),
+        );
+        return;
+      }
+
+      // シェア処理
+      await GrowthShareService.shareGrowthStory(
+        imageBytes: imageBytes,
+        allGames: _allGames!,
+        daysAgo: daysAgo,
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ 成長ストーリーをシェアしました'),
+          duration: Duration(seconds: 1),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('シェアエラー: $e')),
+      );
+    }
   }
 
   @override
@@ -337,6 +342,13 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
     required String subtitle,
     required int daysAgo,
   }) {
+    final games = _allGames!;
+    final targetDate = DateTime.now().subtract(Duration(days: daysAgo));
+    final pastGames = games.where((g) => g.playedAt.isBefore(targetDate)).toList();
+    final pastWinRate = pastGames.isEmpty
+        ? null
+        : (pastGames.where((g) => g.playerWon).length / pastGames.length * 100);
+
     return GestureDetector(
       onTap: () => _startBattle(daysAgo),
       child: Container(
@@ -360,16 +372,33 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
                   ),
                 ),
                 const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 11,
-                  ),
+                Row(
+                  children: [
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                        color: Colors.white38,
+                        fontSize: 11,
+                      ),
+                    ),
+                    if (pastWinRate != null) ...[
+                      const SizedBox(width: 8),
+                      Text(
+                        '勝率 ${pastWinRate.toStringAsFixed(0)}%',
+                        style: TextStyle(
+                          color: pastWinRate >= 50
+                              ? Colors.green.shade400
+                              : Colors.orange.shade400,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ],
             ),
-            const Icon(Icons.arrow_forward, color: Colors.white54, size: 20),
+            const Icon(Icons.sports_kabaddi, color: Colors.amber, size: 20),
           ],
         ),
       ),
@@ -377,42 +406,3 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
   }
 }
 
-class _DateOptionButton extends StatelessWidget {
-  final String label;
-  final int daysAgo;
-  final VoidCallback onTap;
-
-  const _DateOptionButton({
-    required this.label,
-    required this.daysAgo,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Colors.cyan.withAlpha(20),
-          border: Border.all(color: Colors.cyan.withAlpha(60)),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Row(
-          children: [
-            const Icon(Icons.access_time, color: Colors.cyan, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: const TextStyle(color: Colors.cyan),
-              ),
-            ),
-            const Icon(Icons.arrow_forward, color: Colors.cyan, size: 16),
-          ],
-        ),
-      ),
-    );
-  }
-}

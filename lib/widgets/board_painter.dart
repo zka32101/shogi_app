@@ -171,10 +171,16 @@ class BoardPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant BoardPainter old) =>
-      old.cellColor != cellColor ||
-      old.borderColor != borderColor ||
-      old.starColor != starColor ||
-      old.textured != textured ||
-      old.advantageRatio != advantageRatio;
+  bool shouldRepaint(covariant BoardPainter old) {
+    return old.cellColor != cellColor ||
+        old.borderColor != borderColor ||
+        old.starColor != starColor ||
+        old.textured != textured ||
+        old.advantageRatio != advantageRatio ||
+        old.gradientTop != gradientTop ||
+        old.gradientBottom != gradientBottom;
+  }
+
+  @override
+  bool shouldRebuildSemantics(covariant BoardPainter oldDelegate) => false;
 }

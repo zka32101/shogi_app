@@ -90,17 +90,20 @@ class KifuAnalyticsService {
   }
 
   (String?, String, String) _parseNotation(String notation) {
+    if (notation.length < 2) return (null, '?', '?');
+
     if (notation.contains('打')) {
+      final idx = notation.indexOf('打');
       final toSq = notation.substring(0, 2);
-      final piece = notation.substring(2, notation.indexOf('打'));
+      final piece = idx > 2 ? notation.substring(2, idx) : '?';
       return ('', toSq, piece);
     }
 
     final toSq = notation.substring(0, 2);
-    final rest = notation.substring(2);
-    final piece = rest.replaceAll('成', '');
+    final rest = notation.length > 2 ? notation.substring(2) : '';
+    final piece = rest.replaceAll('成', '').replaceAll('不成', '');
 
-    return (null, toSq, piece);
+    return (null, toSq, piece.isEmpty ? '?' : piece);
   }
 
   Future<void> _updateBlunderPatterns(

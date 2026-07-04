@@ -105,6 +105,36 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
     _p2AtkMap = GL.attackMap(widget.state.board, false);
   }
 
+  // 盤面テクスチャ用の駒得比率（0.0=後手有利〜0.5=互角〜1.0=先手有利）
+  // ローカル対局(game_screen.dart)の _advantageRatio() と同一の駒価値テーブル
+  static const _advValues = {
+    PieceType.king: 0,
+    PieceType.rook: 5,
+    PieceType.bishop: 3,
+    PieceType.gold: 1,
+    PieceType.silver: 1,
+    PieceType.knight: 1,
+    PieceType.lance: 1,
+    PieceType.pawn: 1,
+    PieceType.promotedRook: 6,
+    PieceType.promotedBishop: 4,
+  };
+
+  double _boardAdvantageRatio() {
+    int p1Score = 0, p2Score = 0;
+    for (final row in widget.state.board) {
+      for (final piece in row) {
+        if (piece == null) continue;
+        final val = _advValues[piece.type] ?? 0;
+        if (piece.isPlayer1) p1Score += val; else p2Score += val;
+      }
+    }
+    widget.state.p1Hand.forEach((type, cnt) => p1Score += (_advValues[type] ?? 0) * cnt);
+    widget.state.p2Hand.forEach((type, cnt) => p2Score += (_advValues[type] ?? 0) * cnt);
+    final total = p1Score + p2Score;
+    return total == 0 ? 0.5 : p1Score / total;
+  }
+
   Map<PieceType, int> get myHand =>
       widget.isPlayer1 ? widget.state.p1Hand : widget.state.p2Hand;
   Map<PieceType, int> get oppHand =>
@@ -282,6 +312,10 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
               cellColor: config.cell,
               borderColor: config.cellBorder,
               starColor: starColor,
+              textured: widget.theme == PieceTheme.textured,
+              gradientTop: config.gradientTop,
+              gradientBottom: config.gradientBottom,
+              advantageRatio: _boardAdvantageRatio(),
             ),
             size: Size(sz, sz),
           ),
