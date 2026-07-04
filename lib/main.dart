@@ -64,6 +64,8 @@ import 'services/fcm_service.dart';
 
 import 'screens/customize_screen.dart';
 import 'screens/theme_settings_screen.dart';
+import 'screens/past_self_battle_screen.dart';
+import 'screens/game_statistics_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -279,29 +281,41 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       bottomNavigationBar: NavigationBar(
         backgroundColor: const Color(0xFF16213E),
-        indicatorColor: Colors.brown.shade700,
+        indicatorColor: Colors.transparent,
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.sports_esports_outlined, color: Colors.white54),
-            selectedIcon: Icon(Icons.sports_esports, color: Colors.white),
+            icon: Icon(
+              _tab == 0 ? Icons.sports_esports : Icons.sports_esports_outlined,
+              color: _tab == 0 ? Colors.cyan : Colors.white54,
+              size: 24,
+            ),
             label: '対局',
           ),
           NavigationDestination(
-            icon: Icon(Icons.history_outlined, color: Colors.white54),
-            selectedIcon: Icon(Icons.history, color: Colors.white),
+            icon: Icon(
+              _tab == 1 ? Icons.history : Icons.history_outlined,
+              color: _tab == 1 ? Colors.cyan : Colors.white54,
+              size: 24,
+            ),
             label: '棋譜',
           ),
           NavigationDestination(
-            icon: Icon(Icons.school_outlined, color: Colors.white54),
-            selectedIcon: Icon(Icons.school, color: Colors.white),
+            icon: Icon(
+              _tab == 2 ? Icons.school : Icons.school_outlined,
+              color: _tab == 2 ? Colors.cyan : Colors.white54,
+              size: 24,
+            ),
             label: '学習',
           ),
           NavigationDestination(
-            icon: Icon(Icons.tune_outlined, color: Colors.white54),
-            selectedIcon: Icon(Icons.tune, color: Colors.white),
+            icon: Icon(
+              _tab == 3 ? Icons.tune : Icons.tune_outlined,
+              color: _tab == 3 ? Colors.cyan : Colors.white54,
+              size: 24,
+            ),
             label: '設定',
           ),
         ],
@@ -822,6 +836,62 @@ class _StudyTab extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             _heroGuide(context),
+            const SizedBox(height: 22),
+            // 成長を確認ボタン（Phase 3）
+            GestureDetector(
+              onTap: () => _go(context, const PastSelfBattleScreen()),
+              child: Container(
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1B5E20), Color(0xFF00796B)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.cyan.withAlpha(120), width: 2),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: Colors.cyan.withAlpha(30),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.trending_up, color: Colors.cyan, size: 26),
+                    ),
+                    const SizedBox(width: 14),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '成長を確認',
+                            style: TextStyle(
+                              color: Colors.cyan,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 2),
+                          Text(
+                            '過去のあなたと対戦して成長度を確認',
+                            style: TextStyle(
+                              color: Colors.cyan,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w400,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.arrow_forward, color: Colors.cyan, size: 20),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 22),
             ..._buildSections(context),
             const SizedBox(height: 8),

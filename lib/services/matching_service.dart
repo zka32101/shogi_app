@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/matching_queue.dart';
 import '../models/user_profile.dart';
+import '../stats_screen.dart' show rankTable, ratingToRank;
 import 'cheat_detection_service.dart';
 import 'fcm_service.dart';
 
@@ -25,14 +26,28 @@ class MatchingService {
 
   // ── マッチング待機 ────────────────────────────
 
+  /// 現在のレーティングが属する段級位の範囲 [minRating, maxRating) を返す。
+  /// ランク帯マッチング（同じ段級位の相手とのみ対戦）に使用する。
+  (int, int) _rankTierBounds(int rating) {
+    for (int i = 0; i < rankTable.length; i++) {
+      if (rating >= rankTable[i].minRating) {
+        final maxRating = i == 0 ? 9999 : rankTable[i - 1].minRating - 1;
+        return (rankTable[i].minRating, maxRating);
+      }
+    }
+    return (0, rankTable.last.minRating - 1);
+  }
+
   /// マッチング待機キューに参加
-  /// [ratingRange]: 対戦相手レーティング許容範囲（±100等）
+  /// [ratingRange]: 対戦相手レーティング許容範囲（±100等）。[rankTierOnly]がtrueの場合は無視される
   /// [clubMatchOnly]: trueの場合、同クラブ限定マッチング
+  /// [rankTierOnly]: trueの場合、同じ段級位（例: 初段同士）の相手とのみマッチングする
   Future<String> joinMatchingQueue(
     String userId,
     UserProfile userProfile,
     int ratingRange, {
     bool clubMatchOnly = false,
+    bool rankTierOnly = false,
   }) async {
     try {
       // ユーザーの所属クラブを取得
@@ -43,8 +58,17 @@ class MatchingService {
       } catch (_) {}
 
       final queueRef = _firestore.collection('matching_queue').doc();
-      final minRating = (userProfile.rating - ratingRange).clamp(0, 3500);
-      final maxRating = userProfile.rating + ratingRange;
+
+      int minRating;
+      int maxRating;
+      if (rankTierOnly) {
+        final (tierMin, tierMax) = _rankTierBounds(userProfile.rating);
+        minRating = tierMin;
+        maxRating = tierMax;
+      } else {
+        minRating = (userProfile.rating - ratingRange).clamp(0, 3500);
+        maxRating = userProfile.rating + ratingRange;
+      }
 
       final queue = MatchingQueue(
         id: queueRef.id,

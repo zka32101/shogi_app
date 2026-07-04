@@ -41,6 +41,9 @@ dependencies:
   # HTTP クライアント（lishogi API 等外部連携）
   http: ^1.2.2
 
+  # ハッシュ生成（棋譜分析パターンキー）
+  crypto: ^3.0.3
+
   # URL リンク
   url_launcher: ^6.1.10
 

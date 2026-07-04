@@ -11,6 +11,7 @@ import 'character_icons.dart';
 import 'ai_personality.dart';
 import 'screens/premium_screen.dart';
 import 'piece.dart';
+import 'services/adaptive_difficulty_service.dart';
 
 class GameSetupScreen extends StatefulWidget {
   final GameMode mode; // pvp or vsAI
@@ -45,6 +46,30 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
   // オープニング局面
   String? _selectedOpeningId;
+
+  // 適応難易度（直近の調子を加味したAIレベル調整）
+  AdaptiveLevelResult? _adaptiveResult;
+  bool _loadingAdaptive = true;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.mode == GameMode.vsAI) {
+      _loadAdaptiveLevel();
+    }
+  }
+
+  Future<void> _loadAdaptiveLevel() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentRating = prefs.getInt('rating_current') ?? 700;
+    final result = await AdaptiveDifficultyService.computeAdaptiveLevel(rating: currentRating);
+    if (mounted) {
+      setState(() {
+        _adaptiveResult = result;
+        _loadingAdaptive = false;
+      });
+    }
+  }
 
   // 持ち時間の選択肢
   static const _timeOptions = <int?>[null, 180, 300, 600, 900, 1800];
@@ -164,9 +189,9 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       await prefs.setInt('local_game_count', count + 1);
     }
 
-    // レーティングからAIレベルを自動決定
+    // レーティング + 直近の調子から適応的にAIレベルを決定
     final currentRating = prefs.getInt('rating_current') ?? 700;
-    final autoAiLevel = autoAiLevelFromRating(currentRating);
+    final autoAiLevel = _adaptiveResult?.level ?? autoAiLevelFromRating(currentRating);
 
     final settings = GameSettings(
       mode: widget.mode,
@@ -327,33 +352,52 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
 
   // ── AI自動適応バナー ──────────────────────────────────────
   Widget _autoAiInfoBanner() {
+    final result = _adaptiveResult;
+    final isAdjusted = result?.isAdjusted ?? false;
+    final adjustedUp = (result?.adjustmentSteps ?? 0) > 0;
+
+    final accentColor = isAdjusted
+        ? (adjustedUp ? Colors.redAccent : Colors.lightBlueAccent)
+        : Colors.amber;
+    final icon = isAdjusted
+        ? (adjustedUp ? Icons.trending_up : Icons.trending_down)
+        : Icons.auto_awesome;
+    final title = isAdjusted
+        ? (adjustedUp ? 'AIを少し手強めに調整中' : 'AIを少し易しめに調整中')
+        : 'AIはあなたの棋力に自動調整';
+
+    final subtitle = _loadingAdaptive
+        ? '直近の調子を分析しています…'
+        : (result?.reason ?? '現在のレーティングに合わせたAIと対局します');
+
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: const Color(0xFF16213E),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.amber.withAlpha(80)),
+        border: Border.all(color: accentColor.withAlpha(80)),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.auto_awesome, color: Colors.amber, size: 28),
+          Icon(icon, color: accentColor, size: 28),
           const SizedBox(width: 12),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'AIはあなたの棋力に自動調整',
+                  title,
                   style: TextStyle(
-                    color: Colors.amber,
+                    color: accentColor,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                SizedBox(height: 2),
+                const SizedBox(height: 2),
                 Text(
-                  '現在のレーティングに合わせたAIと対局します',
-                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                  subtitle,
+                  style: const TextStyle(color: Colors.white54, fontSize: 11, height: 1.4),
                 ),
               ],
             ),

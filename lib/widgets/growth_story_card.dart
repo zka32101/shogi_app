@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import '../models/game_analysis.dart';
@@ -109,7 +108,7 @@ class GrowthStoryCard extends StatelessWidget {
 
           // 日付
           Text(
-            '2026年7月2日',
+            '${DateTime.now().year}年${DateTime.now().month}月${DateTime.now().day}日',
             style: const TextStyle(
               color: Colors.white54,
               fontSize: 12,
@@ -254,41 +253,155 @@ class GrowthStoryCard extends StatelessWidget {
   }
 }
 
-/// 成長ストーリーカードを画像で出力
+/// 成長ストーリーカードを画像で出力（Phase 4）
 class GrowthStoryImageGenerator {
+  /// 成長ストーリーを画像で生成（Canvas描画）
   static Future<Uint8List?> generateImage({
-    required BuildContext context,
     required List<GameAnalysis> allGames,
     required int daysAgo,
   }) async {
     try {
-      final card = GrowthStoryCard(
-        allGames: allGames,
-        daysAgo: daysAgo,
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const width = 800.0;
+      const height = 600.0;
+
+      // 背景
+      canvas.drawRect(
+        const Rect.fromLTWH(0, 0, width, height),
+        Paint()..color = const Color(0xFF0F3460),
       );
 
-      final RenderRepaintBoundary repaintBoundary =
-          RenderRepaintBoundary();
+      // 統計情報
+      final stats = _calculateStats(allGames, daysAgo);
+      final pastWinRate = (stats['pastWinRate'] as double).toStringAsFixed(0);
+      final recentWinRate = (stats['recentWinRate'] as double).toStringAsFixed(0);
+      final rateChange = stats['rateChange'] as double;
 
-      final RenderView renderView = RenderView(
-        window: WidgetsBinding.instance.window,
-        child: RenderPositionedBox(
-          alignment: Alignment.center,
-          child: card,
-        ),
+      // タイトル
+      _drawText(
+        canvas,
+        '成長記録',
+        const Offset(40, 40),
+        40,
+        Colors.cyan,
       );
 
-      final PipelineOwner pipelineOwner = PipelineOwner();
-      pipelineOwner.rootNode = renderView;
-      renderView.prepareInitialFrame();
+      // 日付
+      final dateLabel = _getDateLabel(daysAgo);
+      _drawText(
+        canvas,
+        '$dateLabel のあなたと比較',
+        const Offset(40, 100),
+        24,
+        Colors.white70,
+      );
 
-      final ui.Image image = await repaintBoundary.toImage(pixelRatio: 2.0);
-      final ByteData? byteData =
-          await image.toByteData(format: ui.ImageByteFormat.png);
-      return byteData?.buffer.asUint8List();
+      // 勝率比較
+      _drawText(
+        canvas,
+        '勝率: $pastWinRate% → $recentWinRate%',
+        const Offset(40, 180),
+        28,
+        Colors.white,
+      );
+
+      // 成長指標
+      final growthText = rateChange > 0
+          ? '+${rateChange.toStringAsFixed(1)}% 向上！'
+          : '${rateChange.toStringAsFixed(1)}%';
+      final growthColor = rateChange > 0 ? Colors.green : Colors.orange;
+      _drawText(
+        canvas,
+        growthText,
+        const Offset(40, 240),
+        32,
+        growthColor,
+        fontWeight: true,
+      );
+
+      // 対局数
+      _drawText(
+        canvas,
+        '対局数: ${allGames.length}',
+        const Offset(40, 320),
+        20,
+        Colors.white54,
+      );
+
+      // ハッシュタグ
+      _drawText(
+        canvas,
+        '#将棋アプリ #成長記録 #棋力向上',
+        const Offset(40, 480),
+        18,
+        Colors.cyan,
+      );
+
+      final image = await recorder
+          .endRecording()
+          .toImage(width.toInt(), height.toInt());
+      final pngBytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      return pngBytes?.buffer.asUint8List();
     } catch (e) {
       print('❌ 画像生成エラー: $e');
       return null;
     }
+  }
+
+  static void _drawText(
+    Canvas canvas,
+    String text,
+    Offset offset,
+    double fontSize,
+    Color color, {
+    bool fontWeight = false,
+  }) {
+    final textPainter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: fontWeight ? FontWeight.bold : FontWeight.normal,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    );
+    textPainter.layout();
+    textPainter.paint(canvas, offset);
+  }
+
+  static Map<String, dynamic> _calculateStats(
+    List<GameAnalysis> allGames,
+    int daysAgo,
+  ) {
+    final targetDate = DateTime.now().subtract(Duration(days: daysAgo));
+    final pastGames =
+        allGames.where((g) => g.playedAt.isBefore(targetDate)).toList();
+    final recentGames =
+        allGames.where((g) => g.playedAt.isAfter(targetDate)).toList();
+
+    final pastWins = pastGames.where((g) => g.playerWon).length;
+    final recentWins = recentGames.where((g) => g.playerWon).length;
+
+    final pastWinRate =
+        pastGames.isEmpty ? 0.0 : pastWins / pastGames.length * 100;
+    final recentWinRate =
+        recentGames.isEmpty ? 0.0 : recentWins / recentGames.length * 100;
+
+    return {
+      'pastWinRate': pastWinRate,
+      'recentWinRate': recentWinRate,
+      'rateChange': recentWinRate - pastWinRate,
+    };
+  }
+
+  static String _getDateLabel(int daysAgo) {
+    if (daysAgo == 90) return '3ヶ月前';
+    if (daysAgo == 30) return '1ヶ月前';
+    if (daysAgo == 14) return '2週間前';
+    if (daysAgo == 7) return '1週間前';
+    return '${daysAgo}日前';
   }
 }
