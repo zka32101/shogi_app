@@ -2,11 +2,14 @@
 // フレンドリスト・申請・対局招待
 
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../services/friend_service.dart';
 import '../services/network_service.dart';
 import '../services/rating_service.dart';
 import '../theme/app_theme.dart';
 import 'player_profile_screen.dart';
+import 'match_screen.dart';
 
 class FriendScreen extends StatefulWidget {
   const FriendScreen({super.key});
@@ -563,9 +566,52 @@ class _ChallengesTab extends StatelessWidget {
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                      await friendService.respondToChallenge(
-                          c.id, true);
-                      // TODO: MatchScreen に遷移
+                      await friendService.respondToChallenge(c.id, true);
+                      final me = FirebaseAuth.instance.currentUser;
+                      if (me == null) return;
+
+                      final firestore = FirebaseFirestore.instance;
+                      final myProfile = await networkService.getUserProfile(me.uid);
+                      final matchRef = firestore.collection('matches').doc();
+                      final now = DateTime.now();
+
+                      await matchRef.set({
+                        'id': matchRef.id,
+                        'player1_id': c.senderId,
+                        'player1_name': c.senderName,
+                        'player1_rating': c.senderRating,
+                        'player2_id': me.uid,
+                        'player2_name': myProfile?.username ?? '自分',
+                        'player2_rating': myProfile?.rating ?? 1500,
+                        'board_state': '',
+                        'current_turn': 1,
+                        'moves': [],
+                        'player1_time': 600,
+                        'player2_time': 600,
+                        'status': 'playing',
+                        'winner': null,
+                        'result': null,
+                        'created_at': now,
+                        'started_at': now,
+                        'finished_at': null,
+                      });
+
+                      await firestore.collection('direct_challenges').doc(c.id).update({
+                        'match_id': matchRef.id,
+                      });
+
+                      if (!context.mounted) return;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => MatchScreen(
+                            matchId: matchRef.id,
+                            isPlayer1: false,
+                            myPlayerId: me.uid,
+                            timeLimitSec: 600,
+                          ),
+                        ),
+                      );
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.success,

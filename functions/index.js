@@ -1,6 +1,7 @@
 'use strict';
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const https = require('https');
 admin.initializeApp();
 
 const db = admin.firestore();
@@ -774,3 +775,101 @@ function _generateProblem(sfen, index, dateStr) {
     return null;
   }
 }
+
+// ── AI 解説 (Claude API) ──────────────────────────────────────────
+
+async function callClaude(systemPrompt, userMessage) {
+  const apiKey = functions.config().anthropic && functions.config().anthropic.key;
+  if (!apiKey) {
+    throw new Error('Anthropic API key not configured. Run: firebase functions:config:set anthropic.key=YOUR_KEY');
+  }
+
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 512,
+      system: systemPrompt,
+      messages: [{ role: 'user', content: userMessage }],
+    });
+
+    const req = https.request(
+      {
+        hostname: 'api.anthropic.com',
+        path: '/v1/messages',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'x-api-key': apiKey,
+          'Content-Length': Buffer.byteLength(body),
+        },
+      },
+      (res) => {
+        let data = '';
+        res.on('data', (chunk) => { data += chunk; });
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.error) {
+              reject(new Error(parsed.error.message));
+            } else {
+              resolve(parsed.content[0].text);
+            }
+          } catch (e) {
+            reject(e);
+          }
+        });
+      }
+    );
+    req.on('error', reject);
+    req.write(body);
+    req.end();
+  });
+}
+
+exports.explainPosition = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', '認証が必要です');
+  }
+
+  const { boardJson, question } = data;
+  if (!question || typeof question !== 'string') {
+    throw new functions.https.HttpsError('invalid-argument', 'question が必要です');
+  }
+
+  const system = `あなたは将棋の専門家AIコーチです。初心者から上級者まで分かりやすく、簡潔に日本語で回答してください。
+回答は3〜5行以内にまとめ、具体的な手の候補がある場合は▲（先手）または△（後手）の符号で示してください。`;
+
+  const userMsg = boardJson
+    ? `現在の盤面（JSON）: ${boardJson}\n\n質問: ${question}`
+    : `質問: ${question}`;
+
+  try {
+    const answer = await callClaude(system, userMsg);
+    return { answer };
+  } catch (e) {
+    console.error('explainPosition error:', e);
+    throw new functions.https.HttpsError('internal', `AI解説エラー: ${e.message}`);
+  }
+});
+
+exports.generateCoachFeedback = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', '認証が必要です');
+  }
+
+  const { gameResult, playStyle } = data;
+
+  const system = `あなたは将棋の熱心なコーチです。対局後のプレイヤーへのフィードバックを、励ましと具体的な改善点を交えて日本語で伝えてください。
+フィードバックは5〜8行程度にまとめてください。`;
+
+  const userMsg = `対局結果: ${gameResult || '不明'}\n棋風: ${playStyle || '一般的'}`;
+
+  try {
+    const feedback = await callClaude(system, userMsg);
+    return { feedback };
+  } catch (e) {
+    console.error('generateCoachFeedback error:', e);
+    throw new functions.https.HttpsError('internal', `AIコーチエラー: ${e.message}`);
+  }
+});

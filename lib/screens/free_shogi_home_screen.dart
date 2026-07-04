@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'free_shogi_setup_screen.dart';
 import '../services/free_shogi_service.dart';
 import '../models/free_shogi_config.dart';
+import '../game_screen.dart';
 
 class FreeShogiFiHomeScreen extends StatefulWidget {
   const FreeShogiFiHomeScreen({super.key});
@@ -85,9 +86,16 @@ class _FreeShogiFiHomeScreenState extends State<FreeShogiFiHomeScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    // 後で実装: 標準配置で対局開始
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('標準将棋で対局開始（未実装）')),
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => GameScreen(
+                          settings: GameSettings(
+                            mode: GameMode.vsAI,
+                            aiLevel: AILevel.medium,
+                          ),
+                        ),
+                      ),
                     );
                   },
                   child: const Text('標準将棋で遊ぶ'),
@@ -138,8 +146,17 @@ class _FreeShogiFiHomeScreenState extends State<FreeShogiFiHomeScreen> {
                               PopupMenuItem(
                                 child: const Text('対局開始'),
                                 onTap: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${tmpl.name}で対局開始（未実装）')),
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => GameScreen(
+                                        settings: GameSettings(
+                                          mode: GameMode.vsAI,
+                                          aiLevel: AILevel.medium,
+                                        ),
+                                        initialBoard: tmpl.p1Board,
+                                      ),
+                                    ),
                                   );
                                 },
                               ),
