@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:convert';
 import '../models/free_shogi_config.dart';
+import '../piece.dart';
 
 class FreeShogiFiemplateService {
   static const String _localKey = 'free_shogi_templates';

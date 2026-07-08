@@ -769,6 +769,8 @@ class _LishogiPuzzleScreenState extends State<LishogiPuzzleScreen>
     });
   }
 
+  void _loadNextPuzzle() => _loadPuzzle();
+
   void _revealSolution() {
     setState(() {
       _showingSolution = true;
