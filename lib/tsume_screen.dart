@@ -1343,6 +1343,9 @@ void _buildExtraProblems(List<_TsumeProb> list) {
 
 // ===== タイムアタック画面 =====
 
+enum _TaMode { threeMin, perProblem }
+enum _TaDiff { mix, one, three, five }
+
 class TsumeTimeAttackScreen extends StatefulWidget {
   const TsumeTimeAttackScreen({super.key});
 
@@ -1352,59 +1355,139 @@ class TsumeTimeAttackScreen extends StatefulWidget {
 
 class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
   static const _bg = AppTheme.bg;
-  static const _totalSec = 180; // 3分
+  static const _totalSec = 180;
+  static const _perProbSec = 30;
+  static const _prefBest3 = 'ta_best_3min';
+  static const _prefBestPp = 'ta_best_perproblem';
 
-  // 有効な問題のみ（開始王手除外）
-  late final List<(int, _TsumeProb)> _validProblems;
+  _TaMode _mode = _TaMode.threeMin;
+  _TaDiff _diff = _TaDiff.mix;
+
+  List<(int, _TsumeProb)> _pool = [];
 
   int _score = 0;
+  int _skipped = 0;
   int _remaining = _totalSec;
-  Timer? _timer;
+  int _problemRemaining = _perProbSec;
+  Timer? _sessionTimer;
+  Timer? _problemTimer;
   bool _started = false;
   bool _finished = false;
-
-  // 現在の問題
-  int _currentIdx = -1;
+  int _currentIdx = 0;
   final _random = _Rng();
+
+  int _best3min = 0;
+  int _bestPerproblem = 0;
 
   @override
   void initState() {
     super.initState();
-    _validProblems = [];
-    for (int i = 0; i < _problems.length; i++) {
-      if (!GL.inCheck(_problems[i].board, false)) {
-        _validProblems.add((i, _problems[i]));
-      }
-    }
-    _nextProblem();
+    _buildPool();
+    _loadBest();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _sessionTimer?.cancel();
+    _problemTimer?.cancel();
     super.dispose();
   }
 
+  void _buildPool() {
+    final all = <(int, _TsumeProb)>[];
+    for (int i = 0; i < _problems.length; i++) {
+      final p = _problems[i];
+      if (GL.inCheck(p.board, false)) continue;
+      final ok = switch (_diff) {
+        _TaDiff.mix   => true,
+        _TaDiff.one   => p.moves == 1,
+        _TaDiff.three => p.moves == 3,
+        _TaDiff.five  => p.moves >= 5,
+      };
+      if (ok) all.add((i, p));
+    }
+    _pool = all;
+    if (_pool.isNotEmpty) _currentIdx = _random.nextInt(_pool.length);
+  }
+
+  Future<void> _loadBest() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _best3min = prefs.getInt(_prefBest3) ?? 0;
+      _bestPerproblem = prefs.getInt(_prefBestPp) ?? 0;
+    });
+  }
+
+  Future<void> _saveBest() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (_mode == _TaMode.threeMin && _score > _best3min) {
+      await prefs.setInt(_prefBest3, _score);
+      if (mounted) setState(() => _best3min = _score);
+    } else if (_mode == _TaMode.perProblem && _score > _bestPerproblem) {
+      await prefs.setInt(_prefBestPp, _score);
+      if (mounted) setState(() => _bestPerproblem = _score);
+    }
+  }
+
   void _start() {
-    _timer?.cancel();
-    setState(() => _started = true);
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+    _sessionTimer?.cancel();
+    _problemTimer?.cancel();
+    setState(() {
+      _started = true;
+      _remaining = _totalSec;
+      _problemRemaining = _perProbSec;
+    });
+    if (_mode == _TaMode.threeMin) {
+      _sessionTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (!mounted) return;
+        setState(() {
+          _remaining--;
+          if (_remaining <= 0) {
+            _remaining = 0;
+            _sessionTimer?.cancel();
+            _finished = true;
+            _saveBest();
+          }
+        });
+      });
+    } else {
+      _startProblemTimer();
+    }
+  }
+
+  void _startProblemTimer() {
+    _problemTimer?.cancel();
+    setState(() => _problemRemaining = _perProbSec);
+    _problemTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
       setState(() {
-        _remaining--;
-        if (_remaining <= 0) {
-          _remaining = 0;
-          _timer?.cancel();
-          _finished = true;
+        _problemRemaining--;
+        if (_problemRemaining <= 0) {
+          _problemRemaining = 0;
+          _problemTimer?.cancel();
+          _skipped++;
+          if (_skipped >= 3) {
+            _finished = true;
+            _saveBest();
+          } else {
+            _nextProblem();
+          }
         }
       });
     });
   }
 
   void _nextProblem() {
-    if (_validProblems.isEmpty) return;
-    final next = _random.nextInt(_validProblems.length);
-    setState(() => _currentIdx = next);
+    if (_pool.isEmpty) return;
+    setState(() => _currentIdx = _random.nextInt(_pool.length));
+    if (_mode == _TaMode.perProblem) _startProblemTimer();
+  }
+
+  void _onSolved() {
+    _problemTimer?.cancel();
+    setState(() => _score++);
+    _nextProblem();
   }
 
   String _fmtTime(int s) =>
@@ -1413,13 +1496,13 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
   @override
   Widget build(BuildContext context) {
     if (_finished) return _buildResult();
+    if (!_started) return _buildStartScreen();
 
-    final (origIdx, prob) = _validProblems[_currentIdx];
-    final timerColor = _remaining <= 30
-        ? Colors.red
-        : _remaining <= 60
-            ? Colors.orange
-            : AppTheme.accent;
+    final timerColor = _mode == _TaMode.threeMin
+        ? (_remaining <= 30 ? Colors.red : _remaining <= 60 ? Colors.orange : AppTheme.accent)
+        : (_problemRemaining <= 10 ? Colors.red : _problemRemaining <= 20 ? Colors.orange : Colors.green);
+
+    final (origIdx, prob) = _pool[_currentIdx];
 
     return Scaffold(
       backgroundColor: _bg,
@@ -1428,18 +1511,25 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
         title: const Text('タイムアタック', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          if (_mode == _TaMode.perProblem)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                ...List.generate(3, (i) => Icon(
+                  i < (3 - _skipped) ? Icons.favorite : Icons.favorite_border,
+                  color: i < (3 - _skipped) ? Colors.redAccent : Colors.grey.shade700,
+                  size: 20,
+                )),
+              ]),
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               Icon(Icons.timer, color: timerColor, size: 18),
               const SizedBox(width: 4),
               Text(
-                _fmtTime(_remaining),
-                style: TextStyle(
-                  color: timerColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
+                _mode == _TaMode.threeMin ? _fmtTime(_remaining) : '$_problemRemaining秒',
+                style: TextStyle(color: timerColor, fontSize: 18, fontWeight: FontWeight.bold),
               ),
             ]),
           ),
@@ -1453,159 +1543,321 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
             ),
             child: Text(
               '$_score問',
-              style: const TextStyle(
-                color: Colors.amber,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(color: Colors.amber, fontSize: 16, fontWeight: FontWeight.bold),
             ),
           ),
         ],
       ),
-      body: !_started
-          ? _buildStartScreen()
-          : _SolvePage(
-              key: ValueKey(_currentIdx),
+      body: Column(
+        children: [
+          if (_mode == _TaMode.perProblem) _buildProblemTimerBar(),
+          Expanded(
+            child: _SolvePage(
+              key: ValueKey((_currentIdx, _score, _skipped)),
               prob: prob,
               index: origIdx,
               timeAttackMode: true,
-              onSolvedInTimeAttack: () {
-                setState(() => _score++);
-                _nextProblem();
-              },
+              onSolvedInTimeAttack: _onSolved,
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProblemTimerBar() {
+    final fraction = (_problemRemaining / _perProbSec).clamp(0.0, 1.0);
+    final color = fraction > 0.5 ? Colors.green : fraction > 0.25 ? Colors.orange : Colors.red;
+    return SizedBox(
+      height: 6,
+      child: LayoutBuilder(builder: (_, c) {
+        return Stack(children: [
+          Container(color: AppTheme.surface),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            width: c.maxWidth * fraction,
+            color: color,
+          ),
+        ]);
+      }),
     );
   }
 
   Widget _buildStartScreen() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.timer, color: AppTheme.accent, size: 72),
-          const SizedBox(height: 20),
-          const Text(
-            'タイムアタック',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
+    return Scaffold(
+      backgroundColor: _bg,
+      appBar: AppBar(
+        backgroundColor: AppTheme.surface,
+        title: const Text('タイムアタック', style: TextStyle(color: Colors.white)),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 8),
+            const Center(
+              child: Icon(Icons.timer, color: AppTheme.accent, size: 64),
             ),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '${_totalSec ~/ 60}分間でできるだけ多くの詰将棋を解こう！',
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            '問題数: ${_validProblems.length}問',
-            style: const TextStyle(color: Colors.white38, fontSize: 12),
-          ),
-          const SizedBox(height: 32),
-          ElevatedButton.icon(
-            onPressed: _start,
-            icon: const Icon(Icons.play_arrow),
-            label: const Text('スタート', style: TextStyle(fontSize: 16)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.accent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
+            const SizedBox(height: 20),
+
+            // Mode
+            const Text('モード', style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(child: _TaModeButton(
+                label: '3分チャレンジ',
+                sub: '3分間で何問解けるか',
+                icon: Icons.hourglass_bottom,
+                selected: _mode == _TaMode.threeMin,
+                onTap: () => setState(() { _mode = _TaMode.threeMin; }),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _TaModeButton(
+                label: '1問30秒',
+                sub: 'ミス3回でゲームオーバー',
+                icon: Icons.flash_on,
+                selected: _mode == _TaMode.perProblem,
+                onTap: () => setState(() { _mode = _TaMode.perProblem; }),
+              )),
+            ]),
+            const SizedBox(height: 20),
+
+            // Difficulty
+            const Text('難易度', style: TextStyle(color: Colors.white54, fontSize: 13)),
+            const SizedBox(height: 8),
+            Row(children: [
+              _TaDiffButton(label: 'ミックス', selected: _diff == _TaDiff.mix,
+                onTap: () => setState(() { _diff = _TaDiff.mix; _buildPool(); })),
+              const SizedBox(width: 8),
+              _TaDiffButton(label: '1手詰め', selected: _diff == _TaDiff.one,
+                onTap: () => setState(() { _diff = _TaDiff.one; _buildPool(); })),
+              const SizedBox(width: 8),
+              _TaDiffButton(label: '3手詰め', selected: _diff == _TaDiff.three,
+                onTap: () => setState(() { _diff = _TaDiff.three; _buildPool(); })),
+              const SizedBox(width: 8),
+              _TaDiffButton(label: '5手+', selected: _diff == _TaDiff.five,
+                onTap: () => setState(() { _diff = _TaDiff.five; _buildPool(); })),
+            ]),
+            const SizedBox(height: 6),
+            Text('問題数: ${_pool.length}問', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+            const SizedBox(height: 20),
+
+            // Best scores
+            if (_best3min > 0 || _bestPerproblem > 0)
+              Wrap(spacing: 10, runSpacing: 8, children: [
+                if (_best3min > 0)
+                  _TaBestChip(label: '3分ベスト', score: _best3min),
+                if (_bestPerproblem > 0)
+                  _TaBestChip(label: '30秒ベスト', score: _bestPerproblem),
+              ]),
+            const SizedBox(height: 28),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _pool.isEmpty ? null : _start,
+                icon: const Icon(Icons.play_arrow),
+                label: Text(
+                  _pool.isEmpty ? '問題がありません' : 'スタート',
+                  style: const TextStyle(fontSize: 16),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accent,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildResult() {
+    final isNewBest = (_mode == _TaMode.threeMin && _score > 0 && _score >= _best3min) ||
+        (_mode == _TaMode.perProblem && _score > 0 && _score >= _bestPerproblem);
+
     return Scaffold(
       backgroundColor: _bg,
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _score >= 10 ? '🏆' : _score >= 5 ? '🥈' : '🎯',
-              style: const TextStyle(fontSize: 72),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              '終了！',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 20),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-              decoration: BoxDecoration(
-                color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                children: [
-                  const Text('正解数', style: TextStyle(color: Colors.white54, fontSize: 14)),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$_score問',
-                    style: const TextStyle(
-                      color: Colors.amber,
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _score >= 10
-                        ? '素晴らしい！将棋の達人です'
-                        : _score >= 5
-                            ? 'よくできました！'
-                            : 'もう少し！次は速く解けるよ',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-            Row(
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                ElevatedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _score = 0;
-                      _remaining = _totalSec;
-                      _started = false;
-                      _finished = false;
-                      _nextProblem();
-                    });
-                    _timer?.cancel();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('もう一度'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppTheme.accent,
-                    foregroundColor: Colors.white,
-                  ),
+                Text(
+                  _score >= 15 ? '🏆' : _score >= 8 ? '🥈' : _score >= 3 ? '🎯' : '😤',
+                  style: const TextStyle(fontSize: 72),
                 ),
-                const SizedBox(width: 12),
-                ElevatedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey.shade700,
-                    foregroundColor: Colors.white,
+                const SizedBox(height: 16),
+                const Text('終了！', style: TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold)),
+                if (isNewBest) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.withAlpha(30),
+                      border: Border.all(color: Colors.amber),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: const Text('🌟 新記録！', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
                   ),
-                  child: const Text('戻る'),
+                ],
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 20),
+                  decoration: BoxDecoration(
+                    color: AppTheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(children: [
+                    const Text('正解数', style: TextStyle(color: Colors.white54, fontSize: 14)),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$_score問',
+                      style: const TextStyle(color: Colors.amber, fontSize: 52, fontWeight: FontWeight.bold),
+                    ),
+                    if (_mode == _TaMode.perProblem && _skipped > 0) ...[
+                      const SizedBox(height: 4),
+                      Text('タイムアウト: $_skipped回', style: const TextStyle(color: Colors.redAccent, fontSize: 12)),
+                    ],
+                    const SizedBox(height: 8),
+                    Text(
+                      _score >= 15 ? '驚異的！詰将棋マスターです'
+                        : _score >= 8 ? '素晴らしい！将棋の達人です'
+                        : _score >= 3 ? 'よくできました！'
+                        : 'もう少し！次は速く解けるよ',
+                      style: const TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                  ]),
                 ),
+                const SizedBox(height: 32),
+                Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      _sessionTimer?.cancel();
+                      _problemTimer?.cancel();
+                      setState(() {
+                        _score = 0;
+                        _skipped = 0;
+                        _remaining = _totalSec;
+                        _problemRemaining = _perProbSec;
+                        _started = false;
+                        _finished = false;
+                        _buildPool();
+                      });
+                    },
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('もう一度'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.grey.shade700,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text('戻る'),
+                  ),
+                ]),
               ],
             ),
-          ],
+          ),
         ),
       ),
+    );
+  }
+}
+
+class _TaModeButton extends StatelessWidget {
+  final String label, sub;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TaModeButton({required this.label, required this.sub, required this.icon, required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: selected ? AppTheme.accent.withAlpha(40) : AppTheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: selected ? AppTheme.accent : Colors.white24, width: selected ? 2 : 1),
+        ),
+        child: Column(children: [
+          Icon(icon, color: selected ? AppTheme.accent : Colors.white54, size: 28),
+          const SizedBox(height: 6),
+          Text(label, style: TextStyle(color: selected ? Colors.white : Colors.white70, fontWeight: FontWeight.bold, fontSize: 13)),
+          const SizedBox(height: 2),
+          Text(sub, style: const TextStyle(color: Colors.white38, fontSize: 10), textAlign: TextAlign.center),
+        ]),
+      ),
+    );
+  }
+}
+
+class _TaDiffButton extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const _TaDiffButton({required this.label, required this.selected, required this.onTap});
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: selected ? Colors.amber.withAlpha(30) : AppTheme.surface,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: selected ? Colors.amber : Colors.white24),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: selected ? Colors.amber : Colors.white54,
+              fontWeight: selected ? FontWeight.bold : FontWeight.normal,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TaBestChip extends StatelessWidget {
+  final String label;
+  final int score;
+  const _TaBestChip({required this.label, required this.score});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.amber.withAlpha(20),
+        border: Border.all(color: Colors.amber.withAlpha(100)),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        const Icon(Icons.emoji_events, color: Colors.amber, size: 14),
+        const SizedBox(width: 4),
+        Text('$label: $score問', style: const TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.bold)),
+      ]),
     );
   }
 }
