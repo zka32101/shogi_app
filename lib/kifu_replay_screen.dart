@@ -3,6 +3,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'piece.dart';
+import 'theme/app_theme.dart';
 
 // ===== 初期盤面生成 =====
 List<List<Piece?>> _buildInitBoard() {
@@ -273,9 +274,9 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
@@ -449,7 +450,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
     final fl = widget.filterLabel ?? '';
 
     return Container(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -626,7 +627,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
     }
 
     return Container(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

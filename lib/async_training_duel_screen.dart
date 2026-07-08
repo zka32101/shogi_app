@@ -9,6 +9,7 @@ import 'dart:math' show Random;
 import 'piece.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // ===== データモデル =====
 
@@ -263,9 +264,9 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('非同期トレーニング対戦',
               style: TextStyle(color: Colors.white)),
           iconTheme: const IconThemeData(color: Colors.white),
@@ -277,9 +278,9 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('非同期トレーニング対戦',
             style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -372,7 +373,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
   }) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.orange.withAlpha(80)),
       ),
@@ -433,7 +434,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -459,7 +460,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setLocalState) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text(
             '対戦を開始',
             style: TextStyle(color: Colors.white),
@@ -495,7 +496,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
               const SizedBox(height: 8),
               DropdownButton<String>(
                 value: selectedOpponent,
-                dropdownColor: const Color(0xFF16213E),
+                dropdownColor: AppTheme.surface,
                 items: const [
                   DropdownMenuItem(
                     value: 'cpu_easy',
@@ -599,7 +600,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isExpired ? Colors.red.withAlpha(80) : Colors.orange.withAlpha(80),
@@ -740,7 +741,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: playerWon ? Colors.amber.withAlpha(80) : Colors.white12,
@@ -999,9 +1000,9 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
         Duration(seconds: _stopwatch.elapsed.inSeconds));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           '問題 ${_currentQuestionIndex + 1}/${widget.duel.questions.length}',
           style: const TextStyle(color: Colors.white),
@@ -1014,7 +1015,7 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               border: Border(bottom: BorderSide(color: Colors.white12)),
             ),
             child: Row(
@@ -1070,7 +1071,7 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF16213E),
+                      color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Column(

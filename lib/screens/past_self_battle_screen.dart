@@ -4,6 +4,7 @@ import '../services/growth_share_service.dart';
 import '../models/game_analysis.dart';
 import '../widgets/growth_story_card.dart';
 import 'past_self_battle_game_screen.dart';
+import '../theme/app_theme.dart';
 
 class PastSelfBattleScreen extends StatefulWidget {
   const PastSelfBattleScreen();
@@ -59,7 +60,7 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.all(20),
         content: SingleChildScrollView(
@@ -85,7 +86,7 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
             },
             child: const Text(
               'シェア',
-              style: TextStyle(color: Colors.cyan),
+              style: TextStyle(color: AppTheme.accent),
             ),
           ),
           TextButton(
@@ -174,9 +175,9 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('成長を確認'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -224,21 +225,21 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.cyan.withAlpha(20),
+                          color: AppTheme.accent.withAlpha(20),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.cyan.withAlpha(60)),
+                          border: Border.all(color: AppTheme.accent.withAlpha(60)),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             const Row(
                               children: [
-                                Icon(Icons.trending_up, color: Colors.cyan),
+                                Icon(Icons.trending_up, color: AppTheme.accent),
                                 SizedBox(width: 8),
                                 Text(
                                   'あなたの成長',
                                   style: TextStyle(
-                                    color: Colors.cyan,
+                                    color: AppTheme.accent,
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -327,7 +328,7 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
         Text(
           value,
           style: const TextStyle(
-            color: Colors.cyan,
+            color: AppTheme.accent,
             fontSize: 14,
             fontWeight: FontWeight.bold,
           ),

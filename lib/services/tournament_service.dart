@@ -2,6 +2,7 @@
 // トーナメントシステム（シングルエリミネーション）
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'network_achievement_service.dart';
 
 // ── モデル ──────────────────────────────────────────────────
 
@@ -33,6 +34,9 @@ class TournamentMatch {
   final String? winnerId;
   final String? firestoreMatchId; // 対局ID
   final String status; // pending, playing, finished, bye
+  // 対局者それぞれの自己申告（両者が一致して初めて確定する）
+  final String? p1ReportedWinnerId;
+  final String? p2ReportedWinnerId;
 
   TournamentMatch({
     required this.id,
@@ -43,15 +47,28 @@ class TournamentMatch {
     this.winnerId,
     this.firestoreMatchId,
     required this.status,
+    this.p1ReportedWinnerId,
+    this.p2ReportedWinnerId,
   });
 
   bool get isBye => player2 == null;
   bool get isFinished => status == 'finished' || status == 'bye';
+  bool get isDisputed =>
+      p1ReportedWinnerId != null &&
+      p2ReportedWinnerId != null &&
+      p1ReportedWinnerId != p2ReportedWinnerId;
   TournamentEntry? get winner => winnerId == player1?.userId
       ? player1
       : winnerId == player2?.userId
           ? player2
           : null;
+
+  /// 指定ユーザーが既に申告した勝者ID（未申告 or 対局者でなければ null）
+  String? reportedWinnerIdFor(String userId) {
+    if (player1?.userId == userId) return p1ReportedWinnerId;
+    if (player2?.userId == userId) return p2ReportedWinnerId;
+    return null;
+  }
 
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -62,6 +79,8 @@ class TournamentMatch {
         'winner_id': winnerId,
         'match_id': firestoreMatchId,
         'status': status,
+        'p1_reported_winner_id': p1ReportedWinnerId,
+        'p2_reported_winner_id': p2ReportedWinnerId,
       };
 
   factory TournamentMatch.fromJson(Map<String, dynamic> j) =>
@@ -80,6 +99,8 @@ class TournamentMatch {
         winnerId: j['winner_id'] as String?,
         firestoreMatchId: j['match_id'] as String?,
         status: j['status'] as String? ?? 'pending',
+        p1ReportedWinnerId: j['p1_reported_winner_id'] as String?,
+        p2ReportedWinnerId: j['p2_reported_winner_id'] as String?,
       );
 }
 
@@ -270,36 +291,70 @@ class TournamentService {
     }
   }
 
-  // ── 試合結果登録 ──────────────────────────────────────────
-
-  Future<void> reportMatchResult(
+  // ── 試合結果登録（両対局者の自己申告が一致して初めて確定）──────
+  // 戻り値: 'confirmed'（両者一致・確定） / 'recorded'（自分の申告のみ受理・相手待ち）
+  //        / 'disputed'（相手の申告と食い違い） / 'error'（対局者本人でない等）
+  Future<String> reportMatchResult(
     String tournamentId,
     String matchId,
-    String winnerId,
+    String reporterId,
+    String claimedWinnerId,
   ) async {
+    String? newChampionId; // トランザクション外で実績判定するために保持
     try {
-      await _firestore.runTransaction((tx) async {
+      final resultStatus = await _firestore.runTransaction<String>((tx) async {
         final ref =
             _firestore.collection('tournaments').doc(tournamentId);
         final doc = await tx.get(ref);
-        if (!doc.exists) return;
+        if (!doc.exists) return 'error';
 
         final t = Tournament.fromDoc(doc);
         final matchIdx = t.matches.indexWhere((m) => m.id == matchId);
-        if (matchIdx < 0) return;
+        if (matchIdx < 0) return 'error';
 
-        // 結果を更新
+        final match = t.matches[matchIdx];
+        if (match.isFinished) return 'error';
+
+        final isP1 = match.player1?.userId == reporterId;
+        final isP2 = match.player2?.userId == reporterId;
+        if (!isP1 && !isP2) return 'error'; // 対局者本人のみ申告可能
+
+        final newP1Report = isP1 ? claimedWinnerId : match.p1ReportedWinnerId;
+        final newP2Report = isP2 ? claimedWinnerId : match.p2ReportedWinnerId;
+        final agreed = newP1Report != null &&
+            newP2Report != null &&
+            newP1Report == newP2Report;
+
+        if (!agreed) {
+          // 片方のみ申告済み、または両者の申告が食い違い
+          final updatedMatches = t.matches.map((m) {
+            if (m.id != matchId) return m.toJson();
+            return {
+              ...m.toJson(),
+              'p1_reported_winner_id': newP1Report,
+              'p2_reported_winner_id': newP2Report,
+            };
+          }).toList();
+          tx.update(ref, {'matches': updatedMatches});
+          return (newP1Report != null && newP2Report != null)
+              ? 'disputed'
+              : 'recorded';
+        }
+
+        // 両者の申告が一致 → 確定
+        final winnerId = newP1Report;
         final updatedMatches = t.matches.map((m) {
           if (m.id != matchId) return m.toJson();
           return {
             ...m.toJson(),
             'winner_id': winnerId,
             'status': 'finished',
+            'p1_reported_winner_id': newP1Report,
+            'p2_reported_winner_id': newP2Report,
           };
         }).toList();
 
         // 次ラウンドのマッチに勝者を配置
-        final match = t.matches[matchIdx];
         final nextRound = match.round + 1;
         final nextPos = match.position ~/ 2;
         final nextMatchIdx = updatedMatches.indexWhere(
@@ -337,10 +392,18 @@ class TournamentService {
           if (allDone) 'champion_id': winnerId,
           if (allDone) 'finished_at': DateTime.now(),
         });
+
+        if (allDone) newChampionId = winnerId;
+        return 'confirmed';
       });
+
+      if (newChampionId != null) {
+        await NetworkAchievementService().checkTournamentWin(newChampionId!);
+      }
+      return resultStatus;
     } catch (e) {
       print('Report match result error: $e');
-      rethrow;
+      return 'error';
     }
   }
 

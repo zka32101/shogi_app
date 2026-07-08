@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'tesuji_problems.dart';
+import 'theme/app_theme.dart';
 
 typedef _TesujiProb = TesujiProb;
 
@@ -64,9 +65,9 @@ class _TesujiScreenState extends State<TesujiScreen>
   Widget build(BuildContext context) {
     final clearedCount = _cleared.length;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('手筋トレーニング',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -85,7 +86,7 @@ class _TesujiScreenState extends State<TesujiScreen>
       body: Column(children: [
         // 進捗バー
         Container(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(
@@ -172,7 +173,7 @@ class _ProblemCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isCleared ? Colors.green.withAlpha(100) : Colors.white12,
@@ -434,9 +435,9 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen> {
     final isDrop = _selectedFrom == (-1, -1);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(prob.title,
             style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -628,7 +629,7 @@ class _HandDisplay extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white12),
       ),

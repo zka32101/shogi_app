@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 import '../models/game_analysis.dart';
+import '../theme/app_theme.dart';
 
 class GrowthStoryCard extends StatelessWidget {
   final List<GameAnalysis> allGames;
@@ -66,7 +67,7 @@ class GrowthStoryCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF1A1A2E),
+            AppTheme.bg,
             const Color(0xFF0F3460),
           ],
         ),
@@ -93,12 +94,12 @@ class GrowthStoryCard extends StatelessWidget {
           // タイトル
           Row(
             children: [
-              const Icon(Icons.trending_up, color: Colors.cyan, size: 24),
+              const Icon(Icons.trending_up, color: AppTheme.accent, size: 24),
               const SizedBox(width: 12),
               Text(
                 'あなたの成長',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      color: Colors.cyan,
+                      color: AppTheme.accent,
                       fontWeight: FontWeight.bold,
                     ),
               ),
@@ -234,7 +235,7 @@ class GrowthStoryCard extends StatelessWidget {
           Text(
             '$winRate%',
             style: const TextStyle(
-              color: Colors.cyan,
+              color: AppTheme.accent,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -284,7 +285,7 @@ class GrowthStoryImageGenerator {
         '成長記録',
         const Offset(40, 40),
         40,
-        Colors.cyan,
+        AppTheme.accent,
       );
 
       // 日付
@@ -335,7 +336,7 @@ class GrowthStoryImageGenerator {
         '#将棋アプリ #成長記録 #棋力向上',
         const Offset(40, 480),
         18,
-        Colors.cyan,
+        AppTheme.accent,
       );
 
       final image = await recorder

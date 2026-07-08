@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'badge_service.dart';
+import 'theme/app_theme.dart';
 
 class BadgeScreen extends StatefulWidget {
   const BadgeScreen({super.key});
@@ -41,9 +42,9 @@ class _BadgeScreenState extends State<BadgeScreen> {
     final total         = allBadges.length;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('バッジ', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -144,7 +145,7 @@ class _BadgeCell extends StatelessWidget {
         decoration: BoxDecoration(
           color: isUnlocked
               ? badge.color.withAlpha(20)
-              : const Color(0xFF16213E),
+              : AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isUnlocked ? badge.color.withAlpha(150) : Colors.white12,
@@ -213,7 +214,7 @@ class _BadgeCell extends StatelessWidget {
   void _showDetail(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF16213E),
+      backgroundColor: AppTheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),

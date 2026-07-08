@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'character_icons.dart';
+import 'theme/app_theme.dart';
 
 // ===== 棋風タイプ定義 =====
 
@@ -77,7 +78,7 @@ class PlaystyleDiagnosisScreen extends StatefulWidget {
 }
 
 class _PlaystyleDiagnosisScreenState extends State<PlaystyleDiagnosisScreen> {
-  static const _bg = Color(0xFF1A1A2E);
+  static const _bg = AppTheme.bg;
 
   int _attackMoves = 0;
   int _retreatMoves = 0;
@@ -110,7 +111,7 @@ class _PlaystyleDiagnosisScreenState extends State<PlaystyleDiagnosisScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('データをリセット', style: TextStyle(color: Colors.white)),
         content: const Text('棋風診断データをリセットしますか？', style: TextStyle(color: Colors.white70)),
         actions: [
@@ -152,7 +153,7 @@ class _PlaystyleDiagnosisScreenState extends State<PlaystyleDiagnosisScreen> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('棋風診断', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -304,7 +305,7 @@ class _PlaystyleDiagnosisScreenState extends State<PlaystyleDiagnosisScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: char.bgColor.withAlpha(120)),
               ),
@@ -349,7 +350,7 @@ class _PlaystyleDiagnosisScreenState extends State<PlaystyleDiagnosisScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(

@@ -1,6 +1,7 @@
 // lib/guide_screen.dart — ツール利用方法
 
 import 'package:flutter/material.dart';
+import 'theme/app_theme.dart';
 
 class GuideScreen extends StatelessWidget {
   const GuideScreen({super.key});
@@ -8,9 +9,9 @@ class GuideScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('使い方'),
         centerTitle: true,
         leading: IconButton(

@@ -1,6 +1,7 @@
 // lib/mini_board_widget.dart
 import 'package:flutter/material.dart';
 import 'piece.dart';
+import 'theme/app_theme.dart';
 
 class MiniBoardWidget extends StatelessWidget {
   final List<List<Piece?>> board;
@@ -91,8 +92,8 @@ class MiniBoardWidget extends StatelessWidget {
                 }
                 if (isLastFr) bg = Color.lerp(_cellColor, Colors.amber.shade200, 0.35)!;
                 if (isLastTo) bg = Color.lerp(_cellColor, Colors.amber.shade300, 0.55)!;
-                if (isHintFr) bg = Colors.cyan.shade200;
-                if (isHintTo) bg = Colors.cyan.shade100;
+                if (isHintFr) bg = AppTheme.accent;
+                if (isHintTo) bg = AppTheme.accent;
                 if (isHL) bg = Colors.lightBlue.shade100;
 
                 return Container(
@@ -103,7 +104,7 @@ class MiniBoardWidget extends StatelessWidget {
                     border: isLastTo && hintTo == null
                         ? Border.all(color: Colors.amber.shade600, width: 1.5)
                         : isHintTo
-                        ? Border.all(color: Colors.cyan.shade700, width: 1.5)
+                        ? Border.all(color: AppTheme.accent, width: 1.5)
                         : Border.all(color: _cellBorder, width: 0.6),
                   ),
                   child: Stack(children: [

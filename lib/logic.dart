@@ -144,6 +144,11 @@ class GL {
   static bool inCheck(List<List<Piece?>> b, bool p1) {
     final k = kingPos(b, p1);
     if (k == null) return false;
+    return _kingAttacked(b, k, p1);
+  }
+
+  // king の位置が既知の場合の王手判定（kingPos の再スキャンを省略）
+  static bool _kingAttacked(List<List<Piece?>> b, (int, int) k, bool p1) {
     for (int r = 0; r < 9; r++)
       for (int c = 0; c < 9; c++) {
         final p = b[r][c];
@@ -158,11 +163,17 @@ class GL {
   static List<(int, int)> legal(List<List<Piece?>> b, int row, int col) {
     final piece = b[row][col];
     if (piece == null) return [];
+    // 動かす駒が王でなければ、自玉の位置は候補手を通じて不変なので
+    // 候補手ごとに kingPos を再スキャンする必要がない
+    final isKingMove = piece.type == PieceType.king;
+    final staticKingPos = isKingMove ? null : kingPos(b, piece.isPlayer1);
     return pseudo(b, row, col).where((dest) {
       final nb = copy(b);
       nb[dest.$1][dest.$2] = piece;
       nb[row][col] = null;
-      return !inCheck(nb, piece.isPlayer1);
+      final k = isKingMove ? dest : staticKingPos;
+      if (k == null) return true; // 自玉が盤上にない（異常系）: 旧実装と同じ挙動
+      return !_kingAttacked(nb, k, piece.isPlayer1);
     }).toList();
   }
 

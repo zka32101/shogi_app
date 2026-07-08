@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/story_data.dart';
+import '../theme/app_theme.dart';
 
 class StoryOverlay extends StatefulWidget {
   final StoryEvent storyEvent;
@@ -83,9 +84,11 @@ class _StoryOverlayState extends State<StoryOverlay>
       child: FadeTransition(
         opacity: _fadeController,
         child: Container(
-          color: _parseColor(
-            widget.storyEvent.backgroundColor ?? '#000000',
-          ).withOpacity(0.8),
+          color: Color.lerp(
+            _parseColor(widget.storyEvent.backgroundColor ?? '#000000'),
+            AppTheme.bg,
+            0.35,
+          )!.withAlpha(215),
           child: Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -99,30 +102,37 @@ class _StoryOverlayState extends State<StoryOverlay>
                       height: 150,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: Colors.white.withOpacity(0.1),
+                        color: AppTheme.accent.withAlpha(20),
+                        border: Border.all(color: AppTheme.accent.withAlpha(140), width: 1.5),
                       ),
                       child: Icon(
                         Icons.person,
                         size: 80,
-                        color: Colors.white.withOpacity(0.3),
+                        color: AppTheme.accent.withAlpha(150),
                       ),
                     ),
                   ),
 
-                // タイトル
-                if (widget.storyEvent.title.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 20),
-                    child: Text(
-                      widget.storyEvent.title,
-                      style: Theme.of(context).textTheme.headlineMedium
-                          ?.copyWith(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                      textAlign: TextAlign.center,
+                // タイトル（金の飾り線付き）
+                if (widget.storyEvent.title.isNotEmpty) ...[
+                  Text(
+                    widget.storyEvent.title,
+                    style: TextStyle(
+                      color: AppTheme.accent,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 2,
                     ),
+                    textAlign: TextAlign.center,
                   ),
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 48,
+                    height: 1.5,
+                    color: AppTheme.accent.withAlpha(140),
+                  ),
+                  const SizedBox(height: 20),
+                ],
 
                 // 説明文
                 if (widget.storyEvent.description != null)
@@ -130,9 +140,10 @@ class _StoryOverlayState extends State<StoryOverlay>
                     padding: const EdgeInsets.symmetric(horizontal: 30),
                     child: Text(
                       widget.storyEvent.description!,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
-                        height: 1.6,
+                      style: TextStyle(
+                        color: AppTheme.textHigh,
+                        fontSize: 15,
+                        height: 1.8,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -145,8 +156,9 @@ class _StoryOverlayState extends State<StoryOverlay>
                     child: Text(
                       'タップでスキップ',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.5),
+                        color: AppTheme.textLow,
                         fontSize: 12,
+                        letterSpacing: 1,
                       ),
                     ),
                   ),
@@ -228,7 +240,11 @@ class EndingChoiceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppTheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.rCard),
+        side: BorderSide(color: AppTheme.accent.withAlpha(80)),
+      ),
       child: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -237,16 +253,21 @@ class EndingChoiceScreen extends StatelessWidget {
             children: [
               Text(
                 '棋王が崩れ落ちる',
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: TextStyle(
+                  color: AppTheme.accent,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1,
+                ),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 20),
+              const SizedBox(height: 20),
               Text(
                 '「では、貴様が新しい秩序を決めよ」',
-                style: Theme.of(context).textTheme.bodyMedium,
+                style: TextStyle(color: AppTheme.textMid, fontSize: 14),
                 textAlign: TextAlign.center,
               ),
-              SizedBox(height: 30),
+              const SizedBox(height: 30),
               // エンディング選択肢
               ...endingChoices.map(
                 (choice) => Padding(
@@ -281,32 +302,39 @@ class _EndingChoiceButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.grey[100],
-      borderRadius: BorderRadius.circular(8),
+      color: AppTheme.surfaceHigh,
+      borderRadius: BorderRadius.circular(AppTheme.rBtn),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
+        borderRadius: BorderRadius.circular(AppTheme.rBtn),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(AppTheme.rBtn),
+            border: Border.all(color: Colors.white.withAlpha(20)),
+          ),
           padding: const EdgeInsets.all(15),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 choice.title,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: AppTheme.textHigh,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 choice.description,
-                style: Theme.of(context).textTheme.bodySmall,
+                style: TextStyle(color: AppTheme.textMid, fontSize: 12.5),
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 '報酬: ${choice.reward}',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Colors.blue,
+                style: TextStyle(
+                  color: AppTheme.accent,
+                  fontSize: 11.5,
                   fontWeight: FontWeight.bold,
                 ),
               ),

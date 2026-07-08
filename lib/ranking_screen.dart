@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'stats_screen.dart';
 import 'ranking_service.dart';
 import 'network_game_service.dart';
+import 'theme/app_theme.dart';
 
 class RankingScreen extends StatefulWidget {
   const RankingScreen({super.key});
@@ -91,9 +92,9 @@ class _RankingScreenState extends State<RankingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('グローバルランキング',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -107,7 +108,7 @@ class _RankingScreenState extends State<RankingScreen> {
                       child: CircularProgressIndicator(color: Colors.amber))
                   : RefreshIndicator(
                       color: Colors.amber,
-                      backgroundColor: const Color(0xFF16213E),
+                      backgroundColor: AppTheme.surface,
                       onRefresh: _fetchRanking,
                       child: _entries.isEmpty
                           ? _buildEmpty()
@@ -193,7 +194,7 @@ class _RankingScreenState extends State<RankingScreen> {
           decoration: BoxDecoration(
             color: isMe
                 ? Colors.amber.withAlpha(30)
-                : const Color(0xFF16213E),
+                : AppTheme.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isMe ? Colors.amber.withAlpha(120) : Colors.white12,
@@ -344,7 +345,7 @@ class _LeagueCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             league.color.withAlpha(40),
-            const Color(0xFF16213E),
+            AppTheme.surface,
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,

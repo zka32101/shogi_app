@@ -5,6 +5,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'rank_badge_widget.dart';
+import 'theme/app_theme.dart';
 
 // ── 段級位テーブル ────────────────────────────────────────
 class RatingRank {
@@ -200,7 +201,7 @@ class _StatsScreenState extends State<StatsScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('統計をリセット', style: TextStyle(color: Colors.white)),
         content: const Text('すべての統計・レーティングデータを削除しますか？',
             style: TextStyle(color: Colors.white70)),
@@ -244,9 +245,9 @@ class _StatsScreenState extends State<StatsScreen> {
   Widget build(BuildContext context) {
     final hist = _filteredHistory;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('統計・段級位', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -382,7 +383,7 @@ class _ModeTabs extends StatelessWidget {
               margin: const EdgeInsets.only(right: 8),
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.amber.withAlpha(200) : const Color(0xFF16213E),
+                color: isSelected ? Colors.amber.withAlpha(200) : AppTheme.surface,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: isSelected ? Colors.amber : Colors.white24,
@@ -432,7 +433,7 @@ class _RatingCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [const Color(0xFF16213E), color.withAlpha(30)],
+          colors: [AppTheme.surface, color.withAlpha(30)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -704,7 +705,7 @@ class _TimeAxisGraphPainter extends CustomPainter {
 
     // 折れ線
     final linePaint = Paint()
-      ..color = Colors.cyan.withAlpha(200)
+      ..color = AppTheme.accent.withAlpha(200)
       ..strokeWidth = 2.0
       ..style = PaintingStyle.stroke
       ..strokeJoin = StrokeJoin.round;
@@ -723,7 +724,7 @@ class _TimeAxisGraphPainter extends CustomPainter {
       ..close();
     canvas.drawPath(fillPath, Paint()
       ..shader = LinearGradient(
-        colors: [Colors.cyan.withAlpha(60), Colors.cyan.withAlpha(0)],
+        colors: [AppTheme.accent.withAlpha(60), AppTheme.accent.withAlpha(0)],
         begin: Alignment.topCenter, end: Alignment.bottomCenter,
       ).createShader(Rect.fromLTWH(0, 0, size.width, size.height)));
 
@@ -867,7 +868,7 @@ class _PiePainter extends CustomPainter {
 
     // 境界線（薄い区切り）
     final divPaint = Paint()
-      ..color = const Color(0xFF1A1A2E)
+      ..color = AppTheme.bg
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
     double angle = -pi / 2;
@@ -1054,7 +1055,7 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: Colors.white12),
     ),

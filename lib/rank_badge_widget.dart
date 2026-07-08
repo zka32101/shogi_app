@@ -3,6 +3,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'stats_screen.dart' show ratingToRank, ratingToColor, rankProgress, nextRankInfo, isKyuu;
+import 'theme/app_theme.dart';
 
 /// 段位バッジ（コンパクト表示）
 class RankBadge extends StatelessWidget {
@@ -281,7 +282,7 @@ class _RankUpCelebrationDialogState extends State<_RankUpCelebrationDialog>
             animation: _glowAnim,
             builder: (_, child) => Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(24),
                 border: Border.all(
                   color: widget.rankColor.withAlpha(

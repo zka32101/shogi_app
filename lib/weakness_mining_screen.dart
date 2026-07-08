@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
+import 'theme/app_theme.dart';
 
 class WeaknessPattern {
   final String patternName;
@@ -213,9 +214,9 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         elevation: 0,
         title: const Text(
           '弱点採掘',
@@ -295,7 +296,7 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: const Color(0xFF00D4FF).withOpacity(0.3),
@@ -449,7 +450,7 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF0F1419),
+              color: AppTheme.bg,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
                 color: Colors.grey[700]!,
@@ -485,7 +486,7 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF00D4FF),
-                foregroundColor: const Color(0xFF0F1419),
+                foregroundColor: AppTheme.bg,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -510,7 +511,7 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('${pattern.patternName} の克服トレーニングを開始します'),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         duration: const Duration(seconds: 2),
       ),
     );

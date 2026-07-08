@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'piece.dart';
+import 'theme/app_theme.dart';
 
 // ===== SFEN エンコーダ（盤面→SFEN文字列） =====
 // SFEN 標準形式: 大文字=先手, 小文字=後手, +P/+p=成り駒
@@ -227,7 +228,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('送信完了', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -258,7 +259,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('送信できませんでした', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -291,9 +292,9 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           'フィードバック',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -330,7 +331,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                         duration: const Duration(milliseconds: 150),
                         padding: const EdgeInsets.symmetric(vertical: 10),
                         decoration: BoxDecoration(
-                          color: sel ? Colors.brown.shade700 : const Color(0xFF16213E),
+                          color: sel ? Colors.brown.shade700 : AppTheme.surface,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: sel ? Colors.amber : Colors.white24,
@@ -368,7 +369,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
                     duration: const Duration(milliseconds: 150),
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
                     decoration: BoxDecoration(
-                      color: sel ? Colors.brown.shade800 : const Color(0xFF16213E),
+                      color: sel ? Colors.brown.shade800 : AppTheme.surface,
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: sel ? Colors.amber : Colors.white24,
@@ -394,7 +395,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
             const SizedBox(height: 8),
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.white24),
               ),
@@ -419,7 +420,7 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF16213E),
+                  color: AppTheme.surface,
                   borderRadius: BorderRadius.circular(12),
                   border: Border.all(
                     color: _includeBoardPos ? Colors.amber.withAlpha(120) : Colors.white12,

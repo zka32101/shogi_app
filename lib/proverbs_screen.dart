@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'widgets/source_link_widget.dart';
+import 'theme/app_theme.dart';
 
 // ===== カテゴリ定義 =====
 enum _ProverbCategory {
@@ -52,9 +53,9 @@ class ProverbsScreen extends StatelessWidget {
       }
     }
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           '将棋の格言',
           style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold),
@@ -151,7 +152,7 @@ class _ProverbCard extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border(
           left: BorderSide(color: catColor, width: 4),

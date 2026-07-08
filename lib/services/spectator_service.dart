@@ -3,6 +3,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'board_sync_service.dart';
+import 'network_achievement_service.dart';
 
 /// 観戦中の対局情報
 class LiveMatch {
@@ -115,6 +116,9 @@ class SpectatorService {
           .collection('spectators')
           .doc(userId)
           .delete();
+
+      // 観戦回数の実績判定（1試合の観戦終了ごとに+1）
+      await NetworkAchievementService().checkSpectate(userId);
     } catch (e) {
       print('Leave spectate error: $e');
     }

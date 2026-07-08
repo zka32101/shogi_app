@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'mini_board_widget.dart';
 import 'piece.dart';
+import 'theme/app_theme.dart';
 
 // ─────────────────────────────────────────────
 // データ構造
@@ -1308,7 +1309,7 @@ final List<_Joseki> _josekiList = [
         'テンポの良い駒組みで初心者にも分かりやすい。\n'
         '▲7六飛と飛車を前進させて強力な攻めを狙います。\n'
         '現代将棋で最も人気のある定跡の一つです。',
-    color: Colors.cyan,
+    color: AppTheme.accent,
     icon: Icons.trending_up,
     steps: _kyushoku4kanSteps(),
     sourceTitle: 'YouTube: 新しい振り飛車戦法',
@@ -1445,7 +1446,7 @@ class JosekiScreen extends StatefulWidget {
 class _JosekiScreenState extends State<JosekiScreen> {
   String? _selectedDifficulty; // null = すべて, '初級', '中級', '上級'
 
-  static const _bg = Color(0xFF1A1A2E);
+  static const _bg = AppTheme.bg;
 
   List<_Joseki> get _filteredJoseki {
     if (_selectedDifficulty == null) {
@@ -1459,7 +1460,7 @@ class _JosekiScreenState extends State<JosekiScreen> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           '定跡ガイド',
           style: TextStyle(
@@ -1651,7 +1652,7 @@ class _JosekiCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: joseki.color.withAlpha(80),
@@ -1760,8 +1761,8 @@ class _JosekiDetailPage extends StatefulWidget {
 class _JosekiDetailPageState extends State<_JosekiDetailPage> {
   int _stepIndex = 0;
 
-  static const _bg = Color(0xFF1A1A2E);
-  static const _cardBg = Color(0xFF16213E);
+  static const _bg = AppTheme.bg;
+  static const _cardBg = AppTheme.surface;
 
   _JosekiStep get _currentStep => widget.joseki.steps[_stepIndex];
   int get _totalSteps => widget.joseki.steps.length;
@@ -1928,7 +1929,7 @@ class _OverviewCard extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: color.withAlpha(60), width: 1),
           ),
@@ -1990,7 +1991,7 @@ class _OverviewCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.white12, width: 1),
             ),
@@ -2046,7 +2047,7 @@ class _BoardSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withAlpha(80), width: 1.5),
         boxShadow: [
@@ -2138,7 +2139,7 @@ class _StepList extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: color.withAlpha(40), width: 1),
       ),
@@ -2226,7 +2227,7 @@ class _CommentCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: Colors.white12, width: 1),
       ),
@@ -2298,7 +2299,7 @@ class _NavButtons extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: Colors.white12),
           ),

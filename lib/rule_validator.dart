@@ -52,11 +52,11 @@ List<RuleViolation> validateBoard(List<List<Piece?>> board) {
           ));
         }
 
-        // 先手の桂馬は1,2段目（row=0,1,2）に配置禁止
-        if (piece.type == PieceType.knight && (row == 0 || row == 1 || row == 2)) {
+        // 先手の桂馬は1,2段目（row=0,1）に配置禁止（row=2からは跳べるため合法）
+        if (piece.type == PieceType.knight && (row == 0 || row == 1)) {
           violations.add(RuleViolation(
             type: 'knight_on_edge_or_adjacent',
-            description: '先手の桂馬が敵陣（1～3段目）にいます',
+            description: '先手の桂馬が敵陣（1～2段目）にいます',
             row: row,
             col: col,
           ));
@@ -83,11 +83,11 @@ List<RuleViolation> validateBoard(List<List<Piece?>> board) {
           ));
         }
 
-        // 後手の桂馬は7,8,9段目（row=6,7,8）に配置禁止
-        if (piece.type == PieceType.knight && (row == 6 || row == 7 || row == 8)) {
+        // 後手の桂馬は8,9段目（row=7,8）に配置禁止（row=6からは跳べるため合法）
+        if (piece.type == PieceType.knight && (row == 7 || row == 8)) {
           violations.add(RuleViolation(
             type: 'knight_on_edge_or_adjacent',
-            description: '後手の桂馬が敵陣（7～9段目）にいます',
+            description: '後手の桂馬が敵陣（8～9段目）にいます',
             row: row,
             col: col,
           ));

@@ -80,7 +80,7 @@ class AuthService {
     try {
       await currentUser?.updateProfile(
         displayName: displayName,
-        photoUrl: photoURL,
+        photoURL: photoURL,
       );
     } catch (e) {
       throw Exception('ユーザー情報の更新に失敗しました: $e');

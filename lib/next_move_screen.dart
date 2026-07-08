@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'game_screen.dart' show initShogiBoard;
+import 'theme/app_theme.dart';
 
 class NextMoveScreen extends StatefulWidget {
   const NextMoveScreen({Key? key}) : super(key: key);
@@ -961,7 +962,7 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
           children: [
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: const Color(0xFF0F3460), width: 2),
               ),
@@ -1040,7 +1041,7 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
     final difficulties = ['すべて', '初級', '中級', '上級'];
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1138,7 +1139,7 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
           ),
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFF0F3460), width: 1),
             ),
@@ -1379,9 +1380,9 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         foregroundColor: Colors.white,
         title: const Text(
           '次の一手',

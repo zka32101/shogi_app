@@ -1,6 +1,8 @@
 // lib/theme/app_theme.dart
 // アプリ全体のデザイントークン（色・余白・角丸・影）を一元管理する。
-// 主色=藍、背景=濃ネイビー。各画面はここを参照して見た目を統一する。
+// 主色=金（アクセント）、背景=墨色。盤面・駒・囲い完成バナーで既に使われている
+// 「墨・金・朱・藍・松葉」という将棋の意匠語彙に統一する（落ち着いた和のトーン）。
+// 各画面はここを参照して見た目を統一すること。
 
 import 'package:flutter/material.dart';
 
@@ -8,18 +10,18 @@ class AppTheme {
   AppTheme._();
 
   // ── カラー ────────────────────────────────────────────────
-  static const bg          = Color(0xFF1A1A2E); // 画面背景
-  static const surface     = Color(0xFF16213E); // カード/バー
-  static const surfaceHigh = Color(0xFF22305A); // 強調面
-  static const primary     = Color(0xFF3B82F6); // 藍（対局・主操作）
-  static const primaryDark = Color(0xFF1D4ED8);
-  static const accent      = Color(0xFFF59E0B); // アンバー（手番・注意）
-  static const danger      = Color(0xFFEF4444); // 投了・残り時間少
-  static const success     = Color(0xFF34D399); // 再開・勝利
+  static const bg          = Color(0xFF15110C); // 墨（画面背景）
+  static const surface     = Color(0xFF201A13); // 生成（カード/バー）
+  static const surfaceHigh = Color(0xFF2A2115); // 強調面
+  static const primary     = Color(0xFF4E6A8C); // 藍（先手・情報・二次操作）
+  static const primaryDark = Color(0xFF35486A);
+  static const accent      = Color(0xFFC8A45A); // 金（手番・見出し・プレミアム）
+  static const danger      = Color(0xFFB3261E); // 朱（投了・残り時間少・成駒と統一）
+  static const success     = Color(0xFF5C8A6B); // 松葉（勝利・好手）
 
-  static const textHigh = Color(0xFFF5F5F7);
-  static const textMid  = Color(0xB3FFFFFF); // white70相当
-  static const textLow  = Color(0x61FFFFFF); // white38相当
+  static const textHigh = Color(0xFFF0E9DC); // 生成り（和紙）
+  static const textMid  = Color(0xFFB7AC98);
+  static const textLow  = Color(0xFF6E6354);
 
   // ── 余白（8グリッド）─────────────────────────────────────
   static const s1 = 4.0;
@@ -41,9 +43,9 @@ class AppTheme {
   static List<BoxShadow> get cardShadow =>
       [const BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 2))];
 
-  // ── 機能カテゴリ → アクセント色 ──────────────────────────
-  static const catPlay   = primary;            // 対局系
-  static const catGrow   = Color(0xFFA78BFA);  // 育成・実績系（紫）
-  static const catSocial = Color(0xFF60A5FA);  // 交流系（青）
-  static const catConfig = Color(0xFF94A3B8);  // 設定・課金系（グレー）
+  // ── 機能カテゴリ → アクセント色（すべて彩度を落とした和トーン） ──
+  static const catPlay   = primary;            // 対局系（藍）
+  static const catGrow   = Color(0xFF9B8AC4);  // 育成・実績系（薄紫・藤色）
+  static const catSocial = Color(0xFF7FA0BF);  // 交流系（浅葱寄りの藍）
+  static const catConfig = Color(0xFF9A9184);  // 設定・課金系（暖色グレー）
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../services/learning_content_generator.dart';
+import '../theme/app_theme.dart';
 
 class PersonalizedLessonScreen extends StatefulWidget {
   const PersonalizedLessonScreen({super.key});
@@ -31,9 +32,9 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.surface,
         title: const Text('パーソナライズ学習プラン'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -49,23 +50,23 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
   }
 
   Widget _buildEmptyState() {
-    return const Center(
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(24),
+        padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.auto_awesome, color: Colors.white24, size: 56),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'まだ十分な対局データがありません',
-              style: TextStyle(color: Colors.white70, fontSize: 15, fontWeight: FontWeight.bold),
+              style: TextStyle(color: AppTheme.textMid, fontSize: 15, fontWeight: FontWeight.bold),
             ),
-            SizedBox(height: 8),
+            const SizedBox(height: 8),
             Text(
               '対局を重ねると、あなたの悪手パターンを分析して\n個別の学習アドバイスを自動生成します。',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.6),
+              style: TextStyle(color: AppTheme.textLow, fontSize: 12, height: 1.6),
             ),
           ],
         ),
@@ -83,28 +84,26 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Colors.deepPurple.withAlpha(60), Colors.indigo.withAlpha(30)],
+                colors: [AppTheme.accent.withAlpha(35), AppTheme.accent.withAlpha(8)],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
-              border: Border.all(color: Colors.deepPurpleAccent.withAlpha(100)),
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 10, offset: const Offset(0, 4)),
-              ],
+              border: Border.all(color: AppTheme.accent.withAlpha(90)),
+              borderRadius: BorderRadius.circular(AppTheme.rCard),
+              boxShadow: AppTheme.cardShadow,
             ),
             child: Row(
               children: [
-                const Icon(Icons.auto_awesome, color: Colors.deepPurpleAccent, size: 24),
+                Icon(Icons.auto_awesome, color: AppTheme.accent, size: 24),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'あなた専用の学習プラン',
                         style: TextStyle(
-                          color: Colors.white,
+                          color: AppTheme.textHigh,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                         ),
@@ -112,7 +111,7 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
                       const SizedBox(height: 4),
                       Text(
                         '直近の対局から悪手パターンを分析し、優先度順に${_lessons!.length}件のレッスンを生成しました',
-                        style: const TextStyle(color: Colors.white54, fontSize: 11, height: 1.4),
+                        style: TextStyle(color: AppTheme.textLow, fontSize: 11, height: 1.4),
                       ),
                     ],
                   ),
@@ -127,23 +126,23 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
     );
   }
 
+  Color _severityColor(double avgDelta) {
+    if (avgDelta <= -200) return AppTheme.danger;
+    if (avgDelta <= -100) return Color.lerp(AppTheme.danger, AppTheme.accent, 0.5)!;
+    return AppTheme.accent;
+  }
+
   Widget _buildLessonCard(int idx, GeneratedLesson lesson) {
-    final severityColor = lesson.avgDelta <= -200
-        ? Colors.red
-        : lesson.avgDelta <= -100
-            ? Colors.orange
-            : Colors.amber;
+    final severityColor = _severityColor(lesson.avgDelta);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(8),
+        color: AppTheme.surface,
         border: Border.all(color: severityColor.withAlpha(80)),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(45), blurRadius: 6, offset: const Offset(0, 3)),
-        ],
+        borderRadius: BorderRadius.circular(AppTheme.rCard),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -154,8 +153,9 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
                 width: 32,
                 height: 32,
                 decoration: BoxDecoration(
-                  color: severityColor.withAlpha(50),
+                  color: severityColor.withAlpha(35),
                   shape: BoxShape.circle,
+                  border: Border.all(color: severityColor, width: 1.2),
                 ),
                 child: Center(
                   child: Text(
@@ -171,8 +171,8 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
               Expanded(
                 child: Text(
                   lesson.title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppTheme.textHigh,
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
@@ -181,7 +181,7 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: severityColor.withAlpha(40),
+                  color: severityColor.withAlpha(30),
                   borderRadius: BorderRadius.circular(6),
                 ),
                 child: Text(
@@ -194,7 +194,7 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
           const SizedBox(height: 12),
           Text(
             lesson.summary,
-            style: const TextStyle(color: Colors.white70, fontSize: 12, height: 1.5),
+            style: TextStyle(color: AppTheme.textMid, fontSize: 12, height: 1.5),
           ),
           const SizedBox(height: 10),
           Container(
@@ -206,20 +206,20 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.lightbulb_outline, color: Colors.amber, size: 14),
-                    SizedBox(width: 6),
+                    Icon(Icons.lightbulb_outline, color: AppTheme.accent, size: 14),
+                    const SizedBox(width: 6),
                     Text(
                       'アドバイス',
-                      style: TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: TextStyle(color: AppTheme.accent, fontSize: 11, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
                 const SizedBox(height: 6),
                 Text(
                   lesson.adviceText,
-                  style: const TextStyle(color: Colors.white60, fontSize: 12, height: 1.6),
+                  style: TextStyle(color: AppTheme.textMid, fontSize: 12, height: 1.6),
                 ),
               ],
             ),
@@ -228,18 +228,18 @@ class _PersonalizedLessonScreenState extends State<PersonalizedLessonScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.cyan.withAlpha(15),
-              border: Border.all(color: Colors.cyan.withAlpha(60)),
+              color: AppTheme.primary.withAlpha(20),
+              border: Border.all(color: AppTheme.primary.withAlpha(70)),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               children: [
-                const Icon(Icons.fitness_center, color: Colors.cyan, size: 14),
+                Icon(Icons.fitness_center, color: AppTheme.primary, size: 14),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     lesson.drillSuggestion,
-                    style: const TextStyle(color: Colors.cyan, fontSize: 12, height: 1.5),
+                    style: TextStyle(color: AppTheme.primary, fontSize: 12, height: 1.5),
                   ),
                 ),
               ],

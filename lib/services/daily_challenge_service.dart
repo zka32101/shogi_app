@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'fcm_service.dart';
+import 'network_achievement_service.dart';
 
 // ── モデル ──────────────────────────────────────────────────────
 
@@ -371,6 +372,8 @@ class DailyChallengeService {
         .collection('user_challenge_progress')
         .doc('${userId}_${challenge.id}');
 
+    bool justCompleted = false;
+
     await _firestore.runTransaction((tx) async {
       final doc = await tx.get(progressRef);
       final current = doc.exists
@@ -404,8 +407,20 @@ class DailyChallengeService {
           'challenge_points':
               FieldValue.increment(challenge.rewardPoints),
         });
+        justCompleted = true;
       }
     });
+
+    // チャレンジポイント実績判定（累計ポイントで判定）
+    if (justCompleted) {
+      try {
+        final userDoc =
+            await _firestore.collection('users').doc(userId).get();
+        final totalPoints = userDoc.data()?['challenge_points'] as int? ?? 0;
+        await NetworkAchievementService()
+            .checkChallengePoints(userId, totalPoints);
+      } catch (_) {}
+    }
   }
 
   // ── 進捗取得 ──────────────────────────────────────────────────

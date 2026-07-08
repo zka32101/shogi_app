@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/rating_service.dart';
 import '../services/network_service.dart';
 import 'match_analyzer_screen.dart';
+import '../theme/app_theme.dart';
 
 class MatchHistoryScreen extends StatelessWidget {
   final String userId;
@@ -15,9 +16,9 @@ class MatchHistoryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title:
             const Text('対局履歴', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),

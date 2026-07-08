@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'purchase_service.dart';
 import 'piece.dart';
+import 'theme/app_theme.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
 import 'tsume_engine.dart';
@@ -1350,7 +1351,7 @@ class TsumeTimeAttackScreen extends StatefulWidget {
 }
 
 class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
-  static const _bg = Color(0xFF1A1A2E);
+  static const _bg = AppTheme.bg;
   static const _totalSec = 180; // 3分
 
   // 有効な問題のみ（開始王手除外）
@@ -1418,12 +1419,12 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
         ? Colors.red
         : _remaining <= 60
             ? Colors.orange
-            : Colors.cyan;
+            : AppTheme.accent;
 
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('タイムアタック', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -1481,7 +1482,7 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.timer, color: Colors.cyan, size: 72),
+          const Icon(Icons.timer, color: AppTheme.accent, size: 72),
           const SizedBox(height: 20),
           const Text(
             'タイムアタック',
@@ -1508,7 +1509,7 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
             icon: const Icon(Icons.play_arrow),
             label: const Text('スタート', style: TextStyle(fontSize: 16)),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.cyan.shade700,
+              backgroundColor: AppTheme.accent,
               foregroundColor: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
             ),
@@ -1542,7 +1543,7 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -1587,7 +1588,7 @@ class _TsumeTimeAttackScreenState extends State<TsumeTimeAttackScreen> {
                   icon: const Icon(Icons.refresh),
                   label: const Text('もう一度'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan.shade700,
+                    backgroundColor: AppTheme.accent,
                     foregroundColor: Colors.white,
                   ),
                 ),
@@ -1624,7 +1625,7 @@ class DailyTsumeScreen extends StatefulWidget {
 }
 
 class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
-  static const _bg = Color(0xFF1A1A2E);
+  static const _bg = AppTheme.bg;
   static const _maxAttempts = 999;  // 無制限（実質上限）
 
   late final _TsumeProb _prob;
@@ -1773,7 +1774,7 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
                 : status == 'failed'
                     ? Colors.red.shade800
                     : i == _currentAttempt
-                        ? const Color(0xFF16213E)
+                        ? AppTheme.surface
                         : Colors.grey.shade900,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
@@ -1807,7 +1808,7 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('デイリー詰将棋', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -1953,7 +1954,7 @@ class TsumeRogueliteScreen extends StatefulWidget {
 }
 
 class _TsumeRogueliteScreenState extends State<TsumeRogueliteScreen> {
-  static const _bg = Color(0xFF1A1A2E);
+  static const _bg = AppTheme.bg;
   static const _maxLives = 3;
   static const _prefBestKey = 'roguelite_best_score';
 
@@ -2037,7 +2038,7 @@ class _TsumeRogueliteScreenState extends State<TsumeRogueliteScreen> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('ローグライト', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
@@ -2078,7 +2079,7 @@ class _TsumeRogueliteScreenState extends State<TsumeRogueliteScreen> {
     return Scaffold(
       backgroundColor: _bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('ローグライト', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -2162,7 +2163,7 @@ class _TsumeRogueliteScreenState extends State<TsumeRogueliteScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -2246,8 +2247,8 @@ class TsumeScreen extends StatefulWidget {
 
 class _TsumeScreenState extends State<TsumeScreen>
     with SingleTickerProviderStateMixin {
-  static const _bg = Color(0xFF1A1A2E);
-  static const _card = Color(0xFF16213E);
+  static const _bg = AppTheme.bg;
+  static const _card = AppTheme.surface;
 
   // 0=全て, 1=1手, 3=3手, 5=5手, 7=7手, 9=9手
   int _filterMoves = 0;
@@ -2331,7 +2332,7 @@ class _TsumeScreenState extends State<TsumeScreen>
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Row(children: [
           Icon(Icons.emoji_events, color: Colors.amber, size: 22),
           SizedBox(width: 8),
@@ -2513,7 +2514,7 @@ class _TsumeScreenState extends State<TsumeScreen>
   // ── デイリー問題カード ──
   Widget _timeAttackCard(BuildContext ctx) {
     return Card(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       margin: const EdgeInsets.only(bottom: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -2855,8 +2856,8 @@ class _SolvePage extends StatefulWidget {
 }
 
 class _SolvePageState extends State<_SolvePage> {
-  static const _bg = Color(0xFF1A1A2E);
-  static const _card = Color(0xFF16213E);
+  static const _bg = AppTheme.bg;
+  static const _card = AppTheme.surface;
 
   late List<List<Piece?>> _board;
   late Map<PieceType, int> _p1Hand;
@@ -3255,7 +3256,7 @@ class _SolvePageState extends State<_SolvePage> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('詰みました！',
             style: TextStyle(
                 color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 20)),
@@ -3267,11 +3268,11 @@ class _SolvePageState extends State<_SolvePage> {
                 style: TextStyle(color: Colors.white70)),
             const SizedBox(height: 8),
             Row(children: [
-              const Icon(Icons.timer_outlined, color: Colors.cyan, size: 16),
+              const Icon(Icons.timer_outlined, color: AppTheme.accent, size: 16),
               const SizedBox(width: 6),
               Text(
                 '解答時間: ${_fmtTime(elapsed)}',
-                style: const TextStyle(color: Colors.cyan, fontSize: 13, fontWeight: FontWeight.bold),
+                style: const TextStyle(color: AppTheme.accent, fontSize: 13, fontWeight: FontWeight.bold),
               ),
               if (_bestTimeSec != null && elapsed <= _bestTimeSec!) ...[
                 const SizedBox(width: 8),
@@ -3421,16 +3422,16 @@ class _SolvePageState extends State<_SolvePage> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: Colors.cyan.withAlpha(30),
+                color: AppTheme.accent.withAlpha(30),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.cyan.withAlpha(100)),
+                border: Border.all(color: AppTheme.accent.withAlpha(100)),
               ),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const Icon(Icons.timer_outlined, color: Colors.cyan, size: 14),
+                const Icon(Icons.timer_outlined, color: AppTheme.accent, size: 14),
                 const SizedBox(width: 4),
                 Text(
                   _solved ? _fmtTime(_elapsedSec) : _fmtTime(_elapsedSec),
-                  style: const TextStyle(color: Colors.cyan, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: const TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ]),
             ),
@@ -3501,14 +3502,14 @@ class _SolvePageState extends State<_SolvePage> {
                         height: 12,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.cyan,
+                          color: AppTheme.accent,
                         ),
                       ),
                     ],
                     Text('第$moveNum手  $turnText',
                         style: TextStyle(
                             color: _verifying
-                                ? Colors.cyan
+                                ? AppTheme.accent
                                 : _p1Turn
                                     ? Colors.lightBlue.shade300
                                     : Colors.orange.shade300,

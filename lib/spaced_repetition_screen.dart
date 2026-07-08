@@ -8,6 +8,7 @@ import 'dart:convert';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'purchase_service.dart';
+import 'theme/app_theme.dart';
 
 // ===== SRS Item (spaced repetition data) =====
 class _SRSItem {
@@ -436,9 +437,9 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('忘却曲線トレーニング 👑',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
@@ -451,9 +452,9 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
     // Premium gate
     if (!_isPremium) {
       return Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('忘却曲線トレーニング 👑',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         ),
@@ -492,9 +493,9 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
     final dueProblems = _getDueProblems();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('忘却曲線トレーニング 👑',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -522,7 +523,7 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
               children: [
                 // Header with review count
                 Container(
-                  color: const Color(0xFF16213E),
+                  color: AppTheme.surface,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -630,7 +631,7 @@ class _SRSProblemCard extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: Colors.white12,
@@ -823,9 +824,9 @@ class _SRSDetailScreenState extends State<_SRSDetailScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('問題を解く',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
@@ -854,7 +855,7 @@ class _SRSDetailScreenState extends State<_SRSDetailScreen> {
             // Board
             Container(
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(12),
               ),
               padding: const EdgeInsets.all(8),

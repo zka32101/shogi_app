@@ -13,6 +13,7 @@ import 'proverbs_screen.dart';
 import 'next_move_screen.dart';
 import 'strategies_screen.dart';
 import 'stats_screen.dart' show ratingToRank;
+import 'theme/app_theme.dart';
 
 // ── シチュエーション定義 ────────────────────────────────────────
 class _Situation {
@@ -189,10 +190,10 @@ class _LearningGuideScreenState extends State<LearningGuideScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: const Text('学習ガイド', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           if (_selected != null)
@@ -217,7 +218,7 @@ class _LearningGuideScreenState extends State<LearningGuideScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.white12),
             ),
@@ -345,7 +346,7 @@ class _SituationCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white12),
         ),
@@ -410,7 +411,7 @@ class _RecommendationCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white10),
         ),

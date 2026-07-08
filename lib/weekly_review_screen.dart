@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'purchase_service.dart';
 import 'stats_screen.dart'; // ratingToRank, ratingToColor
+import 'theme/app_theme.dart';
 
 // ── データモデル ─────────────────────────────────────────────
 
@@ -227,8 +228,8 @@ class WeeklyReviewScreen extends StatefulWidget {
 }
 
 class _WeeklyReviewScreenState extends State<WeeklyReviewScreen> {
-  static const _bgColor = Color(0xFF1A1A2E);
-  static const _cardColor = Color(0xFF16213E);
+  static const _bgColor = AppTheme.bg;
+  static const _cardColor = AppTheme.surface;
 
   bool _loading = true;
   bool _hasPlan500 = false;

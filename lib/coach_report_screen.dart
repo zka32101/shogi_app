@@ -11,6 +11,7 @@ import 'kansousen_screen.dart'
         classifyMove,
         playerEvalChange,
         KansousenScreen;
+import 'theme/app_theme.dart';
 
 // ───────────────────────────────────────
 // 内部スナップショット
@@ -229,7 +230,7 @@ class _CoachReportScreenState extends State<CoachReportScreen> {
       menu.add({'icon': Icons.extension, 'color': Colors.orange, 'label': '詰将棋練習', 'desc': '終盤の計算力UP'});
     }
     if (widget.kifu.length < 40) {
-      menu.add({'icon': Icons.book_outlined, 'color': Colors.cyan, 'label': '定跡を学ぶ', 'desc': '序盤の知識を強化'});
+      menu.add({'icon': Icons.book_outlined, 'color': AppTheme.accent, 'label': '定跡を学ぶ', 'desc': '序盤の知識を強化'});
     }
     menu.add({'icon': Icons.computer, 'color': Colors.amber, 'label': 'AI対局（再戦）', 'desc': '今度こそ完封を目指せ'});
 
@@ -238,8 +239,8 @@ class _CoachReportScreenState extends State<CoachReportScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const bg = Color(0xFF1A1A2E);
-    const cardBg = Color(0xFF16213E);
+    const bg = AppTheme.bg;
+    const cardBg = AppTheme.surface;
 
     return Scaffold(
       backgroundColor: bg,
@@ -307,7 +308,7 @@ class _CoachReportScreenState extends State<CoachReportScreen> {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _grade.color.withAlpha(80), width: 2),
         boxShadow: [BoxShadow(color: _grade.color.withAlpha(40), blurRadius: 16)],
@@ -562,7 +563,7 @@ class _CoachReportScreenState extends State<CoachReportScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),

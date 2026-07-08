@@ -8,6 +8,7 @@ import 'piece.dart';
 import 'logic.dart';
 import 'game_screen.dart' show initShogiBoard;
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // ── ランク判定（パーセンテージ基準）────────────────────────────
 String _scoreToRank(int pct) {
@@ -315,9 +316,9 @@ class _StrengthTestScreenState extends State<StrengthTestScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           _loading
               ? '棋力診断'
@@ -695,7 +696,7 @@ class _ResultDialog extends StatelessWidget {
     }
 
     return AlertDialog(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       title: const Text('診断結果', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       content: SingleChildScrollView(

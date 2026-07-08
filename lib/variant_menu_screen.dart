@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import 'game_screen.dart';
+import 'theme/app_theme.dart';
 
 extension VariantTypeExtra on VariantType {
   IconData get icon {
@@ -55,9 +56,9 @@ class _VariantMenuScreenState extends State<VariantMenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('変則将棋', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -197,7 +198,7 @@ class _VariantCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [const Color(0xFF16213E), _accentColor.withAlpha(30)],
+                colors: [AppTheme.surface, _accentColor.withAlpha(30)],
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
               ),
@@ -255,7 +256,7 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       borderRadius: BorderRadius.circular(12),
       border: Border.all(color: Colors.white12),
     ),
