@@ -3313,83 +3313,110 @@ class _SolvePageState extends State<_SolvePage> {
     await _verifyAndApplyMove([mv]);
   }
 
-  /// 候補手を順番に検証し、正解なら適用・不正解なら一時表示後に戻す
+  /// 手を適用し、後手の最善防御を自動実行してから
+  /// 残り手数内に詰みが存在するか確認する。
+  /// 詰みが存在しなければ初期局面に戻す。
   Future<void> _verifyAndApplyMove(List<AMove> candidates) async {
+    if (_verifying) return;
     setState(() => _verifying = true);
 
-    AMove? validMove;
-
-    for (final mv in candidates) {
-      final result = await _engine.validateMove(
-        board: _board,
-        p1Hand: _p1Hand,
-        p2Hand: _p2Hand,
-        attackerIsP1: _p1Turn,
-        mv: mv,
-        totalRemainingMoves: _remainingMoves,
-      );
-      if (result.isMate) {
-        validMove = mv;
-        break;
-      }
+    // ── 1. 王手になる候補を選んで適用 ──────────────────────────
+    AMove? mv;
+    for (final c in candidates) {
+      final tmp = AI.apply(_board, _p1Hand, _p2Hand, c, true);
+      if (GL.inCheck(tmp.b, false)) { mv = c; break; }
     }
+    mv ??= candidates.first; // 王手にならない場合も視覚表示のために適用
 
-    if (!mounted) return;
-
-    if (validMove == null) {
-      // 不正解: 盤面に手を表示してから元に戻す
-      final mv = candidates.first;
-      final savedBoard = List.generate(9, (r) => List<Piece?>.from(_board[r]));
-      final savedP1Hand = Map<PieceType, int>.from(_p1Hand);
-      final savedP2Hand = Map<PieceType, int>.from(_p2Hand);
-
-      // 視覚的に手を適用（_verifyingはtrueのまま入力ブロック）
-      if (mv.drop != null) {
-        _execDrop(mv.drop!, mv.tr, mv.tc, isP1: true);
-      } else {
-        _execMove(mv.fr, mv.fc, mv.tr, mv.tc, mv.promote);
-      }
-      setState(() {
-        _selected = null;
-        _legalDots = {};
-        _selectedHandPiece = null;
-      });
-
-      _showWrong();
-
-      await Future.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-
-      // 盤面を元に戻す
-      for (int r = 0; r < 9; r++) {
-        for (int c = 0; c < 9; c++) {
-          _board[r][c] = savedBoard[r][c];
-        }
-      }
-      _p1Hand.clear(); _p1Hand.addAll(savedP1Hand);
-      _p2Hand.clear(); _p2Hand.addAll(savedP2Hand);
-      setState(() {
-        _lastFrom = null;
-        _lastTo = null;
-        _verifying = false;
-      });
-      return;
+    if (mv.drop != null) {
+      _execDrop(mv.drop!, mv.tr, mv.tc, isP1: true);
+    } else {
+      _execMove(mv.fr, mv.fc, mv.tr, mv.tc, mv.promote);
     }
-
     setState(() {
-      _verifying = false;
       _selected = null;
       _legalDots = {};
       _selectedHandPiece = null;
     });
 
-    // 正解手を適用
-    if (validMove.drop != null) {
-      _execDrop(validMove.drop!, validMove.tr, validMove.tc, isP1: true);
-    } else {
-      _execMove(validMove.fr, validMove.fc, validMove.tr, validMove.tc, validMove.promote);
+    // ── 2. 詰将棋ルール: 攻め方の手は必ず王手 ──────────────────
+    if (!GL.inCheck(_board, false)) {
+      _showWrong();
+      await Future.delayed(const Duration(milliseconds: 800));
+      if (!mounted) return;
+      _resetState();
+      setState(() => _verifying = false);
+      return;
     }
-    _advanceSolution();
+
+    // ── 3. 即詰み（後手に合法手なし）→ 正解 ────────────────────
+    if (!GL.hasLegalMove(_board, false, _p2Hand, _p1Hand)) {
+      setState(() => _verifying = false);
+      _onSolved();
+      return;
+    }
+
+    // ── 4. 後手の最善防御手を自動実行 ───────────────────────────
+    _solutionIdx++;
+    await Future.delayed(const Duration(milliseconds: 450));
+    if (!mounted) return;
+
+    final defMove = await Future(
+      () => AI.bestMove(_board, _p1Hand, _p2Hand, false, 2),
+    );
+    if (!mounted) return;
+
+    if (defMove == null) {
+      setState(() => _verifying = false);
+      _onSolved();
+      return;
+    }
+
+    if (defMove.drop != null) {
+      _execDrop(defMove.drop!, defMove.tr, defMove.tc, isP1: false);
+    } else {
+      _execMove(defMove.fr, defMove.fc, defMove.tr, defMove.tc, defMove.promote);
+    }
+    _solutionIdx++;
+    setState(() {});
+
+    await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
+
+    // ── 5. 残り手数内に詰みが存在するか確認 ─────────────────────
+    final remaining = widget.prob.moves - _solutionIdx;
+
+    if (remaining <= 0) {
+      // 手数を全て使ったが詰んでいない
+      _showWrong();
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+      _resetState();
+      setState(() => _verifying = false);
+      return;
+    }
+
+    final mateResult = await _engine.findMate(
+      board: _board,
+      p1Hand: _p1Hand,
+      p2Hand: _p2Hand,
+      attackerIsP1: true,
+      depth: remaining,
+    );
+    if (!mounted) return;
+
+    if (!mateResult.isMate) {
+      // 残り手数内に詰み経路なし → 最初の局面に戻す
+      _showWrong();
+      await Future.delayed(const Duration(milliseconds: 700));
+      if (!mounted) return;
+      _resetState();
+      setState(() => _verifying = false);
+      return;
+    }
+
+    // ── 6. まだ詰み経路あり → 継続 ─────────────────────────────
+    setState(() => _verifying = false);
   }
 
   void _execMove(int fr, int fc, int tr, int tc, bool promote) {
@@ -3412,53 +3439,6 @@ class _SolvePageState extends State<_SolvePage> {
     if ((hand[type] ?? 0) <= 0) hand.remove(type);
     _lastFrom = null;
     _lastTo = (tr, tc);
-  }
-
-  void _advanceSolution() {
-    setState(() {
-      _selected = null;
-      _legalDots = {};
-      _selectedHandPiece = null;
-      _solutionIdx++;
-    });
-
-    final sol = widget.prob.solution;
-
-    // 全手完了
-    if (_solutionIdx >= sol.length) {
-      _onSolved();
-      return;
-    }
-
-    // 後手応手(奇数インデックス)はAI最善防御で自動実行
-    if (_solutionIdx % 2 == 1) {
-      Future.delayed(const Duration(milliseconds: 500), () async {
-        if (!mounted) return;
-
-        // AI最善防御手を計算
-        AMove? defMove = await Future(() => AI.bestMove(
-          _board, _p1Hand, _p2Hand,
-          false, // 後手
-          2,     // 深さ2（十分高速・高品質）
-        ));
-
-        if (defMove == null) {
-          // AI が手を見つけられない = 詰み確定
-          if (mounted) _onSolved();
-          return;
-        }
-
-        setState(() {
-          if (defMove!.drop != null) {
-            _execDrop(defMove.drop!, defMove.tr, defMove.tc, isP1: false);
-          } else {
-            _execMove(defMove.fr, defMove.fc, defMove.tr, defMove.tc, defMove.promote);
-          }
-          _solutionIdx++;
-        });
-        if (_solutionIdx >= sol.length) _onSolved();
-      });
-    }
   }
 
   void _onSolved() {
