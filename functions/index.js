@@ -27,6 +27,41 @@ function calcElo(winnerRating, loserRating, kFactor = 32) {
   return { winnerDelta, loserDelta };
 }
 
+// ── 実績判定（対局終了時）─────────────────────────────────────
+// lib/services/network_achievement_service.dart の AchievementId と一致させること
+function achievementsForStats({ matches, wins, rating, streak, checkmateWins, resignWins, isWinner }) {
+  const ids = [];
+  if (matches === 1) ids.push('net_first');
+  if (isWinner && wins === 1) ids.push('net_win_1');
+  if (isWinner) {
+    if (wins === 10)  ids.push('net_win_10');
+    if (wins === 50)  ids.push('net_win_50');
+    if (wins === 100) ids.push('net_win_100');
+    if (wins === 500) ids.push('net_win_500');
+  }
+  if (matches === 100) ids.push('play_100');
+  if (matches === 500) ids.push('play_500');
+  if (rating >= 1600) ids.push('rating_1600');
+  if (rating >= 1800) ids.push('rating_1800');
+  if (rating >= 2000) ids.push('rating_2000');
+  if (rating >= 2200) ids.push('rating_2200');
+  if (rating >= 2500) ids.push('rating_2500');
+  if (streak >= 3)  ids.push('streak_3');
+  if (streak >= 5)  ids.push('streak_5');
+  if (streak >= 10) ids.push('streak_10');
+  if (isWinner && checkmateWins === 5) ids.push('win_5_checkmate');
+  if (isWinner && resignWins === 5)    ids.push('win_5_resign');
+  return ids;
+}
+
+// season_service.dart の getCurrentSeason().id と同じ形式（"YYYY-MM"）
+function currentSeasonId() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
 // ── Trigger 1: 対局終了時 → ELO更新（Firestoreトリガー）────────
 exports.onMatchFinished = functions.firestore
   .document('matches/{matchId}')
@@ -64,17 +99,82 @@ exports.onMatchFinished = functions.firestore
 
         if (!winnerDoc.exists || !loserDoc.exists) return;
 
-        const winnerRating = winnerDoc.data().rating || 700;
-        const loserRating  = loserDoc.data().rating  || 700;
+        const winnerData = winnerDoc.data();
+        const loserData  = loserDoc.data();
+        const winnerRating = winnerData.rating || 700;
+        const loserRating  = loserData.rating  || 700;
         const { winnerDelta, loserDelta } = calcElo(winnerRating, loserRating);
+
+        // 実績判定用: このトランザクションで確定する新しい値
+        const winnerNewWins   = (winnerData.wins || 0) + 1;
+        const winnerNewLosses = winnerData.losses || 0;
+        const winnerNewStreak = (winnerData.win_streak || 0) + 1;
+        const winnerNewCheckmateWins =
+          (winnerData.checkmate_wins || 0) + (result === 'checkmate' ? 1 : 0);
+        const winnerNewResignWins =
+          (winnerData.resign_wins || 0) + (result === 'resignation' ? 1 : 0);
+
+        const loserNewLosses = (loserData.losses || 0) + 1;
+        const loserNewWins   = loserData.wins || 0;
+
+        const winnerAchievements = achievementsForStats({
+          matches: winnerNewWins + winnerNewLosses,
+          wins: winnerNewWins,
+          rating: winnerRating + winnerDelta,
+          streak: winnerNewStreak,
+          checkmateWins: winnerNewCheckmateWins,
+          resignWins: winnerNewResignWins,
+          isWinner: true,
+        });
+        const loserAchievements = achievementsForStats({
+          matches: loserNewWins + loserNewLosses,
+          wins: loserNewWins,
+          rating: loserRating + loserDelta,
+          streak: 0,
+          checkmateWins: 0,
+          resignWins: 0,
+          isWinner: false,
+        });
+
+        // シーズン参加中（season_rating 初期化済み・今シーズン内）のみ
+        // season_rating/season_wins/season_losses もあわせて更新する
+        const seasonId = currentSeasonId();
+        const winnerInSeason =
+          winnerData.season_id === seasonId &&
+          typeof winnerData.season_rating === 'number';
+        const loserInSeason =
+          loserData.season_id === seasonId &&
+          typeof loserData.season_rating === 'number';
 
         tx.update(winnerRef, {
           rating: admin.firestore.FieldValue.increment(winnerDelta),
           wins:   admin.firestore.FieldValue.increment(1),
+          win_streak: winnerNewStreak,
+          ...(result === 'checkmate'   ? { checkmate_wins: admin.firestore.FieldValue.increment(1) } : {}),
+          ...(result === 'resignation' ? { resign_wins: admin.firestore.FieldValue.increment(1) } : {}),
+          ...(winnerAchievements.length
+            ? { achievements: admin.firestore.FieldValue.arrayUnion(...winnerAchievements) }
+            : {}),
+          ...(winnerInSeason
+            ? {
+                season_rating: admin.firestore.FieldValue.increment(winnerDelta),
+                season_wins:   admin.firestore.FieldValue.increment(1),
+              }
+            : {}),
         });
         tx.update(loserRef, {
           rating:  admin.firestore.FieldValue.increment(loserDelta),
           losses:  admin.firestore.FieldValue.increment(1),
+          win_streak: 0,
+          ...(loserAchievements.length
+            ? { achievements: admin.firestore.FieldValue.arrayUnion(...loserAchievements) }
+            : {}),
+          ...(loserInSeason
+            ? {
+                season_rating: admin.firestore.FieldValue.increment(loserDelta),
+                season_losses: admin.firestore.FieldValue.increment(1),
+              }
+            : {}),
         });
         tx.update(change.after.ref, {
           rating_updated:      true,

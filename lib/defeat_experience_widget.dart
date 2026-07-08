@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'ai_personality.dart';
 import 'premium_defeat_analysis.dart';
 import 'screens/premium_screen.dart';
+import 'theme/app_theme.dart';
 
 class DefeatExperienceWidget extends StatelessWidget {
   final String result;
@@ -43,7 +44,7 @@ class DefeatExperienceWidget extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
-          color: Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
@@ -249,7 +250,7 @@ class DefeatExperienceWidget extends StatelessWidget {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFD700),
-                foregroundColor: const Color(0xFF16213E),
+                foregroundColor: AppTheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),

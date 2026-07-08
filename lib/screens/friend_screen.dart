@@ -7,7 +7,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../services/friend_service.dart';
 import '../services/network_service.dart';
 import '../services/rating_service.dart';
+import '../services/board_sync_service.dart';
+import '../services/fcm_service.dart';
 import '../theme/app_theme.dart';
+import '../logic.dart';
 import 'player_profile_screen.dart';
 import 'match_screen.dart';
 
@@ -599,6 +602,25 @@ class _ChallengesTab extends StatelessWidget {
                       await firestore.collection('direct_challenges').doc(c.id).update({
                         'match_id': matchRef.id,
                       });
+
+                      // RTDB盤面を初期化（MatchScreen は isPlayer1==true 側でしか
+                      // 自動初期化しないが、フレンド対局では常に受諾者が isPlayer1:false
+                      // で入室するため、ここで明示的に作成しないと対局が開始できない）
+                      await BoardSyncService().initMatchBoard(
+                        matchRef.id,
+                        board: GL.initialBoard(),
+                        player1Id: c.senderId,
+                        player2Id: me.uid,
+                        timeLimitSec: 600,
+                      );
+
+                      // 招待した側（未入室）に対局開始を通知
+                      await FcmService().notifyMatchFound(
+                        recipientId: c.senderId,
+                        opponentName: myProfile?.username ?? '相手',
+                        opponentRating: myProfile?.rating ?? 1500,
+                        matchId: matchRef.id,
+                      );
 
                       if (!context.mounted) return;
                       Navigator.push(

@@ -4,6 +4,7 @@ import 'free_shogi_setup_screen.dart';
 import '../services/free_shogi_service.dart';
 import '../models/free_shogi_config.dart';
 import '../game_screen.dart';
+import '../theme/app_theme.dart';
 
 class FreeShogiFiHomeScreen extends StatefulWidget {
   const FreeShogiFiHomeScreen({super.key});
@@ -41,7 +42,7 @@ class _FreeShogiFiHomeScreenState extends State<FreeShogiFiHomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('自由将棋'),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
