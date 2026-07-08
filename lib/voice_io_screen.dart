@@ -8,6 +8,7 @@ import 'piece.dart';
 import 'logic.dart';
 import 'speech_service.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // ===== VoiceIOScreen =====
 class VoiceIOScreen extends StatefulWidget {
@@ -330,9 +331,9 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           '音声入力・読み上げ',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -373,7 +374,7 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -424,7 +425,7 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -615,7 +616,7 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -738,7 +739,7 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),

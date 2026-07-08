@@ -1,6 +1,7 @@
 // lib/l10n.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'theme/app_theme.dart';
 
 class L10n {
   static String _lang = 'ja';
@@ -202,7 +203,7 @@ class _LanguageSettingsWidgetState extends State<LanguageSettingsWidget> {
             widget.onChanged();
           },
           style: SegmentedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A1A2E),
+            backgroundColor: AppTheme.bg,
             selectedBackgroundColor: Colors.blue.shade700,
             foregroundColor: Colors.white70,
             selectedForegroundColor: Colors.white,

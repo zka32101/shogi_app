@@ -12,6 +12,7 @@ import 'ai_personality.dart';
 import 'screens/premium_screen.dart';
 import 'piece.dart';
 import 'services/adaptive_difficulty_service.dart';
+import 'theme/app_theme.dart';
 
 class GameSetupScreen extends StatefulWidget {
   final GameMode mode; // pvp or vsAI
@@ -155,7 +156,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           showDialog(
             context: context,
             builder: (_) => AlertDialog(
-              backgroundColor: const Color(0xFF16213E),
+              backgroundColor: AppTheme.surface,
               title: const Text('本日の対戦回数に達しました', style: TextStyle(color: Colors.white)),
               content: const Text(
                 '無料プランでは1日5回までのローカル対局が可能です。\nプレミアムプランで無制限にプレイできます。',
@@ -233,9 +234,9 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     final title = isVsAI ? 'AI対局 - 設定' : 'ローカル対局 - 設定';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           title,
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -324,7 +325,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             right: 0,
             bottom: 0,
             child: Container(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
               child: ElevatedButton.icon(
                 style: ElevatedButton.styleFrom(
@@ -373,7 +374,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accentColor.withAlpha(80)),
       ),
@@ -426,7 +427,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? Colors.blueGrey.shade800 : const Color(0xFF16213E),
+            color: selected ? Colors.blueGrey.shade800 : AppTheme.surface,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: selected ? Colors.amber : Colors.white24,
@@ -464,7 +465,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             if (val == null) _byoyomiSec = null;
           }),
           selectedColor: Colors.green.shade700,
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           labelStyle: TextStyle(
             color: sel ? Colors.white : Colors.white54,
             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
@@ -513,13 +514,13 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       label: Text(label),
       selected: sel,
       onSelected: enabled ? (_) => setState(() => _byoyomiSec = val) : null,
-      selectedColor: Colors.cyan.shade800,
-      backgroundColor: const Color(0xFF16213E),
+      selectedColor: AppTheme.accent,
+      backgroundColor: AppTheme.surface,
       labelStyle: TextStyle(
         color: sel ? Colors.white : Colors.white54,
         fontWeight: sel ? FontWeight.bold : FontWeight.normal,
       ),
-      side: BorderSide(color: sel ? Colors.cyan.shade400 : Colors.white24),
+      side: BorderSide(color: sel ? AppTheme.accent : Colors.white24),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
     );
   }
@@ -564,7 +565,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       selected: sel,
       onSelected: enabled ? (_) => setState(() => _fischerIncrementSec = val) : null,
       selectedColor: Colors.green.shade800,
-      backgroundColor: const Color(0xFF16213E),
+      backgroundColor: AppTheme.surface,
       labelStyle: TextStyle(
         color: sel ? Colors.white : Colors.white54,
         fontWeight: sel ? FontWeight.bold : FontWeight.normal,
@@ -579,14 +580,14 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white12),
       ),
       child: DropdownButton<Handicap>(
         value: _handicap,
         isExpanded: true,
-        dropdownColor: const Color(0xFF16213E),
+        dropdownColor: AppTheme.surface,
         underline: const SizedBox(),
         style: const TextStyle(color: Colors.white, fontSize: 14),
         items: Handicap.values.map((h) => DropdownMenuItem(
@@ -674,7 +675,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           selected: sel,
           onSelected: (_) => setState(() => _variant = v),
           selectedColor: Colors.deepPurple.shade700,
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           labelStyle: TextStyle(
             color: sel ? Colors.white : Colors.white54,
             fontWeight: sel ? FontWeight.bold : FontWeight.normal,
@@ -707,7 +708,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Row(children: [
           Icon(Icons.diamond, color: Colors.amber),
           SizedBox(width: 8),
@@ -845,7 +846,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: _castleGuideEnabled ? Colors.amber.withAlpha(120) : Colors.white12,
@@ -957,7 +958,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: _coachMode ? Colors.deepPurpleAccent.withAlpha(150) : Colors.white12,
@@ -1065,7 +1066,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
         decoration: BoxDecoration(
           color: selected
               ? (icon != null ? icon.bgColor.withAlpha(50) : Colors.amber.withAlpha(30))
-              : const Color(0xFF16213E),
+              : AppTheme.surface,
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: selected

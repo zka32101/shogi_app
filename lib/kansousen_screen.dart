@@ -9,6 +9,7 @@ import 'logic.dart';
 import 'mini_board_widget.dart';
 import 'game_screen.dart' show GameScreen, GameSettings, GameMode, AILevel, PieceTheme, Handicap;
 import 'board_image_exporter.dart';
+import 'theme/app_theme.dart';
 
 // ---- 感想戦データ ----
 enum MoveQuality {
@@ -383,9 +384,9 @@ class _KansousenScreenState extends State<KansousenScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           _studyMode ? '検討モード' : '感想戦 — ${widget.title}',
           style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -826,14 +827,14 @@ class _KansousenScreenState extends State<KansousenScreen> {
         color: const Color(0xFF0A2040),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: const Row(children: [
-          Icon(Icons.lightbulb_outline, color: Colors.cyan, size: 16),
+          Icon(Icons.lightbulb_outline, color: AppTheme.accent, size: 16),
           SizedBox(width: 8),
-          Text('好手を計算中...', style: TextStyle(color: Colors.cyan, fontSize: 13)),
+          Text('好手を計算中...', style: TextStyle(color: AppTheme.accent, fontSize: 13)),
           SizedBox(width: 8),
           SizedBox(
             width: 12,
             height: 12,
-            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.cyan),
+            child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.accent),
           ),
         ]),
       );
@@ -858,12 +859,12 @@ class _KansousenScreenState extends State<KansousenScreen> {
       color: const Color(0xFF0A3060),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(children: [
-        const Icon(Icons.lightbulb, color: Colors.cyan, size: 16),
+        const Icon(Icons.lightbulb, color: AppTheme.accent, size: 16),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             '好手: $from → $to  (評価: $sign$bestScore)',
-            style: const TextStyle(color: Colors.cyan, fontSize: 13, fontWeight: FontWeight.bold),
+            style: const TextStyle(color: AppTheme.accent, fontSize: 13, fontWeight: FontWeight.bold),
           ),
         ),
       ]),
@@ -872,7 +873,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
 
   Widget _navBar() {
     return Container(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       child: Row(children: [
         IconButton(
@@ -945,7 +946,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Row(children: [
           const Icon(Icons.bar_chart, color: Colors.amber, size: 22),
           const SizedBox(width: 8),
@@ -1096,7 +1097,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? Colors.amber.withAlpha(50)
-                          : const Color(0xFF16213E),
+                          : AppTheme.surface,
                       border: Border.all(
                         color: isSelected
                             ? Colors.amber

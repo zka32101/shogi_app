@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import '../models/game_analysis.dart';
 import '../models/game_statistics.dart';
+import '../theme/app_theme.dart';
 
 class LeaderboardScreen extends StatefulWidget {
   final List<GameAnalysis> games;
@@ -21,9 +21,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.surface,
         title: const Text('スコアボード'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -34,7 +34,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         children: [
           // タブバー
           Container(
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             child: Row(
               children: [
                 _buildLeaderboardTab('全期間', 0),
@@ -62,7 +62,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           decoration: BoxDecoration(
             border: Border(
               bottom: BorderSide(
-                color: isSelected ? Colors.cyan : Colors.transparent,
+                color: isSelected ? AppTheme.accent : Colors.transparent,
                 width: 3,
               ),
             ),
@@ -71,7 +71,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: isSelected ? Colors.cyan : Colors.white54,
+              color: isSelected ? AppTheme.accent : AppTheme.textLow,
               fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
               fontSize: 13,
             ),
@@ -109,10 +109,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
         .toList();
 
     if (filtered.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '対局データがありません',
-          style: TextStyle(color: Colors.white54),
+          style: TextStyle(color: AppTheme.textLow),
         ),
       );
     }
@@ -146,12 +146,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
   Widget _sectionHeader(IconData icon, String label) {
     return Row(children: [
-      Icon(icon, size: 16, color: Colors.amber.shade300),
+      Icon(icon, size: 15, color: AppTheme.accent),
       const SizedBox(width: 6),
       Text(
         label,
         style: TextStyle(
-          color: Colors.amber.shade200,
+          color: AppTheme.accent,
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.5,
@@ -172,23 +172,21 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.cyan.withAlpha(40), Colors.blue.withAlpha(20)],
+          colors: [AppTheme.accent.withAlpha(30), AppTheme.accent.withAlpha(8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.cyan.withAlpha(80)),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+        border: Border.all(color: AppTheme.accent.withAlpha(70)),
+        borderRadius: BorderRadius.circular(AppTheme.rCard),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '成績サマリー',
             style: TextStyle(
-              color: Colors.cyan,
+              color: AppTheme.accent,
               fontSize: 14,
               fontWeight: FontWeight.bold,
               letterSpacing: 1,
@@ -198,10 +196,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _buildStatBadge('対局数', totalGames.toString(), Colors.cyan),
-              _buildStatBadge('勝利', wins.toString(), Colors.green),
-              _buildStatBadge('勝率', '${winRate.toStringAsFixed(1)}%', Colors.orange),
-              _buildStatBadge('平均手', avgMoves.toStringAsFixed(1), Colors.white70),
+              _buildStatBadge('対局数', totalGames.toString(), AppTheme.textHigh),
+              _buildStatBadge('勝利', wins.toString(), AppTheme.success),
+              _buildStatBadge('勝率', '${winRate.toStringAsFixed(1)}%', AppTheme.accent),
+              _buildStatBadge('平均手', avgMoves.toStringAsFixed(1), AppTheme.textMid),
             ],
           ),
         ],
@@ -215,8 +213,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white54,
+          style: TextStyle(
+            color: AppTheme.textLow,
             fontSize: 11,
           ),
         ),
@@ -227,6 +225,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             color: color,
             fontSize: 16,
             fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -254,9 +253,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     return rankings.isEmpty
         ? [
-            const Text(
+            Text(
               '定跡データがありません',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppTheme.textLow),
             )
           ]
         : rankings.asMap().entries.map((e) {
@@ -266,55 +265,79 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           }).toList();
   }
 
-  static const _medals = {1: '🥇', 2: '🥈', 3: '🥉'};
+  // 順位1〜3の丸バッジ配色（金・銀・銅）。4位以降はAppTheme.primary。
+  static const _rankKanji = {1: '一', 2: '二', 3: '三'};
+  static const _silver = Color(0xFF9A9A92);
+  static const _bronze = Color(0xFFB07040);
+
+  Color _rankColor(int rank) {
+    switch (rank) {
+      case 1: return AppTheme.accent;
+      case 2: return _silver;
+      case 3: return _bronze;
+      default: return AppTheme.primary;
+    }
+  }
+
+  Widget _rankBadge(int rank) {
+    final color = _rankColor(rank);
+    final kanji = _rankKanji[rank];
+    return Container(
+      width: 38,
+      height: 38,
+      decoration: BoxDecoration(
+        color: color.withAlpha(28),
+        shape: BoxShape.circle,
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Center(
+        child: kanji != null
+            ? Text(
+                kanji,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'serif',
+                ),
+              )
+            : Text(
+                '$rank',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+      ),
+    );
+  }
+
+  // 勝率の意味色: 高い=成功(松葉)/中間=情報(藍)/低い=控えめ(低輝度)。警告色は使わない。
+  Color _winRateColor(double rate) {
+    if (rate >= 60) return AppTheme.success;
+    if (rate >= 40) return AppTheme.primary;
+    return AppTheme.textLow;
+  }
 
   Widget _buildOpeningRankCard(
     int rank,
     ({String name, int games, int wins, double winRate}) rankData,
   ) {
-    final color = rank == 1
-        ? Colors.amber
-        : rank == 2
-            ? Colors.grey
-            : rank == 3
-                ? const Color(0xFFCD7F32)
-                : Colors.cyan;
-    final medal = _medals[rank];
+    final color = _rankColor(rank);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(8),
-        border: Border.all(color: color.withAlpha(80)),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(45), blurRadius: 6, offset: const Offset(0, 3)),
-        ],
+        color: AppTheme.surface,
+        border: Border.all(color: color.withAlpha(70)),
+        borderRadius: BorderRadius.circular(AppTheme.rBtn),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         children: [
-          // 順位バッジ
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color.withAlpha(60),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: medal != null
-                  ? Text(medal, style: const TextStyle(fontSize: 20))
-                  : Text(
-                      '$rank',
-                      style: TextStyle(
-                        color: color,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-          ),
+          _rankBadge(rank),
           const SizedBox(width: 12),
           // 定跡情報
           Expanded(
@@ -323,8 +346,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
               children: [
                 Text(
                   rankData.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppTheme.textHigh,
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
                   ),
@@ -333,8 +356,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 const SizedBox(height: 4),
                 Text(
                   '${rankData.wins}勝 / ${rankData.games}局',
-                  style: const TextStyle(
-                    color: Colors.white54,
+                  style: TextStyle(
+                    color: AppTheme.textLow,
                     fontSize: 12,
                   ),
                 ),
@@ -345,13 +368,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
           Text(
             '${rankData.winRate.toStringAsFixed(1)}%',
             style: TextStyle(
-              color: rankData.winRate >= 60
-                  ? Colors.green
-                  : rankData.winRate >= 40
-                      ? Colors.cyan
-                      : Colors.orange,
+              color: _winRateColor(rankData.winRate),
               fontSize: 14,
               fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],
@@ -367,21 +387,19 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(8),
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(45), blurRadius: 6, offset: const Offset(0, 3)),
-        ],
+        color: AppTheme.surface,
+        border: Border.all(color: Colors.white.withAlpha(20)),
+        borderRadius: BorderRadius.circular(AppTheme.rBtn),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildPerformanceRow('最長連勝', '$longestWinStreak連勝', Colors.green),
+          _buildPerformanceRow('最長連勝', '$longestWinStreak連勝', AppTheme.success),
           const SizedBox(height: 10),
-          _buildPerformanceRow('最長対局', '$maxMovesGame手', Colors.cyan),
+          _buildPerformanceRow('最長対局', '$maxMovesGame手', AppTheme.primary),
           const SizedBox(height: 10),
-          _buildPerformanceRow('最短対局', '$minMovesGame手', Colors.orange),
+          _buildPerformanceRow('最短対局', '$minMovesGame手', AppTheme.textMid),
         ],
       ),
     );
@@ -393,8 +411,8 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: AppTheme.textMid,
             fontSize: 12,
           ),
         ),
@@ -437,9 +455,9 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
 
     if (activeHours.isEmpty) {
       return [
-        const Text(
+        Text(
           '時間帯データがありません',
-          style: TextStyle(color: Colors.white54),
+          style: TextStyle(color: AppTheme.textLow),
         )
       ];
     }
@@ -448,49 +466,20 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
       final idx = e.key;
       final hour = e.value;
       final rank = idx + 1;
-      final color = idx == 0
-          ? Colors.amber
-          : idx == 1
-              ? Colors.grey
-              : idx == 2
-                  ? const Color(0xFFCD7F32)
-                  : Colors.cyan;
-      final medal = _medals[rank];
+      final color = _rankColor(rank);
 
       return Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.white.withAlpha(8),
-          border: Border.all(color: color.withAlpha(80)),
-          borderRadius: BorderRadius.circular(10),
-          boxShadow: [
-            BoxShadow(color: Colors.black.withAlpha(45), blurRadius: 6, offset: const Offset(0, 3)),
-          ],
+          color: AppTheme.surface,
+          border: Border.all(color: color.withAlpha(70)),
+          borderRadius: BorderRadius.circular(AppTheme.rBtn),
+          boxShadow: AppTheme.cardShadow,
         ),
         child: Row(
           children: [
-            // 順位バッジ
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: color.withAlpha(60),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: medal != null
-                    ? Text(medal, style: const TextStyle(fontSize: 20))
-                    : Text(
-                        '$rank',
-                        style: TextStyle(
-                          color: color,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-              ),
-            ),
+            _rankBadge(rank),
             const SizedBox(width: 12),
             // 時間帯情報
             Expanded(
@@ -499,17 +488,18 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
                 children: [
                   Text(
                     '${hour.hour.toString().padLeft(2, '0')}:00～${(hour.hour + 1).toString().padLeft(2, '0')}:00',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppTheme.textHigh,
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
+                      fontFeatures: const [FontFeature.tabularFigures()],
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     '${hour.wins}勝 / ${hour.games}局',
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: AppTheme.textLow,
                       fontSize: 12,
                     ),
                   ),
@@ -520,13 +510,10 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             Text(
               '${hour.winRate.toStringAsFixed(1)}%',
               style: TextStyle(
-                color: hour.winRate >= 60
-                    ? Colors.green
-                    : hour.winRate >= 40
-                        ? Colors.cyan
-                        : Colors.orange,
+                color: _winRateColor(hour.winRate),
                 fontSize: 14,
                 fontWeight: FontWeight.bold,
+                fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
           ],

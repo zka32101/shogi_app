@@ -1,6 +1,7 @@
 // lib/widgets/tesuji_evaluation_widget.dart — 手筋AI評価表示ウィジェット
 
 import 'package:flutter/material.dart';
+import '../theme/app_theme.dart';
 
 class TesujiEvaluationWidget extends StatelessWidget {
   final String? bestMove;
@@ -22,9 +23,9 @@ class TesujiEvaluationWidget extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.cyan.shade300, width: 2),
+        border: Border.all(color: AppTheme.accent, width: 2),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -33,12 +34,12 @@ class TesujiEvaluationWidget extends StatelessWidget {
           // ヘッダー
           Row(
             children: [
-              const Icon(Icons.psychology, color: Colors.cyan),
+              const Icon(Icons.psychology, color: AppTheme.accent),
               const SizedBox(width: 12),
               const Text(
                 'AI 評価（YaneuraOu）',
                 style: TextStyle(
-                  color: Colors.cyan,
+                  color: AppTheme.accent,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -50,7 +51,7 @@ class TesujiEvaluationWidget extends StatelessWidget {
           // 評価結果
           if (isLoading)
             const Center(
-              child: CircularProgressIndicator(color: Colors.cyan),
+              child: CircularProgressIndicator(color: AppTheme.accent),
             )
           else if (bestMove != null)
             Column(
@@ -59,7 +60,7 @@ class TesujiEvaluationWidget extends StatelessWidget {
                 // 推奨手
                 Container(
                   decoration: BoxDecoration(
-                    color: Colors.cyan.shade900,
+                    color: AppTheme.accent,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   padding: const EdgeInsets.symmetric(
@@ -71,7 +72,7 @@ class TesujiEvaluationWidget extends StatelessWidget {
                     children: [
                       const Text(
                         '推奨手:',
-                        style: TextStyle(color: Colors.cyan, fontSize: 14),
+                        style: TextStyle(color: AppTheme.accent, fontSize: 14),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -136,7 +137,7 @@ class TesujiEvaluationWidget extends StatelessWidget {
               icon: const Icon(Icons.smart_toy),
               label: Text(isLoading ? '評価中...' : '評価を実行'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.cyan,
+                backgroundColor: AppTheme.accent,
                 foregroundColor: Colors.black,
                 disabledBackgroundColor: Colors.grey,
               ),
@@ -224,7 +225,7 @@ class _WinRateCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: const Color(0xFF0F3460),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.cyan, width: 1),
+        border: Border.all(color: AppTheme.accent, width: 1),
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
@@ -237,7 +238,7 @@ class _WinRateCard extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.cyan,
+              color: AppTheme.accent,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),

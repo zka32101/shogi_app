@@ -527,7 +527,7 @@ class TournamentDetailScreen extends StatelessWidget {
             : AppTheme.surface,
         borderRadius: BorderRadius.circular(6),
         border: isMyMatch
-            ? Border.all(color: Colors.cyan.withAlpha(100), width: 1)
+            ? Border.all(color: AppTheme.accent.withAlpha(100), width: 1)
             : null,
       ),
       child: Column(
@@ -540,6 +540,18 @@ class TournamentDetailScreen extends StatelessWidget {
                   style: TextStyle(color: AppTheme.textLow, fontSize: 11)),
           if (m.status == 'pending' && isMyMatch) ...[
             const SizedBox(height: 4),
+            if (m.isDisputed)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text('相手の申告と食い違っています。再度申告してください',
+                    style: TextStyle(color: Colors.redAccent, fontSize: 10)),
+              )
+            else if (m.reportedWinnerIdFor(myId ?? '') != null)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 4),
+                child: Text('申告済み・相手の確認待ちです',
+                    style: TextStyle(color: AppTheme.textLow, fontSize: 10)),
+              ),
             GestureDetector(
               onTap: () => _showMatchActions(context, m, t),
               child: Container(
@@ -549,9 +561,10 @@ class TournamentDetailScreen extends StatelessWidget {
                   color: Colors.amber.withAlpha(40),
                   borderRadius: BorderRadius.circular(4),
                 ),
-                child: const Text('対局する',
-                    style: TextStyle(
-                        color: Colors.amber, fontSize: 10)),
+                child: Text(
+                  m.reportedWinnerIdFor(myId ?? '') != null ? '申告し直す' : '対局する',
+                  style: const TextStyle(color: Colors.amber, fontSize: 10),
+                ),
               ),
             ),
           ],
@@ -692,11 +705,22 @@ class TournamentDetailScreen extends StatelessWidget {
         : m.player2?.userId;
     if (winnerId == null) return;
 
-    await _service.reportMatchResult(t.id, m.id, winnerId);
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('結果を登録しました')),
-      );
-    }
+    final result =
+        await _service.reportMatchResult(t.id, m.id, myId, winnerId);
+    if (!context.mounted) return;
+    final message = switch (result) {
+      'confirmed' => '両者の申告が一致し、結果が確定しました！',
+      'recorded' => '申告を受け付けました。相手の確認をお待ちください',
+      'disputed' => '相手の申告と食い違いがあります。お互い確認して再度申告してください',
+      _ => 'エラーが発生しました',
+    };
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: result == 'disputed' || result == 'error'
+            ? Colors.red
+            : null,
+      ),
+    );
   }
 }

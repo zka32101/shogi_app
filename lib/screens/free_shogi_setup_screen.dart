@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/free_shogi_config.dart';
 import '../piece.dart';
 import '../mini_board_widget.dart';
+import '../theme/app_theme.dart';
 
 class FreeShogiFiSetupScreen extends StatefulWidget {
   final FreeShogiFiemplateEntry? initialTemplate;
@@ -154,7 +155,7 @@ class _FreeShogiFiSetupScreenState extends State<FreeShogiFiSetupScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('自由将棋 - 駒配置'),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(

@@ -246,7 +246,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
     final groups = [
       ('無料', CharIconTier.free, Colors.white70, true),
       ('プレミアム限定', CharIconTier.subscription, Colors.amber, isPremium),
-      ('プレミアム限定', CharIconTier.pack, Colors.cyan, isPremium),
+      ('プレミアム限定', CharIconTier.pack, AppTheme.accent, isPremium),
     ];
 
     return Column(

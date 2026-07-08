@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../game_screen.dart';
 import '../services/kifu_analytics_service.dart';
+import '../theme/app_theme.dart';
 
 class PastSelfBattleGameScreen extends StatefulWidget {
   final int daysAgo;
@@ -87,12 +88,12 @@ class _PastSelfBattleGameScreenState extends State<PastSelfBattleGameScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(
-        backgroundColor: Color(0xFF0F1419),
+        backgroundColor: AppTheme.bg,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Colors.cyan),
+              CircularProgressIndicator(color: AppTheme.accent),
               SizedBox(height: 16),
               Text(
                 '過去の棋力を分析中...',

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // Piece selector entry
 class _PieceEntry {
@@ -147,9 +148,9 @@ class _RulesScreenState extends State<RulesScreen> {
         : entry.description;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('駒の動き'),
         centerTitle: true,
         leading: IconButton(
@@ -162,7 +163,7 @@ class _RulesScreenState extends State<RulesScreen> {
         children: [
           // Piece selector grid
           Container(
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Wrap(
               spacing: 8,
@@ -184,7 +185,7 @@ class _RulesScreenState extends State<RulesScreen> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? Colors.amber.shade700
-                          : const Color(0xFF1A1A2E),
+                          : AppTheme.bg,
                       borderRadius: BorderRadius.circular(6),
                       border: Border.all(
                         color: isSelected
@@ -239,7 +240,7 @@ class _RulesScreenState extends State<RulesScreen> {
                             decoration: BoxDecoration(
                               color: _promoted
                                   ? Colors.red.shade700
-                                  : const Color(0xFF16213E),
+                                  : AppTheme.surface,
                               borderRadius: BorderRadius.circular(16),
                               border: Border.all(
                                 color: _promoted
@@ -286,7 +287,7 @@ class _RulesScreenState extends State<RulesScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF16213E),
+                      color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white12),
                     ),
@@ -341,7 +342,7 @@ class _RulesScreenState extends State<RulesScreen> {
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF16213E),
+                      color: AppTheme.surface,
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(color: Colors.white12),
                     ),

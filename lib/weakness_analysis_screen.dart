@@ -1,6 +1,7 @@
 ﻿import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'theme/app_theme.dart';
 
 enum WeaknessLevel {
   great,
@@ -309,9 +310,9 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         elevation: 0,
         title: const Text(
           '弱点分析',
@@ -373,7 +374,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF0F3460), width: 1),
       ),
@@ -450,7 +451,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF0F3460), width: 1),
       ),
@@ -508,7 +509,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: dim.level.color.withOpacity(0.4),
@@ -601,7 +602,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFFF44336).withOpacity(0.4)),
       ),
@@ -738,7 +739,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: const Color(0xFF4CAF50).withOpacity(0.4)),
       ),

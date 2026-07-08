@@ -27,14 +27,14 @@ dependencies:
   in_app_purchase: ^3.2.0
 
   # Firebase（ネットワーク対局・報告機能・Cloud Functions）
-  firebase_core: ^3.6.0
-  firebase_database: ^11.1.0
-  firebase_storage: ^12.4.10
-  cloud_firestore: ^5.0.0
-  firebase_auth: ^5.0.0
-  firebase_messaging: ^15.0.0
-  firebase_crashlytics: ^4.0.0
-  cloud_functions: ^5.0.0
+  firebase_core: ^4.11.0
+  firebase_database: ^12.4.4
+  firebase_storage: ^13.4.3
+  cloud_firestore: ^6.6.0
+  firebase_auth: ^6.5.4
+  firebase_messaging: ^16.4.1
+  firebase_crashlytics: ^5.2.4
+  cloud_functions: ^6.3.3
   network_info_plus: ^6.0.0
   share_plus: ^10.0.0
 

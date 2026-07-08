@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 class _GenPuzzle {
   final String id;
@@ -292,10 +293,10 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
   static const _kPuzzlesKey = 'generated_puzzles';
   static const _kPremiumKey = 'is_premium';
 
-  static const _bgColor = Color(0xFF1A1A2E);
-  static const _appBarColor = Color(0xFF16213E);
+  static const _bgColor = AppTheme.bg;
+  static const _appBarColor = AppTheme.surface;
   static const _goldColor = Color(0xFFFFD700);
-  static const _cardColor = Color(0xFF16213E);
+  static const _cardColor = AppTheme.surface;
   static const _white87 = Color(0xDEFFFFFF);
 
   List<_GenPuzzle> _collection = [];
@@ -372,7 +373,7 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('コレクションに保存しました'),
-          backgroundColor: Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           duration: Duration(seconds: 2),
         ),
       );
@@ -496,7 +497,7 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1A1A2E),
+            color: AppTheme.bg,
           ),
         ),
         style: ElevatedButton.styleFrom(
@@ -756,7 +757,7 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
                     child: const Text(
                       'プレミアムに登録する',
                       style: TextStyle(
-                        color: Color(0xFF1A1A2E),
+                        color: AppTheme.bg,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),

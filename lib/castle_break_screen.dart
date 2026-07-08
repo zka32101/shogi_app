@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'castle_break_problems.dart';
+import 'theme/app_theme.dart';
 
 typedef _CBProb = CastleProb;
 
@@ -22,8 +23,8 @@ class CastleBreakScreen extends StatefulWidget {
 
 class _CastleBreakScreenState extends State<CastleBreakScreen>
     with SingleTickerProviderStateMixin {
-  static const _bg = Color(0xFF1A1A2E);
-  static const _appBarColor = Color(0xFF16213E);
+  static const _bg = AppTheme.bg;
+  static const _appBarColor = AppTheme.surface;
 
   late final List<_CBProb> _problems;
   final Set<String> _cleared = {};
@@ -551,8 +552,8 @@ class _SolveScreen extends StatefulWidget {
 }
 
 class _SolveScreenState extends State<_SolveScreen> {
-  static const _bg = Color(0xFF1A1A2E);
-  static const _appBarColor = Color(0xFF16213E);
+  static const _bg = AppTheme.bg;
+  static const _appBarColor = AppTheme.surface;
 
   (int, int)? _selectedFrom;
   int _lives = 3;

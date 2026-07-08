@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // ===== 初期盤面生成 =====
 List<List<Piece?>> _buildInitBoard() {
@@ -381,7 +382,7 @@ class _ProKifuScreenState extends State<ProKifuScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         foregroundColor: Colors.white,
         title: const Text(
           'プロ棋譜閲覧',
@@ -723,7 +724,7 @@ class _ProKifuDetailScreenState extends State<_ProKifuDetailScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F0F1A),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         foregroundColor: Colors.white,
         title: Text(
           game.title,

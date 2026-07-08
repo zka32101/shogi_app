@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../models/game_analysis.dart';
+import '../theme/app_theme.dart';
 
 class PersonalBlunderQuizScreen extends StatefulWidget {
   final List<BlunderInfo> blunders;
@@ -68,7 +69,7 @@ class _PersonalBlunderQuizScreenState
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           '復習完了！',
@@ -90,7 +91,7 @@ class _PersonalBlunderQuizScreenState
                   Text(
                     '$_correctCount / ${_questions.length}',
                     style: const TextStyle(
-                      color: Colors.cyan,
+                      color: AppTheme.accent,
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
                     ),
@@ -132,7 +133,7 @@ class _PersonalBlunderQuizScreenState
             },
             child: const Text(
               '対局に戻る',
-              style: TextStyle(color: Colors.cyan),
+              style: TextStyle(color: AppTheme.accent),
             ),
           ),
         ],
@@ -149,9 +150,9 @@ class _PersonalBlunderQuizScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: Row(
           children: [
             const Text('悪手の復習'),
@@ -346,7 +347,7 @@ class _PersonalBlunderQuizScreenState
                 Text(
                   '評価値が ${question.blunder.evalDelta.abs()} 下がった局面です。',
                   style: const TextStyle(
-                    color: Colors.cyan,
+                    color: AppTheme.accent,
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
                   ),

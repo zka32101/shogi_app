@@ -132,7 +132,7 @@ class _RankingScreenState extends State<RankingScreen>
                     : AppTheme.surface,
                 borderRadius: BorderRadius.circular(8),
                 border: isCurrentUser
-                    ? Border.all(color: Colors.cyan, width: 1)
+                    ? Border.all(color: AppTheme.accent, width: 1)
                     : null,
               ),
               child: ListTile(

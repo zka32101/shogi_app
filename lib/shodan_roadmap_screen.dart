@@ -6,6 +6,7 @@ import 'tsume_screen.dart';
 import 'weakness_analysis_screen.dart';
 import 'game_setup_screen.dart';
 import 'game_screen.dart' show GameMode;
+import 'theme/app_theme.dart';
 
 // ── 段位ステージ定義 ──────────────────────────────────────
 class _Stage {
@@ -169,10 +170,10 @@ class _ShodanRoadmapScreenState extends State<ShodanRoadmapScreen> {
   Widget build(BuildContext context) {
     final stageIdx = _currentStageIndex;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: const Text('初段への道', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SingleChildScrollView(
@@ -288,7 +289,7 @@ class _StatusCard extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF1F3A5F), Color(0xFF16213E)],
+          colors: [Color(0xFF1F3A5F), AppTheme.surface],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

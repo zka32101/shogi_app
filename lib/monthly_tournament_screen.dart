@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
+import 'theme/app_theme.dart';
 
 class MonthlyTournamentScreen extends StatefulWidget {
   const MonthlyTournamentScreen({super.key});
@@ -19,8 +20,8 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
   late TabController _tabController;
 
   static const Color _gold = Color(0xFFFFD700);
-  static const Color _bgDark = Color(0xFF1A1A2E);
-  static const Color _navyDark = Color(0xFF16213E);
+  static const Color _bgDark = AppTheme.bg;
+  static const Color _navyDark = AppTheme.surface;
 
   @override
   void initState() {
@@ -143,7 +144,7 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
     return Container(
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [Color(0xFF16213E), Color(0xFF0F3460)],
+          colors: [AppTheme.surface, Color(0xFF0F3460)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -246,7 +247,7 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
   Widget _buildPrizeSection() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.amber.withOpacity(0.3), width: 1),
       ),
@@ -314,7 +315,7 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
   Widget _buildRulesSection() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: const Color(0x33FFFFFF), width: 1),
       ),
@@ -394,7 +395,7 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
         children: [
           Container(
             decoration: BoxDecoration(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _gold.withOpacity(0.4), width: 1),
             ),
@@ -454,7 +455,7 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
   Widget _buildBracketLegend() {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(12),
@@ -547,7 +548,7 @@ class _MonthlyTournamentScreenState extends State<MonthlyTournamentScreen>
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: borderColor.withOpacity(0.5), width: 1),
       ),

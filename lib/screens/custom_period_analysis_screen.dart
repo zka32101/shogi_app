@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/game_analysis.dart';
 import '../models/game_statistics.dart';
+import '../theme/app_theme.dart';
 
 class CustomPeriodAnalysisScreen extends StatefulWidget {
   final List<GameAnalysis> games;
@@ -71,9 +72,9 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
     final hourlyStats = StatisticsCalculator.calculateHourlyStats(_filteredGames);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF0F1419),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.surface,
         title: const Text('カスタム期間分析'),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -89,24 +90,22 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
             Container(
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white.withAlpha(8),
-                border: Border.all(color: Colors.cyan.withAlpha(60)),
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 10, offset: const Offset(0, 4)),
-                ],
+                color: AppTheme.surface,
+                border: Border.all(color: AppTheme.accent.withAlpha(60)),
+                borderRadius: BorderRadius.circular(AppTheme.rCard),
+                boxShadow: AppTheme.cardShadow,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      Icon(Icons.date_range, size: 15, color: Colors.cyan.shade200),
+                      Icon(Icons.date_range, size: 15, color: AppTheme.accent),
                       const SizedBox(width: 6),
-                      const Text(
+                      Text(
                         '分析期間',
                         style: TextStyle(
-                          color: Colors.cyan,
+                          color: AppTheme.accent,
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
                           letterSpacing: 1,
@@ -124,26 +123,27 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color: Colors.white.withAlpha(5),
-                              border: Border.all(color: Colors.white24),
-                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white.withAlpha(30)),
+                              borderRadius: BorderRadius.circular(AppTheme.rChip),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   '開始日',
                                   style: TextStyle(
-                                    color: Colors.white54,
+                                    color: AppTheme.textLow,
                                     fontSize: 11,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   DateFormat('yyyy/MM/dd').format(_startDate),
-                                  style: const TextStyle(
-                                    color: Colors.cyan,
+                                  style: TextStyle(
+                                    color: AppTheme.accent,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
                                   ),
                                 ),
                               ],
@@ -152,7 +152,7 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
                         ),
                       ),
                       const SizedBox(width: 12),
-                      const Icon(Icons.arrow_forward, color: Colors.white54),
+                      Icon(Icons.arrow_forward, color: AppTheme.textLow),
                       const SizedBox(width: 12),
                       Expanded(
                         child: GestureDetector(
@@ -161,26 +161,27 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                             decoration: BoxDecoration(
                               color: Colors.white.withAlpha(5),
-                              border: Border.all(color: Colors.white24),
-                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white.withAlpha(30)),
+                              borderRadius: BorderRadius.circular(AppTheme.rChip),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                const Text(
+                                Text(
                                   '終了日',
                                   style: TextStyle(
-                                    color: Colors.white54,
+                                    color: AppTheme.textLow,
                                     fontSize: 11,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(
                                   DateFormat('yyyy/MM/dd').format(_endDate),
-                                  style: const TextStyle(
-                                    color: Colors.cyan,
+                                  style: TextStyle(
+                                    color: AppTheme.accent,
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
+                                    fontFeatures: const [FontFeature.tabularFigures()],
                                   ),
                                 ),
                               ],
@@ -193,8 +194,8 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
                   const SizedBox(height: 10),
                   Text(
                     '${_calculateDays()}日間 • ${_filteredGames.length}局',
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: AppTheme.textLow,
                       fontSize: 12,
                     ),
                   ),
@@ -204,12 +205,12 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
             const SizedBox(height: 20),
 
             if (_filteredGames.isEmpty)
-              const Center(
+              Center(
                 child: Padding(
-                  padding: EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(20),
                   child: Text(
                     '該当期間のデータがありません',
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(color: AppTheme.textLow),
                   ),
                 ),
               )
@@ -250,12 +251,12 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
 
   Widget _sectionHeader(IconData icon, String label) {
     return Row(children: [
-      Icon(icon, size: 16, color: Colors.amber.shade300),
+      Icon(icon, size: 15, color: AppTheme.accent),
       const SizedBox(width: 6),
       Text(
         label,
         style: TextStyle(
-          color: Colors.amber.shade200,
+          color: AppTheme.accent,
           fontSize: 13,
           fontWeight: FontWeight.w600,
           letterSpacing: 1.5,
@@ -269,23 +270,21 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [Colors.cyan.withAlpha(40), Colors.blue.withAlpha(20)],
+          colors: [AppTheme.accent.withAlpha(30), AppTheme.accent.withAlpha(8)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
-        border: Border.all(color: Colors.cyan.withAlpha(80)),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(60), blurRadius: 10, offset: const Offset(0, 4)),
-        ],
+        border: Border.all(color: AppTheme.accent.withAlpha(70)),
+        borderRadius: BorderRadius.circular(AppTheme.rCard),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatBadge('対局数', stats.totalGames.toString(), Colors.cyan),
-          _buildStatBadge('勝利', stats.wins.toString(), Colors.green),
-          _buildStatBadge('敗北', stats.losses.toString(), Colors.orange),
-          _buildStatBadge('勝率', '${stats.winRate.toStringAsFixed(1)}%', Colors.white70),
+          _buildStatBadge('対局数', stats.totalGames.toString(), AppTheme.textHigh),
+          _buildStatBadge('勝利', stats.wins.toString(), AppTheme.success),
+          _buildStatBadge('敗北', stats.losses.toString(), AppTheme.danger),
+          _buildStatBadge('勝率', '${stats.winRate.toStringAsFixed(1)}%', AppTheme.accent),
         ],
       ),
     );
@@ -297,8 +296,8 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white54,
+          style: TextStyle(
+            color: AppTheme.textLow,
             fontSize: 11,
           ),
         ),
@@ -309,6 +308,7 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
             color: color,
             fontSize: 16,
             fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
@@ -320,12 +320,10 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(8),
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(45), blurRadius: 6, offset: const Offset(0, 3)),
-        ],
+        color: AppTheme.surface,
+        border: Border.all(color: Colors.white.withAlpha(20)),
+        borderRadius: BorderRadius.circular(AppTheme.rBtn),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Column(
         children: [
@@ -345,21 +343,28 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
       children: [
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white70,
+          style: TextStyle(
+            color: AppTheme.textMid,
             fontSize: 12,
           ),
         ),
         Text(
           value,
-          style: const TextStyle(
-            color: Colors.cyan,
+          style: TextStyle(
+            color: AppTheme.accent,
             fontSize: 13,
             fontWeight: FontWeight.bold,
+            fontFeatures: const [FontFeature.tabularFigures()],
           ),
         ),
       ],
     );
+  }
+
+  Color _winRateColor(double rate) {
+    if (rate >= 60) return AppTheme.success;
+    if (rate >= 40) return AppTheme.primary;
+    return AppTheme.textLow;
   }
 
   Widget _buildHourlyCard(HourlyStats hourly) {
@@ -367,12 +372,10 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withAlpha(8),
-        border: Border.all(color: Colors.white24),
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withAlpha(45), blurRadius: 6, offset: const Offset(0, 3)),
-        ],
+        color: AppTheme.surface,
+        border: Border.all(color: Colors.white.withAlpha(20)),
+        borderRadius: BorderRadius.circular(AppTheme.rBtn),
+        boxShadow: AppTheme.cardShadow,
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -382,17 +385,18 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
             children: [
               Text(
                 '${hourly.hour.toString().padLeft(2, '0')}:00～${(hourly.hour + 1).toString().padLeft(2, '0')}:00',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: AppTheme.textHigh,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
+                  fontFeatures: const [FontFeature.tabularFigures()],
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 '${hourly.wins}勝 / ${hourly.games}局',
-                style: const TextStyle(
-                  color: Colors.white54,
+                style: TextStyle(
+                  color: AppTheme.textLow,
                   fontSize: 11,
                 ),
               ),
@@ -401,13 +405,10 @@ class _CustomPeriodAnalysisScreenState extends State<CustomPeriodAnalysisScreen>
           Text(
             '${hourly.winRate.toStringAsFixed(1)}%',
             style: TextStyle(
-              color: hourly.winRate >= 60
-                  ? Colors.green
-                  : hourly.winRate >= 40
-                      ? Colors.cyan
-                      : Colors.orange,
+              color: _winRateColor(hourly.winRate),
               fontSize: 14,
               fontWeight: FontWeight.bold,
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ],

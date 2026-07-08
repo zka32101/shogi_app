@@ -1,6 +1,7 @@
 // lib/tutorial_screen.dart — チュートリアル画面
 
 import 'package:flutter/material.dart';
+import 'theme/app_theme.dart';
 
 class TutorialScreen extends StatefulWidget {
   const TutorialScreen({super.key});
@@ -31,9 +32,9 @@ class _TutorialScreenState extends State<TutorialScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           'チュートリアル',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -159,7 +160,7 @@ class _TutorialPage extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: Colors.white12),
         ),
@@ -494,7 +495,7 @@ class _PromotionExample extends StatelessWidget {
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: const Color(0xFF1A1A2E),
+            color: AppTheme.bg,
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: Colors.white30),
           ),
@@ -564,7 +565,7 @@ class _Page4CapturedPieces extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: AppTheme.bg,
               borderRadius: BorderRadius.circular(10),
               border: Border.all(color: Colors.white12),
             ),
@@ -606,7 +607,7 @@ class _Page4CapturedPieces extends StatelessWidget {
           const SizedBox(height: 16),
           _InfoRow(
             icon: Icons.touch_app,
-            iconColor: Colors.cyan,
+            iconColor: AppTheme.accent,
             text: '持ち駒をタップ → 打てるマスが表示',
           ),
           const SizedBox(height: 8),

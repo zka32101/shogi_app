@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'utils/shogi_data_validator.dart';
+import 'theme/app_theme.dart';
 
 enum _Difficulty { beginner, intermediate, advanced }
 
@@ -359,9 +360,9 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
     final sources = {'将棋講座.com', '将棋研究'};
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('戦法（開き方）'),
         centerTitle: true,
         leading: IconButton(
@@ -621,8 +622,8 @@ class _DetailedStrategy extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 20),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
-          border: const Border(left: BorderSide(color: Colors.cyan, width: 4)),
+          color: AppTheme.surface,
+          border: const Border(left: BorderSide(color: AppTheme.accent, width: 4)),
           borderRadius: BorderRadius.circular(4),
         ),
         padding: const EdgeInsets.all(12),
@@ -636,7 +637,7 @@ class _DetailedStrategy extends StatelessWidget {
                   child: Text(
                     name,
                     style: const TextStyle(
-                      color: Colors.cyan,
+                      color: AppTheme.accent,
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
                     ),
@@ -739,7 +740,7 @@ class _DetailedStrategy extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
@@ -802,7 +803,7 @@ class _DetailedStrategy extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('閉じる', style: TextStyle(color: Colors.cyan)),
+            child: const Text('閉じる', style: TextStyle(color: AppTheme.accent)),
           ),
         ],
       ),
@@ -827,7 +828,7 @@ class _TipItem extends StatelessWidget {
             height: 24,
             margin: const EdgeInsets.only(right: 12, top: 2),
             decoration: BoxDecoration(
-              color: Colors.cyan.shade600,
+              color: AppTheme.accent,
               borderRadius: BorderRadius.circular(4),
             ),
             child: const Center(
@@ -881,7 +882,7 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final effectiveColor = color ?? Colors.cyan;
+    final effectiveColor = color ?? AppTheme.accent;
 
     return GestureDetector(
       onTap: onPressed,

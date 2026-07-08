@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_screen.dart';
 import 'theme_config.dart';
@@ -13,6 +14,7 @@ import 'guide_screen.dart';
 import 'kifu_history_screen.dart';
 import 'castle_patterns_screen.dart';
 import 'strategies_screen.dart';
+import 'screens/strategies_screen_v2.dart';
 import 'stats_screen.dart';
 import 'tutorial_screen.dart';
 import 'strength_test_screen.dart';
@@ -35,8 +37,16 @@ import 'feedback_screen.dart';
 import 'screens/premium_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'services/network_service.dart';
+import 'screens/match_screen.dart';
+import 'screens/friend_screen.dart';
+import 'screens/achievement_screen.dart';
+import 'screens/match_history_screen.dart';
+import 'screens/daily_challenge_screen.dart';
+import 'services/daily_challenge_service.dart';
+import 'services/network_achievement_service.dart';
 import 'shodan_roadmap_screen.dart';
 import 'learning_guide_screen.dart';
 import 'next_move_screen.dart';
@@ -63,12 +73,19 @@ import 'screens/ghost_screen.dart';
 import 'services/fcm_service.dart';
 
 import 'screens/customize_screen.dart';
-import 'screens/theme_settings_screen.dart';
 import 'screens/past_self_battle_screen.dart';
-import 'screens/game_statistics_screen.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  // 起動を体感的に高速化するため、初期化系(広告SDK/課金/Firebase/FCM)を
+  // runApp() より後ろのバックグラウンドへ回す。各サービスは準備完了まで
+  // 内部で ready フラグ/nullチェックを行う設計のため、初回フレーム表示を
+  // これらの完了を待たずに行っても安全。
+  runApp(const ShogiApp());
+  _initializeBackgroundServices();
+}
+
+Future<void> _initializeBackgroundServices() async {
   await AdService.initialize();
   await PurchaseService.initialize();
   // Firebase 初期化（設定済みの場合のみ有効）
@@ -80,6 +97,15 @@ void main() async {
     FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
     // ネットワークサービス初期化
     await NetworkService().initFirebase();
+    // 連続ログインストリーク更新 + 実績判定（1日1回・冪等）
+    final uid = NetworkService().currentUser?.uid;
+    if (uid != null) {
+      DailyChallengeService().updateLoginStreak(uid).then((streak) {
+        if (streak > 0) {
+          NetworkAchievementService().checkLoginStreak(uid, streak);
+        }
+      });
+    }
     NetworkGameService.setFirebaseReady();
     CloudSyncService.setReady();
     AiDataService.setReady();
@@ -91,8 +117,10 @@ void main() async {
   } catch (_) {
     // Firebase 未設定の場合はスキップ（ネットワーク対局機能は無効）
   }
-  runApp(const ShogiApp());
 }
+
+// プッシュ通知タップ時に BuildContext なしで画面遷移するためのキー
+final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class ShogiApp extends StatefulWidget {
   const ShogiApp({super.key});
@@ -108,6 +136,60 @@ class _ShogiAppState extends State<ShogiApp> {
   void initState() {
     super.initState();
     _loadThemePreference();
+    FcmService().onNotificationTap = _handleNotificationTap;
+  }
+
+  // ── プッシュ通知タップ時の画面遷移 ─────────────────────────
+  void _handleNotificationTap(Map<String, dynamic> data) {
+    final nav = rootNavigatorKey.currentState;
+    if (nav == null) return;
+    final screen = data['screen'] as String?;
+    switch (screen) {
+      case 'match':
+        final matchId = data['match_id'] as String?;
+        if (matchId != null) _openMatch(nav, matchId);
+        break;
+      case 'friends':
+      case 'challenge':
+        nav.push(MaterialPageRoute(builder: (_) => const FriendScreen()));
+        break;
+      case 'achievements':
+        nav.push(MaterialPageRoute(builder: (_) => const AchievementScreen()));
+        break;
+      case 'match_history':
+        final uid = NetworkService().currentUser?.uid;
+        if (uid != null) {
+          nav.push(MaterialPageRoute(
+              builder: (_) => MatchHistoryScreen(userId: uid)));
+        }
+        break;
+      case 'daily_challenge':
+        nav.push(MaterialPageRoute(builder: (_) => const DailyChallengeScreen()));
+        break;
+    }
+  }
+
+  Future<void> _openMatch(NavigatorState nav, String matchId) async {
+    try {
+      final uid = NetworkService().currentUser?.uid;
+      if (uid == null) return;
+      final doc = await FirebaseFirestore.instance
+          .collection('matches')
+          .doc(matchId)
+          .get();
+      if (!doc.exists) return;
+      final data = doc.data()!;
+      final isPlayer1 = data['player1_id'] == uid;
+      final timeLimitSec = (data['player1_time'] as int?) ?? 600;
+      nav.push(MaterialPageRoute(
+        builder: (_) => MatchScreen(
+          matchId: matchId,
+          isPlayer1: isPlayer1,
+          myPlayerId: uid,
+          timeLimitSec: timeLimitSec,
+        ),
+      ));
+    } catch (_) {}
   }
 
   Future<void> _loadThemePreference() async {
@@ -128,25 +210,25 @@ class _ShogiAppState extends State<ShogiApp> {
       return ThemeData(
         brightness: Brightness.dark,
         colorScheme: ColorScheme.dark(
-          primary: Colors.cyan.shade600,
-          secondary: Colors.amber.shade600,
-          surface: const Color(0xFF16213E),
-          onSurface: Colors.white,
+          primary: AppTheme.accent,
+          secondary: AppTheme.primary,
+          surface: AppTheme.surface,
+          onSurface: AppTheme.textHigh,
         ),
         useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF0F3460),
+        scaffoldBackgroundColor: AppTheme.bg,
         textTheme: ThemeData.dark().textTheme.apply(
           fontFamilyFallback: const ['Noto Serif', 'Noto Sans', 'serif'],
         ),
         navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((
             Set<WidgetState> states,
           ) {
             if (states.contains(WidgetState.selected)) {
-              return const TextStyle(color: Colors.white);
+              return TextStyle(color: AppTheme.textHigh);
             }
-            return const TextStyle(color: Colors.white70);
+            return TextStyle(color: AppTheme.textMid);
           }),
         ),
       );
@@ -181,6 +263,7 @@ class _ShogiAppState extends State<ShogiApp> {
 
   @override
   Widget build(BuildContext context) => MaterialApp(
+    navigatorKey: rootNavigatorKey,
     title: '効棋',
     debugShowCheckedModeBanner: false,
     locale: const Locale('ja', 'JP'),
@@ -228,6 +311,7 @@ class _HomeScreenState extends State<HomeScreen> {
         await prefs.setBool('has_launched', true);
         if (mounted) {
           // 初回起動: チュートリアル画面へ
+          // ストーリー演出は無効化中（キャラID不整合のため要再設計）
           WidgetsBinding.instance.addPostFrameCallback((_) {
             Navigator.push(
               context,
@@ -242,7 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       body: IndexedStack(
         index: _tab,
         children: [
@@ -280,7 +364,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ],
       ),
       bottomNavigationBar: NavigationBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         indicatorColor: Colors.transparent,
         selectedIndex: _tab,
         onDestinationSelected: (i) => setState(() => _tab = i),
@@ -289,7 +373,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(
               _tab == 0 ? Icons.sports_esports : Icons.sports_esports_outlined,
-              color: _tab == 0 ? Colors.cyan : Colors.white54,
+              color: _tab == 0 ? AppTheme.accent : AppTheme.textLow,
               size: 24,
             ),
             label: '対局',
@@ -297,7 +381,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(
               _tab == 1 ? Icons.history : Icons.history_outlined,
-              color: _tab == 1 ? Colors.cyan : Colors.white54,
+              color: _tab == 1 ? AppTheme.accent : AppTheme.textLow,
               size: 24,
             ),
             label: '棋譜',
@@ -305,7 +389,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(
               _tab == 2 ? Icons.school : Icons.school_outlined,
-              color: _tab == 2 ? Colors.cyan : Colors.white54,
+              color: _tab == 2 ? AppTheme.accent : AppTheme.textLow,
               size: 24,
             ),
             label: '学習',
@@ -313,7 +397,7 @@ class _HomeScreenState extends State<HomeScreen> {
           NavigationDestination(
             icon: Icon(
               _tab == 3 ? Icons.tune : Icons.tune_outlined,
-              color: _tab == 3 ? Colors.cyan : Colors.white54,
+              color: _tab == 3 ? AppTheme.accent : AppTheme.textLow,
               size: 24,
             ),
             label: '設定',
@@ -450,7 +534,7 @@ class _PlayTabState extends State<_PlayTab> {
                 ),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [const Color(0xFF16213E), _rankColor.withAlpha(30)],
+                    colors: [AppTheme.surface, _rankColor.withAlpha(30)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -628,7 +712,7 @@ class _PlayTabState extends State<_PlayTab> {
                         ),
                         _settingChip(
                           '${widget.byoyomiSec}秒',
-                          Colors.cyan.shade700,
+                          AppTheme.primary,
                         ),
                       ],
                     ],
@@ -746,7 +830,7 @@ class _PlayTabState extends State<_PlayTab> {
                                   style: TextStyle(
                                     color: PurchaseService.isPremium
                                         ? ((_ghostWins + _ghostLosses) == 0 ? Colors.white38 : Colors.white70)
-                                        : Colors.amber.shade300,
+                                        : AppTheme.accent,
                                     fontSize: 12,
                                   ),
                                 ),
@@ -755,7 +839,7 @@ class _PlayTabState extends State<_PlayTab> {
                           ),
                           Icon(
                             PurchaseService.isPremium ? Icons.arrow_forward_ios : Icons.lock,
-                            color: PurchaseService.isPremium ? Colors.white54 : Colors.amber,
+                            color: PurchaseService.isPremium ? Colors.white54 : AppTheme.accent,
                             size: 14,
                           ),
                         ],
@@ -849,7 +933,7 @@ class _StudyTab extends StatelessWidget {
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: Colors.cyan.withAlpha(120), width: 2),
+                  border: Border.all(color: AppTheme.success.withAlpha(120), width: 2),
                 ),
                 child: Row(
                   children: [
@@ -857,29 +941,29 @@ class _StudyTab extends StatelessWidget {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: Colors.cyan.withAlpha(30),
+                        color: AppTheme.success.withAlpha(30),
                         borderRadius: BorderRadius.circular(12),
                       ),
-                      child: const Icon(Icons.trending_up, color: Colors.cyan, size: 26),
+                      child: Icon(Icons.trending_up, color: AppTheme.success, size: 26),
                     ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             '成長を確認',
                             style: TextStyle(
-                              color: Colors.cyan,
+                              color: AppTheme.success,
                               fontSize: 17,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          SizedBox(height: 2),
+                          const SizedBox(height: 2),
                           Text(
                             '過去のあなたと対戦して成長度を確認',
                             style: TextStyle(
-                              color: Colors.cyan,
+                              color: AppTheme.success,
                               fontSize: 12,
                               fontWeight: FontWeight.w400,
                             ),
@@ -887,7 +971,7 @@ class _StudyTab extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.arrow_forward, color: Colors.cyan, size: 20),
+                    Icon(Icons.arrow_forward, color: AppTheme.success, size: 20),
                   ],
                 ),
               ),
@@ -908,13 +992,13 @@ class _StudyTab extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF1F3A5F), Color(0xFF16213E)],
+          gradient: LinearGradient(
+            colors: [AppTheme.surfaceHigh, AppTheme.surface],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Colors.amber.withAlpha(120), width: 2),
+          border: Border.all(color: AppTheme.accent.withAlpha(120), width: 2),
         ),
         child: Row(
           children: [
@@ -971,6 +1055,7 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('定跡ガイド', Icons.route, () => _go(context, const JosekiScreen())),
         _StudyItem('囲いパターン', Icons.security, () => _go(context, const CastlePatternsScreen())),
         _StudyItem('戦法', Icons.trending_up, () => _go(context, const StrategiesScreen())),
+        _StudyItem('戦法（AI評価版）', Icons.smart_toy, () => _go(context, const StrategiesScreenV2()), requiresPremium: true),
         _StudyItem('将棋の格言', Icons.format_quote, () => _go(context, const ProverbsScreen())),
         _StudyItem('駒の動き', Icons.book, () => _go(context, const RulesScreen())),
         _StudyItem('チュートリアル', Icons.school, () => _go(context, const TutorialScreen())),
@@ -1083,7 +1168,7 @@ class _LearnTile extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: const Color(0xFF16213E),
+                color: AppTheme.surface,
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: color.withAlpha(60)),
               ),
@@ -1205,7 +1290,7 @@ class _SettingsTab extends StatelessWidget {
                 '持ち時間',
                 DropdownButton<int?>(
                   value: timeLimitSec,
-                  dropdownColor: const Color(0xFF16213E),
+                  dropdownColor: AppTheme.surface,
                   style: const TextStyle(color: Colors.white),
                   underline: const SizedBox(),
                   items: List.generate(
@@ -1227,7 +1312,7 @@ class _SettingsTab extends StatelessWidget {
                 '秒読み',
                 DropdownButton<int?>(
                   value: byoyomiSec,
-                  dropdownColor: const Color(0xFF16213E),
+                  dropdownColor: AppTheme.surface,
                   style: const TextStyle(color: Colors.white),
                   underline: const SizedBox(),
                   items: const [
@@ -1257,7 +1342,7 @@ class _SettingsTab extends StatelessWidget {
                 'フィッシャー加算',
                 DropdownButton<int>(
                   value: fischerIncrementSec,
-                  dropdownColor: const Color(0xFF16213E),
+                  dropdownColor: AppTheme.surface,
                   style: const TextStyle(color: Colors.white),
                   underline: const SizedBox(),
                   items: List.generate(
@@ -1627,7 +1712,7 @@ Widget _bigButton(
 Widget _settingCard(List<Widget> children) => Container(
   padding: const EdgeInsets.all(16),
   decoration: BoxDecoration(
-    color: const Color(0xFF16213E),
+    color: AppTheme.surface,
     borderRadius: BorderRadius.circular(12),
     border: Border.all(color: Colors.white12),
   ),
@@ -1664,10 +1749,10 @@ Widget _settingRow(String label, Widget control) => Padding(
 Widget _buildPremiumCard(BuildContext context) => Container(
   padding: const EdgeInsets.all(12),
   decoration: BoxDecoration(
-    color: const Color(0xFF16213E),
+    color: AppTheme.surface,
     borderRadius: BorderRadius.circular(12),
     border: Border.all(
-      color: PurchaseService.isPremium ? Colors.amber.shade700 : Colors.white12,
+      color: PurchaseService.isPremium ? AppTheme.accent : Colors.white12,
     ),
   ),
   child: Column(
@@ -1678,7 +1763,7 @@ Widget _buildPremiumCard(BuildContext context) => Container(
           Icon(
             Icons.diamond,
             color: PurchaseService.isPremium
-                ? Colors.amber.shade400
+                ? AppTheme.accent
                 : Colors.white54,
             size: 18,
           ),
@@ -1710,7 +1795,7 @@ Widget _buildPremiumCard(BuildContext context) => Container(
               );
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amber.shade700,
+              backgroundColor: AppTheme.accent,
               minimumSize: const Size(double.infinity, 36),
             ),
             child: const Text(

@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mini_board_widget.dart';
 import 'piece.dart';
+import 'theme/app_theme.dart';
 
 class MicroTrainingScreen extends StatefulWidget {
   const MicroTrainingScreen({Key? key}) : super(key: key);
@@ -299,7 +300,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                   Icons.timer,
                   color: _secondsRemaining < 30
                       ? Colors.red[400]
-                      : Colors.cyan[400],
+                      : AppTheme.accent,
                   size: 18,
                 ),
                 SizedBox(width: 6),
@@ -310,7 +311,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                     fontWeight: FontWeight.bold,
                     color: _secondsRemaining < 30
                         ? Colors.red[400]
-                        : Colors.cyan[400],
+                        : AppTheme.accent,
                     fontFamily: 'monospace',
                   ),
                 ),
@@ -419,7 +420,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                       side: BorderSide(
-                        color: Colors.cyan[700]!,
+                        color: AppTheme.accent,
                         width: 1.5,
                       ),
                     ),
@@ -429,7 +430,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                     style: TextStyle(
                       fontSize: 18,
                       fontWeight: FontWeight.w600,
-                      color: Colors.cyan[300],
+                      color: AppTheme.accent,
                     ),
                   ),
                 ),
@@ -535,7 +536,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 18,
-                    color: Colors.cyan[300],
+                    color: AppTheme.accent,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -567,7 +568,7 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                       _buildResultRow(
                         '所要時間',
                         _formatTime(elapsedSeconds),
-                        Colors.cyan[300]!,
+                        AppTheme.accent,
                       ),
                       Divider(
                         color: Colors.white10,

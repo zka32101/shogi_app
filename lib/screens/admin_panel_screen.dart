@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/network_service.dart';
 import '../services/cheat_detection_service.dart';
+import '../theme/app_theme.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -23,9 +24,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('管理パネル', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -34,7 +35,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           children: [
             // タブ
             Container(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               child: Row(
                 children: [
                   Expanded(child: _buildTabButton('報告一覧', 0)),

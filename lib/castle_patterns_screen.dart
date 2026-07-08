@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'utils/shogi_data_validator.dart';
+import 'theme/app_theme.dart';
 
 class CastlePatternsScreen extends StatefulWidget {
   const CastlePatternsScreen({super.key});
@@ -18,7 +19,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
   void _showFilterMenu() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF16213E),
+      backgroundColor: AppTheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
@@ -440,9 +441,9 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
         : allCastles.where((c) => c.difficulty == _selectedDifficulty).toList();
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('囲いパターン', style: TextStyle(color: Colors.white)),
         centerTitle: true,
         leading: IconButton(
@@ -525,7 +526,7 @@ class _CastleCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         border: Border.all(color: Colors.amber.shade800.withAlpha(100), width: 1),
         borderRadius: BorderRadius.circular(8),
         boxShadow: [

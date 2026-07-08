@@ -21,6 +21,7 @@ import '../theme_config.dart';
 import '../theme/app_theme.dart';
 import 'dart:ui' show FontFeature;
 import '../services/cheat_detection_service.dart';
+import '../badge_service.dart';
 
 class MatchScreen extends StatefulWidget {
   final String matchId;
@@ -71,6 +72,7 @@ class _MatchScreenState extends State<MatchScreen> {
   DateTime? _opponentTurnStartedAt;
   int? _prevCurrentTurn;
   bool _trackingSaved = false;
+  bool _badgeChecked = false;
 
   // キャラクターアイコン
   String? _myCharIconId;
@@ -161,6 +163,11 @@ class _MatchScreenState extends State<MatchScreen> {
                 widget.matchId, opId, _softPlayTracker);
             }
           });
+        }
+        // ネット対局バッジ判定（1回のみ）
+        if (!_badgeChecked) {
+          _badgeChecked = true;
+          Future.microtask(() => _checkNetBadges(state!));
         }
       }
       return state;
@@ -608,7 +615,7 @@ class _MatchScreenState extends State<MatchScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('千日手', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
         content: const Text(
           '同一局面が4回繰り返されました。\n千日手により引き分けを申し込みますか？',
@@ -639,7 +646,7 @@ class _MatchScreenState extends State<MatchScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           '連続王手の千日手',
           style: TextStyle(
@@ -723,7 +730,7 @@ class _MatchScreenState extends State<MatchScreen> {
         context: context,
         barrierDismissible: false,
         builder: (_) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: Text(
             myPts >= 24 ? '持将棋 — あなたの勝ち' : '持将棋 — あなたの負け',
             style: TextStyle(
@@ -755,8 +762,8 @@ class _MatchScreenState extends State<MatchScreen> {
       context: context,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text('持将棋', style: TextStyle(color: Colors.cyan, fontWeight: FontWeight.bold)),
+        backgroundColor: AppTheme.surface,
+        title: const Text('持将棋', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
         content: Text(
           '両玉が相手陣に入りました。\n'
           '先手: $p1Pts点 / 後手: $p2Pts点\n\n'
@@ -773,7 +780,7 @@ class _MatchScreenState extends State<MatchScreen> {
               Navigator.pop(context);
               await _proposeDraw('jishogi');
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.cyan.shade700),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
             child: const Text('引き分けを申し込む', style: TextStyle(color: Colors.black)),
           ),
         ],
@@ -846,7 +853,7 @@ class _MatchScreenState extends State<MatchScreen> {
         final resign = await showDialog<bool>(
           context: context,
           builder: (_) => AlertDialog(
-            backgroundColor: const Color(0xFF16213E),
+            backgroundColor: AppTheme.surface,
             title: const Text(
               '対局を終了しますか？',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -881,9 +888,9 @@ class _MatchScreenState extends State<MatchScreen> {
         }
       },
       child: Scaffold(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         appBar: AppBar(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('対局中', style: TextStyle(color: Colors.white)),
           automaticallyImplyLeading: false,
           actions: [
@@ -1037,7 +1044,7 @@ class _MatchScreenState extends State<MatchScreen> {
 
   /// 形勢に応じた背景色（先手優勢=青、後手優勢=赤）
   Color _advantageBgColor(double adv) {
-    const neutral = Color(0xFF1A1A2E);
+    const neutral = AppTheme.bg;
     const p1Color = Color(0xFF0A1648);
     const p2Color = Color(0xFF380A0A);
     final abs = adv.abs();
@@ -1111,14 +1118,16 @@ class _MatchScreenState extends State<MatchScreen> {
           horizontal: AppTheme.s3, vertical: AppTheme.s2),
       decoration: BoxDecoration(
         color: isCurrentTurn
-            ? AppTheme.primary.withAlpha(38)
+            ? AppTheme.accent.withAlpha(38)
             : (isMe ? AppTheme.surfaceHigh : AppTheme.surface),
         borderRadius: BorderRadius.circular(AppTheme.rChip),
-        border: Border.all(
-          color: isCurrentTurn ? AppTheme.primary : Colors.transparent,
-          width: 1.5,
+        border: Border(
+          left: BorderSide(
+            color: isCurrentTurn ? AppTheme.accent : Colors.transparent,
+            width: 3,
+          ),
         ),
-        boxShadow: isCurrentTurn ? AppTheme.glow(AppTheme.primary) : null,
+        boxShadow: isCurrentTurn ? AppTheme.glow(AppTheme.accent) : null,
       ),
       child: Row(
         children: [
@@ -1131,12 +1140,12 @@ class _MatchScreenState extends State<MatchScreen> {
                 shape: BoxShape.circle,
                 border: Border.all(
                   color: isMe
-                      ? Colors.cyan.withAlpha(180)
+                      ? AppTheme.primary.withAlpha(180)
                       : Colors.white38,
                   width: 2.0,
                 ),
                 boxShadow: isMe
-                    ? [BoxShadow(color: Colors.cyan.withAlpha(60), blurRadius: 8)]
+                    ? [BoxShadow(color: AppTheme.primary.withAlpha(60), blurRadius: 8)]
                     : null,
               ),
               child: Center(
@@ -1150,19 +1159,19 @@ class _MatchScreenState extends State<MatchScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isMe
-                    ? Colors.cyan.withAlpha(30)
+                    ? AppTheme.primary.withAlpha(30)
                     : Colors.white.withAlpha(15),
                 border: Border.all(
-                  color: isMe ? Colors.cyan.withAlpha(150) : Colors.white38,
+                  color: isMe ? AppTheme.primary.withAlpha(150) : Colors.white38,
                   width: 1.5,
                 ),
                 boxShadow: isMe
-                    ? [BoxShadow(color: Colors.cyan.withAlpha(40), blurRadius: 6)]
+                    ? [BoxShadow(color: AppTheme.primary.withAlpha(40), blurRadius: 6)]
                     : null,
               ),
               child: Icon(
                 isMe ? Icons.person : Icons.person_outline,
-                color: isMe ? Colors.cyan : Colors.white54,
+                color: isMe ? AppTheme.primary : AppTheme.textMid,
                 size: 26,
               ),
             ),
@@ -1183,7 +1192,7 @@ class _MatchScreenState extends State<MatchScreen> {
                 const Text(
                   '● 手番',
                   style: TextStyle(
-                      color: AppTheme.primary,
+                      color: AppTheme.accent,
                       fontSize: 11,
                       fontWeight: FontWeight.bold),
                 ),
@@ -1211,7 +1220,7 @@ class _MatchScreenState extends State<MatchScreen> {
   Widget _buildActionBar(bool isMyTurn) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      color: const Color(0xFF0F0F2E),
+      color: AppTheme.surface,
       child: Row(
         children: [
           if (isMyTurn)
@@ -1219,18 +1228,18 @@ class _MatchScreenState extends State<MatchScreen> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(40),
+                color: AppTheme.accent.withAlpha(40),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: const Text(
+              child: Text(
                 'あなたのターン',
                 style: TextStyle(
-                    color: Colors.amber, fontWeight: FontWeight.bold),
+                    color: AppTheme.accent, fontWeight: FontWeight.bold),
               ),
             )
           else
-            const Text('相手の番...',
-                style: TextStyle(color: Colors.white54)),
+            Text('相手の番...',
+                style: TextStyle(color: AppTheme.textMid)),
           const Spacer(),
           if (_isMakingMove)
             const SizedBox(
@@ -1244,7 +1253,7 @@ class _MatchScreenState extends State<MatchScreen> {
               icon: const Icon(Icons.flag, size: 16),
               label: const Text('投了'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red.shade800,
+                backgroundColor: AppTheme.danger,
                 foregroundColor: Colors.white,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1268,26 +1277,26 @@ class _MatchScreenState extends State<MatchScreen> {
 
     return Container(
       height: 200,
-      color: const Color(0xFF0A0A1E),
+      color: AppTheme.bg,
       child: Column(
         children: [
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             child: Row(
               children: [
-                const Icon(Icons.list_alt, color: Colors.white60, size: 14),
+                Icon(Icons.list_alt, color: AppTheme.textMid, size: 14),
                 const SizedBox(width: 6),
                 Text('棋譜 (${moves.length}手)',
-                    style: const TextStyle(color: Colors.white60, fontSize: 12)),
+                    style: TextStyle(color: AppTheme.textMid, fontSize: 12)),
               ],
             ),
           ),
           Expanded(
             child: moves.isEmpty
-                ? const Center(
+                ? Center(
                     child: Text('まだ指し手がありません',
-                        style: TextStyle(color: Colors.white38, fontSize: 12)))
+                        style: TextStyle(color: AppTheme.textLow, fontSize: 12)))
                 : ListView.builder(
                     controller: scrollCtrl,
                     padding: const EdgeInsets.symmetric(vertical: 4),
@@ -1302,8 +1311,8 @@ class _MatchScreenState extends State<MatchScreen> {
                           '${m.num}. $player${m.note}',
                           style: TextStyle(
                             color: m.p1
-                                ? Colors.white
-                                : Colors.white70,
+                                ? AppTheme.textHigh
+                                : AppTheme.textMid,
                             fontSize: 12,
                             fontFamily: 'monospace',
                           ),
@@ -1311,6 +1320,106 @@ class _MatchScreenState extends State<MatchScreen> {
                       );
                     },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── ネット対局バッジ判定 ───────────────────────────────────
+  Future<void> _checkNetBadges(NetworkBoardState state) async {
+    try {
+      final myId = widget.myPlayerId.isNotEmpty
+          ? widget.myPlayerId
+          : (_networkService.currentUser?.uid ?? '');
+      final isWin = state.winner != null && state.winner == myId;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setInt(
+          'stats_total_net', (prefs.getInt('stats_total_net') ?? 0) + 1);
+      if (isWin) {
+        await prefs.setInt(
+            'stats_net_wins', (prefs.getInt('stats_net_wins') ?? 0) + 1);
+      }
+
+      final newBadges = await BadgeService.check(
+        prefs,
+        isWin: isWin,
+        isVariant: false,
+        isNetGame: true,
+        moveCount: state.moveCount,
+      );
+      if (newBadges.isNotEmpty && mounted) {
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (mounted) await _showBadgeUnlockDialog(newBadges);
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _showBadgeUnlockDialog(List<BadgeDef> badges) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.rCard),
+          side: BorderSide(color: AppTheme.accent.withAlpha(100)),
+        ),
+        title: Text(
+          badges.length > 1 ? '実績解除！' : '実績解除',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppTheme.accent,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: badges.map((b) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: b.color.withAlpha(40),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: b.color.withAlpha(150)),
+                  ),
+                  child: Icon(b.icon, color: b.color, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        b.title,
+                        style: TextStyle(
+                          color: AppTheme.textHigh,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        b.description,
+                        style: TextStyle(color: AppTheme.textMid, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('閉じる', style: TextStyle(color: AppTheme.accent)),
           ),
         ],
       ),

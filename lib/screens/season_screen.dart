@@ -110,7 +110,7 @@ class _SeasonScreenState extends State<SeasonScreen> {
           ]),
           const SizedBox(height: 12),
           Row(children: [
-            _infoChip('残り ${daysLeft}日', Colors.cyan),
+            _infoChip('残り ${daysLeft}日', AppTheme.accent),
             const SizedBox(width: 8),
             if (_myRank != null)
               _infoChip('自分: ${_myRank}位', Colors.amber),

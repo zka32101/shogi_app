@@ -12,6 +12,7 @@ import 'kif_utils.dart';
 import 'kansousen_screen.dart';
 import 'game_screen.dart' show initShogiBoard, PieceTheme;
 import 'services/kifu_backup_service.dart';
+import 'theme/app_theme.dart';
 
 class KifuHistoryScreen extends StatefulWidget {
   /// タブに埋め込む場合は false（戻るボタンを非表示）
@@ -137,7 +138,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('削除', style: TextStyle(color: Colors.white)),
         content: const Text('この棋譜を削除しますか？',
             style: TextStyle(color: Colors.white70)),
@@ -178,7 +179,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('メモを編集', style: TextStyle(color: Colors.white)),
         content: TextField(
           controller: ctrl,
@@ -302,7 +303,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     final result = await showDialog<String>(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('コードから棋譜を復元',
             style: TextStyle(color: Colors.white)),
         content: Column(
@@ -492,7 +493,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
       showDialog(
         context: context,
         builder: (_) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: AppTheme.bg,
           title: const Text('感想戦', style: TextStyle(color: Colors.white)),
           content: const Text('勝敗が確定した棋譜のみ感想戦を利用できます。',
               style: TextStyle(color: Colors.white70)),
@@ -539,7 +540,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('棋譜再開', style: TextStyle(color: Colors.white)),
         content: const Text('棋譜再開機能は近日実装予定です。',
             style: TextStyle(color: Colors.white70)),
@@ -566,7 +567,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('クラウドバックアップ', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -647,9 +648,9 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   Widget build(BuildContext context) {
     final displayed = _filtered;
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('保存した棋譜',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
         centerTitle: true,
@@ -737,7 +738,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
                   )
                 : null,
             filled: true,
-            fillColor: const Color(0xFF16213E),
+            fillColor: AppTheme.surface,
             contentPadding: const EdgeInsets.symmetric(vertical: 6),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -952,7 +953,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     if (result.contains('引き分け')) resultColor = Colors.grey;
 
     return Card(
-      color: const Color(0xFF16213E),
+      color: AppTheme.surface,
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       child: Column(

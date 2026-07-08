@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // ── 定跡の1手 ──────────────────────────────────────────────
 class DrillStep {
@@ -251,10 +252,10 @@ class _JosekiDrillScreenState extends State<JosekiDrillScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: const Text('定跡練習', style: TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: ListView(
@@ -605,10 +606,10 @@ class _DrillPlayScreenState extends State<_DrillPlayScreen>
     final progress = totalUserSteps == 0 ? 1.0 : (_correctCount / totalUserSteps).clamp(0.0, 1.0);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
         title: Text(widget.drill.name, style: const TextStyle(color: Colors.white)),
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           Padding(

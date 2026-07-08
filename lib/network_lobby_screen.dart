@@ -8,6 +8,7 @@ import 'network_game_service.dart';
 import 'local_network_service.dart';
 import 'purchase_service.dart';
 import 'screens/match_screen.dart';
+import 'theme/app_theme.dart';
 
 // ── 変則ルール選択データ ──────────────────────────────────────
 const _variantOptions = [
@@ -91,7 +92,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF16213E),
+          backgroundColor: AppTheme.surface,
           title: const Text('1日の上限に達しました', style: TextStyle(color: Colors.white)),
           content: Text(
             '無料プランでは1日あたりネット対局は${_kNetDailyLimit}戦までです。\n'
@@ -432,9 +433,9 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('ネットワーク対局', style: TextStyle(color: Colors.white)),
         iconTheme: const IconThemeData(color: Colors.white),
       ),
@@ -489,7 +490,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -573,7 +574,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),
@@ -639,7 +640,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white12),
       ),

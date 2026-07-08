@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'theme/app_theme.dart';
 
 // ──────────────────────────────────────────────
 // Data Models
@@ -316,7 +317,7 @@ class _FriendChallengeScreenState extends State<FriendChallengeScreen> {
   void _onFriendTap(FriendWeakness friend) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF16213E),
+      backgroundColor: AppTheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -384,9 +385,9 @@ class _FriendChallengeScreenState extends State<FriendChallengeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           '友達と弱点シェア対戦',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -436,7 +437,7 @@ class _FriendCard extends StatelessWidget {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white12),
         ),
@@ -691,9 +692,9 @@ class _VsScreenState extends State<_VsScreen> {
     final isLast = _currentProblemIndex == widget.problems.length - 1;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           '${widget.friend.friendName} との対戦',
           style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
@@ -767,7 +768,7 @@ class _VsScreenState extends State<_VsScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF16213E),
+                        color: AppTheme.surface,
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(color: Colors.white12),
                       ),
@@ -885,7 +886,7 @@ class _ResultDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      backgroundColor: const Color(0xFF16213E),
+      backgroundColor: AppTheme.surface,
       title: const Text(
         '対戦終了',
         style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),

@@ -127,19 +127,25 @@ class SeasonService {
     }
   }
 
-  // シーズン開始時にスコアをリセット（Cloud Functions呼び出しを想定）
-  // クライアントからは season_rating の初期化のみ
+  // シーズン開始時（または月が変わった時）にスコアをリセット
+  // 対局後の season_rating/season_wins/season_losses 更新は
+  // Cloud Functions (onMatchFinished) がトランザクション内で実施
   Future<void> initSeasonRating() async {
     final uid = _networkService.currentUser?.uid;
     if (uid == null) return;
     final doc = await _firestore.collection('users').doc(uid).get();
-    if (doc.exists && doc.data()!['season_rating'] == null) {
-      final baseRating = doc.data()!['rating'] as int? ?? 1500;
+    if (!doc.exists) return;
+    final data = doc.data()!;
+    final currentSeasonId = getCurrentSeason().id;
+    final needsReset =
+        data['season_rating'] == null || data['season_id'] != currentSeasonId;
+    if (needsReset) {
+      final baseRating = data['rating'] as int? ?? 1500;
       await _firestore.collection('users').doc(uid).update({
         'season_rating': baseRating,
         'season_wins': 0,
         'season_losses': 0,
-        'season_id': getCurrentSeason().id,
+        'season_id': currentSeasonId,
       });
     }
   }

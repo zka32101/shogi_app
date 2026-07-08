@@ -3,6 +3,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'fcm_service.dart';
+import 'network_achievement_service.dart';
 
 // ── モデル ──────────────────────────────────────────────────────
 
@@ -119,6 +120,8 @@ class FriendService {
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FcmService _fcmService = FcmService();
+  final NetworkAchievementService _achievementService =
+      NetworkAchievementService();
 
   // ── フレンド申請 ──────────────────────────────────────────────
 
@@ -232,10 +235,30 @@ class FriendService {
       });
 
       await batch.commit();
+
+      // フレンド数実績判定（両者とも1人増えたので判定し直す）
+      for (final uid in [acceptorId, requesterId]) {
+        final count = await _friendCount(uid);
+        await _achievementService.checkFriendCount(uid, count);
+      }
     } catch (e) {
       print('Accept friend request error: $e');
       rethrow;
     }
+  }
+
+  Future<int> _friendCount(String userId) async {
+    final asUser1 = await _firestore
+        .collection('friends')
+        .where('user1_id', isEqualTo: userId)
+        .count()
+        .get();
+    final asUser2 = await _firestore
+        .collection('friends')
+        .where('user2_id', isEqualTo: userId)
+        .count()
+        .get();
+    return (asUser1.count ?? 0) + (asUser2.count ?? 0);
   }
 
   Future<void> declineFriendRequest(String requestId) async {

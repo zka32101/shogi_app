@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'theme/app_theme.dart';
 
 class StudyCalendarScreen extends StatefulWidget {
   const StudyCalendarScreen({super.key});
@@ -640,7 +641,7 @@ class _StudyCalendarScreenState extends State<StudyCalendarScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         foregroundColor: Colors.white,
         title: const Text(
           '学習カレンダー',

@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'game_screen.dart';
+import 'theme/app_theme.dart';
+import 'rule_validator.dart';
 
 const _editPieces = [
   PieceType.pawn,
@@ -100,7 +102,31 @@ class _EditorScreenState extends State<EditorScreen> {
     return p.isPromoted ? Colors.red.shade700 : Colors.black87;
   }
 
+  // 行き所のない駒（歩・香の最終段、桂の最終2段）の配置を禁止
+  bool _isInvalidPlacement(PieceType type, bool isP1, int row) {
+    final lastRow = isP1 ? 0 : 8;
+    final lastTwoRows = isP1 ? const [0, 1] : const [7, 8];
+    if ((type == PieceType.pawn || type == PieceType.lance) && row == lastRow) {
+      return true;
+    }
+    if (type == PieceType.knight && lastTwoRows.contains(row)) {
+      return true;
+    }
+    return false;
+  }
+
   void _onCell(int row, int col) {
+    if (!eraseMode &&
+        selectedType != null &&
+        _isInvalidPlacement(selectedType!, placingP1, row)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('その駒はこの段に置けません（行き所のない駒）'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
     setState(() {
       if (eraseMode || selectedType == null) {
         board[row][col] = null;
@@ -146,6 +172,16 @@ class _EditorScreenState extends State<EditorScreen> {
       );
       return false;
     }
+    final violations = validateBoard(board);
+    if (violations.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('行き所のない駒があります: ${violations.first.description}'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return false;
+    }
     return true;
   }
 
@@ -168,9 +204,9 @@ class _EditorScreenState extends State<EditorScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
           tooltip: '戻る',
@@ -248,7 +284,7 @@ class _EditorScreenState extends State<EditorScreen> {
             ),
             // ── 駒パレット ──
             Container(
-              color: const Color(0xFF16213E),
+              color: AppTheme.surface,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

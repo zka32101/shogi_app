@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
+import '../theme/app_theme.dart';
 
 class MatchChatWidget extends StatefulWidget {
   final String matchId;
@@ -130,7 +131,7 @@ class _MatchChatWidgetState extends State<MatchChatWidget> {
 
         // ── 送信ボタン行 ──
         Container(
-          color: const Color(0xFF16213E),
+          color: AppTheme.surface,
           padding:
               const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
           child: Row(

@@ -573,7 +573,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('クラブメンバーを探索中...', style: TextStyle(color: Colors.white)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
@@ -641,7 +641,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
       context: context,
       barrierDismissible: false,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           '対戦相手を探索中...',
           style: TextStyle(color: Colors.white),

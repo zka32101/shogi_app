@@ -5,6 +5,7 @@ import 'package:cloud_functions/cloud_functions.dart';
 import '../piece.dart';
 import '../mini_board_widget.dart';
 import '../widgets/tesuji_evaluation_widget.dart';
+import '../theme/app_theme.dart';
 
 enum _Difficulty { beginner, intermediate, advanced }
 
@@ -163,12 +164,12 @@ class _StrategiesScreenV2State extends State<StrategiesScreenV2> {
     return Scaffold(
       backgroundColor: const Color(0xFF0F3460),
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           '手筋学習（AI評価版）',
           style: TextStyle(color: Colors.white),
         ),
-        iconTheme: const IconThemeData(color: Colors.cyan),
+        iconTheme: const IconThemeData(color: AppTheme.accent),
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -231,7 +232,7 @@ class _StrategiesScreenV2State extends State<StrategiesScreenV2> {
             });
           },
           child: Card(
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -299,10 +300,10 @@ class _StrategiesScreenV2State extends State<StrategiesScreenV2> {
               _winRate = null;
             });
           },
-          icon: const Icon(Icons.arrow_back, color: Colors.cyan),
+          icon: const Icon(Icons.arrow_back, color: AppTheme.accent),
           label: const Text(
             '戻る',
-            style: TextStyle(color: Colors.cyan),
+            style: TextStyle(color: AppTheme.accent),
           ),
         ),
         const SizedBox(height: 12),
@@ -326,7 +327,7 @@ class _StrategiesScreenV2State extends State<StrategiesScreenV2> {
         // ボード表示
         Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF16213E),
+            color: AppTheme.surface,
             borderRadius: BorderRadius.circular(12),
           ),
           padding: const EdgeInsets.all(8),
