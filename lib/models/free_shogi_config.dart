@@ -12,12 +12,12 @@ class FreeShogiFiece {
     PieceType.bishop: 8,       // 角
     PieceType.rook: 10,        // 飛
     PieceType.king: 0,         // 玉（交換不可・固定）
-    PieceType.promPawn: 2,     // 成歩
-    PieceType.promLance: 4,    // 成香
-    PieceType.promKnight: 4,   // 成桂
-    PieceType.promSilver: 5,   // 成銀
-    PieceType.promBishop: 9,   // 成角
-    PieceType.promRook: 11,    // 成飛
+    PieceType.promotedPawn: 2,     // 成歩
+    PieceType.promotedLance: 4,    // 成香
+    PieceType.promotedKnight: 4,   // 成桂
+    PieceType.promotedSilver: 5,   // 成銀
+    PieceType.promotedBishop: 9,   // 成角
+    PieceType.promotedRook: 11,    // 成飛
   };
 
   /// デフォルト予算（各プレイヤー）
