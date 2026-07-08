@@ -32,7 +32,6 @@ import 'shodan_roadmap_screen.dart';
 import 'kifu_history_screen.dart';
 import 'kifu_replay_screen.dart';
 import 'screens/personal_blunder_quiz_screen.dart';
-import 'screens/game_review_screen.dart';
 import 'kansousen_screen.dart';
 
 import 'services/firebase_logging_service.dart';
@@ -42,6 +41,8 @@ import 'defeat_experience_widget.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'defeat_screen.dart';
 import 'practice_points_system.dart';
+import 'theme/app_theme.dart';
+import 'badge_service.dart';
 
 // ── コーチモード補助関数 ──────────────────────────────
 int _pEvalChange(int before, int after, bool wasP1Turn) =>
@@ -903,7 +904,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         title: Row(
           children: [
@@ -957,7 +958,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
           '段位認定',
@@ -1049,7 +1050,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           '手数${moveIdx}のメモ',
           style: const TextStyle(color: Colors.white, fontSize: 16),
@@ -1503,6 +1504,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
+  // 結果文字列は「{勝者}の勝ち！...」の形式で必ず勝者側のマーカーから始まる
+  // （投了・持将棋などは敗者側の呼称も括弧内に含むため、contains() では
+  //   誤判定する。必ず startsWith() で判定すること）
+  bool _resultWonBy(String marker) =>
+      result != null && result!.startsWith('${marker}の勝ち');
+
   // ゲーム状態を更新（千日手・詰み判定・ゲーム終了判定）
   void _updateGameState() {
     final next = !p1Turn; // 次に指す手番
@@ -1521,9 +1528,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _timer?.cancel();
       SoundService.playGameEnd();
       final playerMarker = s.aiIsP2 ? '先手' : '後手';
-      final playerWon = vsAI &&
-          result!.contains(playerMarker) &&
-          result!.contains('勝ち');
+      final playerWon = vsAI && _resultWonBy(playerMarker);
       _triggerConfetti(playerWon);
       if (vsAI && !result!.contains('引き分け')) _updateWinStreak(playerWon);
       _computeBestMoveAfterGame();
@@ -1551,9 +1556,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           _timer?.cancel();
           SoundService.playGameEnd();
           final playerMarker = s.aiIsP2 ? '先手' : '後手';
-          final playerWon = vsAI &&
-              result!.contains(playerMarker) &&
-              result!.contains('勝ち');
+          final playerWon = vsAI && _resultWonBy(playerMarker);
           _triggerConfetti(playerWon);
           if (vsAI && !result!.contains('引き分け')) _updateWinStreak(playerWon);
           _computeBestMoveAfterGame();
@@ -1572,9 +1575,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _timer?.cancel();
       SoundService.playGameEnd();
       final playerMarker = s.aiIsP2 ? '先手' : '後手';
-      final playerWon = vsAI
-          ? (result!.contains(playerMarker) && result!.contains('勝ち'))
-          : result!.contains('先手');
+      final playerWon = vsAI ? _resultWonBy(playerMarker) : _resultWonBy('先手');
       final isDraw = result!.contains('引き分け');
       _triggerConfetti(playerWon);
       if (vsAI && !isDraw) _updateWinStreak(playerWon);
@@ -1703,7 +1704,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         title: Column(
@@ -2359,7 +2360,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF1A1A2E),
+        backgroundColor: AppTheme.bg,
         title: const Text('棋譜エクスポート', style: TextStyle(color: Colors.white)),
         content: SizedBox(
           width: 400,
@@ -2470,7 +2471,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         context: context,
         barrierDismissible: false,
         builder: (ctx) => AlertDialog(
-          backgroundColor: const Color(0xFF1A1A2E),
+          backgroundColor: AppTheme.bg,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           title: const Text('対局を復旧しますか？', style: TextStyle(color: Colors.white)),
           content: Text(
@@ -2730,7 +2731,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text('局面ブックマーク', style: TextStyle(color: Colors.white)),
         content: list.isEmpty
             ? const Text('ブックマークなし', style: TextStyle(color: Colors.white54))
@@ -3006,26 +3007,43 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         (prefs.getInt('stats_moves_sum') ?? 0) + kifu.length,
       );
 
-      // 勝敗判定
+      // 勝敗判定（_resultWonBy: startsWith ベースで判定。理由は同メソッド参照）
       bool? playerWon;
+      final p1Won = _resultWonBy('先手');
+      final p2Won = _resultWonBy('後手');
       if (result != null) {
         if (vsAI) {
           final playerIsP1 = !s.aiIsP2;
-          playerWon =
-              (result!.contains('先手') && playerIsP1) ||
-              (result!.contains('後手') && !playerIsP1);
+          playerWon = (p1Won && playerIsP1) || (p2Won && !playerIsP1);
         }
-        if (result!.contains('先手')) {
+        if (p1Won) {
           await prefs.setInt(
             'stats_p1_wins',
             (prefs.getInt('stats_p1_wins') ?? 0) + 1,
           );
-        } else if (result!.contains('後手')) {
+        } else if (p2Won) {
           await prefs.setInt(
             'stats_p2_wins',
             (prefs.getInt('stats_p2_wins') ?? 0) + 1,
           );
         }
+      }
+
+      // バッジ判定用の集計キー（プレイヤー視点の通算勝利・AI対局勝利）
+      if (playerWon == true) {
+        await prefs.setInt(
+          'stats_total_wins',
+          (prefs.getInt('stats_total_wins') ?? 0) + 1,
+        );
+        if (vsAI) {
+          await prefs.setInt(
+            'stats_p1_wins_ai',
+            (prefs.getInt('stats_p1_wins_ai') ?? 0) + 1,
+          );
+        }
+      }
+      if (s.variant != VariantType.normal) {
+        await prefs.setBool('stats_variant_${s.variant.name}', true);
       }
 
       // 修練値の追加（対局するだけで貯まる）
@@ -3105,6 +3123,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           }
         }
       }
+
+      // ── バッジ（実績）判定 ─────────────────────────────────
+      const aiLevelBadgeMap = {
+        AILevel.medium: 'medium',
+        AILevel.hard: 'hard',
+        AILevel.expert: 'super_hard',
+      };
+      final newBadges = await BadgeService.check(
+        prefs,
+        isWin: playerWon ?? false,
+        isVariant: s.variant != VariantType.normal,
+        isAiGame: vsAI,
+        aiLevel: vsAI ? (aiLevelBadgeMap[s.aiLevel] ?? '') : '',
+        moveCount: kifu.length,
+      );
+      if (newBadges.isNotEmpty && mounted) {
+        await Future.delayed(const Duration(milliseconds: 400));
+        if (mounted) await _showBadgeUnlockDialog(newBadges);
+      }
     } catch (e) {
       final ex = SaveException.statisticsUpdateFailed(cause: e is Exception ? e : null);
       if (mounted) {
@@ -3117,6 +3154,77 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         );
       }
     }
+  }
+
+  // ===== バッジ解除ダイアログ =====
+  Future<void> _showBadgeUnlockDialog(List<BadgeDef> badges) async {
+    await showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.rCard),
+          side: BorderSide(color: AppTheme.accent.withAlpha(100)),
+        ),
+        title: Text(
+          badges.length > 1 ? '実績解除！' : '実績解除',
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            color: AppTheme.accent,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1,
+          ),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: badges.map((b) => Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: b.color.withAlpha(40),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: b.color.withAlpha(150)),
+                  ),
+                  child: Icon(b.icon, color: b.color, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        b.title,
+                        style: TextStyle(
+                          color: AppTheme.textHigh,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        b.description,
+                        style: TextStyle(color: AppTheme.textMid, fontSize: 11.5),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          )).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('閉じる', style: TextStyle(color: AppTheme.accent)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ===== ストリーク更新（週次・月次） =====
@@ -3807,9 +3915,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final inCheck = result == null && GL.inCheck(board, p1Turn);
     return Scaffold(
-      backgroundColor: const Color(0xFF1A1A2E),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: Text(
           result != null
               ? result!
@@ -3837,7 +3945,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           // コーチモード: 待ったボタン
           if (s.coachMode && result == null && kifu.length >= (vsAI ? 2 : 1))
             IconButton(
-              icon: const Icon(Icons.undo, color: Colors.cyan),
+              icon: const Icon(Icons.undo, color: AppTheme.accent),
               tooltip: '待った（やり直し）',
               onPressed: _takata,
             ),
@@ -3930,7 +4038,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             onPressed: result == null
                 ? () => showModalBottomSheet(
                     context: context,
-                    backgroundColor: const Color(0xFF16213E),
+                    backgroundColor: AppTheme.surface,
                     builder: (_) => SafeArea(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -4040,7 +4148,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // 評価値(_evalScore: 正=先手有利/負=後手有利)に応じて、
   // 有利な側の色(先手=青系/後手=赤系)へ背景を染め、その陣側を濃くする。
   BoxDecoration _advantageDecoration() {
-    const base = Color(0xFF1A1A2E);      // 中立のベース
+    const base = AppTheme.bg;      // 中立のベース
     const senteColor = Color(0xFF1B3E7A); // 先手＝青系
     const goteColor = Color(0xFF6B1E2E);  // 後手＝赤系
     const maxScore = 3000.0;
@@ -4321,8 +4429,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white54,
+                      style: TextStyle(
+                        color: AppTheme.textLow,
                         fontSize: 10,
                       ),
                     )),
@@ -4334,15 +4442,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           vertical: 1,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.amber.withAlpha(40),
+                          color: AppTheme.accent.withAlpha(40),
                           borderRadius: BorderRadius.circular(3),
                         ),
                         child: Text(
                           _openingLabel,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.amber,
+                          style: TextStyle(
+                            color: AppTheme.accent,
                             fontSize: 9,
                           ),
                         ),
@@ -4427,10 +4535,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: const Color(0xFF16213E),
-        title: const Text(
+        backgroundColor: AppTheme.surface,
+        title: Text(
           '評価値グラフ',
-          style: TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: AppTheme.textHigh, fontSize: 16),
         ),
         content: SizedBox(
           width: 320,
@@ -4440,7 +4548,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('閉じる', style: TextStyle(color: Colors.white70)),
+            child: Text('閉じる', style: TextStyle(color: AppTheme.textMid)),
           ),
         ],
       ),
@@ -4613,7 +4721,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 color: charIcon != null
                     ? charIcon.bgColor.withAlpha(200)
-                    : Colors.blueGrey.shade800,
+                    : AppTheme.surfaceHigh,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.white24),
               ),
@@ -4630,7 +4738,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
           ),
         Container(
-          color: active ? const Color(0xFF0D3B66) : const Color(0xFF0A2540),
+          decoration: BoxDecoration(
+            color: active ? AppTheme.surfaceHigh : AppTheme.surface,
+            border: Border(
+              left: BorderSide(
+                color: active ? AppTheme.accent : Colors.transparent,
+                width: 3,
+              ),
+            ),
+          ),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
           child: Row(
             children: [
@@ -4643,14 +4759,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     shape: BoxShape.circle,
                     border: isAI
                         ? Border.all(
-                            color: Colors.amber.withAlpha(180),
+                            color: AppTheme.accent.withAlpha(180),
                             width: 2,
                           )
                         : Border.all(color: Colors.white30, width: 1),
                     boxShadow: active
                         ? [
                             BoxShadow(
-                              color: Colors.white.withAlpha(60),
+                              color: AppTheme.accent.withAlpha(70),
                               blurRadius: 8,
                             ),
                           ]
@@ -4666,7 +4782,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               else
                 Icon(
                   isAI ? Icons.computer : Icons.person,
-                  color: active ? Colors.white70 : Colors.white38,
+                  color: active ? AppTheme.textHigh : AppTheme.textLow,
                   size: 18,
                 ),
               const SizedBox(width: 6),
@@ -4677,7 +4793,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   Text(
                     '${isP1 ? "▲ 先手" : "△ 後手"}$aiLabel',
                     style: TextStyle(
-                      color: active ? Colors.white : Colors.white54,
+                      color: active ? AppTheme.textHigh : AppTheme.textLow,
                       fontSize: 13,
                     ),
                   ),
@@ -4691,7 +4807,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           i * 2 < s.aiLevel.stars
                               ? Icons.star
                               : Icons.star_border,
-                          color: Colors.amber.withAlpha(
+                          color: AppTheme.accent.withAlpha(
                             i * 2 < s.aiLevel.stars ? 200 : 80,
                           ),
                           size: 10,
@@ -4703,7 +4819,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     Text(
                       ratingToRank(_playerRating),
                       style: TextStyle(
-                        color: Colors.amber.shade200,
+                        color: AppTheme.accent,
                         fontSize: 10,
                       ),
                     ),
@@ -4713,7 +4829,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 const SizedBox(width: 8),
                 Text(
                   isP1 ? '先手の番' : '後手の番',
-                  style: const TextStyle(color: Colors.lightBlueAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: TextStyle(color: AppTheme.accent, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ],
               const Spacer(),
@@ -4735,7 +4851,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       ),
                       decoration: BoxDecoration(
                         color: isWarning
-                            ? Colors.red.withAlpha(blinkAlpha)
+                            ? AppTheme.danger.withAlpha(blinkAlpha)
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(4),
                       ),
@@ -4747,7 +4863,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                 Text(
                                   '秒読み',
                                   style: TextStyle(
-                                    color: Colors.red.shade200,
+                                    color: Color.lerp(AppTheme.danger, Colors.white, 0.3),
                                     fontSize: 10,
                                     fontWeight: FontWeight.bold,
                                   ),
@@ -4755,7 +4871,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                 Text(
                                   '${byoyomiRemaining}秒',
                                   style: TextStyle(
-                                    color: Colors.red.shade100,
+                                    color: Color.lerp(AppTheme.danger, Colors.white, 0.5),
                                     fontSize: 18,
                                     fontWeight: FontWeight.bold,
                                     fontFamily: 'monospace',
@@ -4767,8 +4883,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               _fmt(remaining),
                               style: TextStyle(
                                 color: isWarning
-                                    ? Colors.red.shade100
-                                    : Colors.white70,
+                                    ? Color.lerp(AppTheme.danger, Colors.white, 0.5)
+                                    : AppTheme.textMid,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                                 fontFamily: 'monospace',
@@ -4807,20 +4923,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: active
-              ? [const Color(0xFF254E7A), const Color(0xFF1A3A5C)]
-              : [const Color(0xFF0F2A40), const Color(0xFF0A1E30)],
+              ? [AppTheme.surfaceHigh, AppTheme.surface]
+              : [AppTheme.surface, AppTheme.bg],
         ),
         border: Border(
           top: BorderSide(
-            color: active
-                ? Colors.blueGrey.shade400.withAlpha(80)
-                : Colors.blueGrey.shade800.withAlpha(60),
+            color: active ? AppTheme.accent.withAlpha(60) : Colors.white.withAlpha(15),
             width: 0.5,
           ),
           bottom: BorderSide(
-            color: active
-                ? Colors.blueGrey.shade400.withAlpha(80)
-                : Colors.blueGrey.shade800.withAlpha(60),
+            color: active ? AppTheme.accent.withAlpha(60) : Colors.white.withAlpha(15),
             width: 0.5,
           ),
         ),
@@ -4831,7 +4943,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           Text(
             '持駒',
             style: TextStyle(
-              color: active ? Colors.white54 : Colors.white24,
+              color: active ? AppTheme.textMid : AppTheme.textLow,
               fontSize: 10,
               letterSpacing: 0.5,
             ),
@@ -4841,7 +4953,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             child: hand.isEmpty
                 ? Text(
                     'なし',
-                    style: TextStyle(color: Colors.white24, fontSize: 11),
+                    style: TextStyle(color: AppTheme.textLow, fontSize: 11),
                   )
                 : SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
@@ -4861,17 +4973,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                           ),
                           decoration: BoxDecoration(
                             color: sel
-                                ? Colors.amber.shade200.withAlpha(80)
+                                ? AppTheme.accent.withAlpha(70)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(4),
                             border: sel
                                 ? Border.all(
-                                    color: Colors.orange.shade700,
+                                    color: AppTheme.accent,
                                     width: 2,
                                   )
                                 : hasDropSquares
                                 ? Border.all(
-                                    color: Colors.cyan.withAlpha(
+                                    color: AppTheme.primary.withAlpha(
                                       (100 + v * 100).toInt(),
                                     ),
                                     width: 1.5,
@@ -4880,15 +4992,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             boxShadow: sel
                                 ? [
                                     BoxShadow(
-                                      color: Colors.orange.shade300,
+                                      color: AppTheme.accent.withAlpha(180),
                                       blurRadius: 4,
                                     ),
                                   ]
                                 : hasDropSquares
                                 ? [
                                     BoxShadow(
-                                      color: Colors.cyan.withAlpha(
-                                        (v * 80).toInt(),
+                                      color: AppTheme.primary.withAlpha(
+                                        (v * 90).toInt(),
                                       ),
                                       blurRadius: 6,
                                     ),
@@ -5233,9 +5345,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                     }
                                     // ヒント手
                                     if (isHintFr)
-                                      bg = Colors.cyan.shade200;
+                                      bg = AppTheme.accent;
                                     else if (isHintTo)
-                                      bg = Colors.cyan.shade100;
+                                      bg = AppTheme.accent;
                                     // 直前移動ハイライト（琥珀色で統一・控えめ）
                                     if (isLastTo) {
                                       if (av < 1.0) {
@@ -5460,7 +5572,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   // ===== 棋譜ビュー =====
   Widget _kifuView() => Container(
-    color: const Color(0xFF16213E),
+    color: AppTheme.surface,
     child: kifu.isEmpty
         ? const Center(
             child: Text('まだ手がありません', style: TextStyle(color: Colors.white54)),
@@ -5513,7 +5625,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         showDialog(
                           context: context,
                           builder: (_) => AlertDialog(
-                            backgroundColor: const Color(0xFF16213E),
+                            backgroundColor: AppTheme.surface,
                             title: Text(
                               '${moveIdx}手目のメモ',
                               style: const TextStyle(

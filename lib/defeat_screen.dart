@@ -10,6 +10,7 @@ import 'ai_personality.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'screens/premium_screen.dart';
+import 'theme/app_theme.dart';
 
 /// 敗北分析データモデル
 class DefeatAnalysis {
@@ -146,7 +147,7 @@ class _DefeatScreenState extends State<DefeatScreen> {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: const BoxDecoration(
-          color: Color(0xFF16213E),
+          color: AppTheme.surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
@@ -824,7 +825,7 @@ class _DefeatScreenState extends State<DefeatScreen> {
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFFD700),
-                foregroundColor: const Color(0xFF16213E),
+                foregroundColor: AppTheme.surface,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
