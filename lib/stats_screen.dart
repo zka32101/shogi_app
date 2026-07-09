@@ -173,8 +173,11 @@ class _StatsScreenState extends State<StatsScreen> {
             result == 'インポート') {
           continue;
         }
-        if (result.contains('先手')) p1WinsFromKifu++;
-        if (result.contains('後手')) p2WinsFromKifu++;
+        // 結果文字列は必ず勝者側から「{勝者}の勝ち」の形式で始まる。
+        // contains() だと投了・持将棋など敗者側の呼称も括弧内に含む文言で
+        // 誤って両方にカウントされるため、startsWith() で判定する。
+        if (result.startsWith('先手の勝ち')) p1WinsFromKifu++;
+        if (result.startsWith('後手の勝ち')) p2WinsFromKifu++;
         hasKifuData = true;
       }
     } catch (_) {}
@@ -184,9 +187,9 @@ class _StatsScreenState extends State<StatsScreen> {
       _p1Wins   = hasKifuData ? p1WinsFromKifu : (prefs.getInt('stats_p1_wins') ?? 0);
       _p2Wins   = hasKifuData ? p2WinsFromKifu : (prefs.getInt('stats_p2_wins') ?? 0);
       _movesSum = prefs.getInt('stats_moves_sum') ?? 0;
-      _rating    = prefs.getInt('rating_current') ?? 700;
-      _ratingAi  = prefs.getInt('rating_ai_current') ?? _rating;
-      _ratingNet = prefs.getInt('rating_net_current') ?? _rating;
+      _ratingAi  = prefs.getInt('rating_ai_current') ?? 700;
+      _ratingNet = prefs.getInt('rating_net_current') ?? 700;
+      _rating    = max(_ratingAi, _ratingNet);
       for (final mk in ['ai', 'pvp', 'net']) {
         _modeTotal[mk]  = prefs.getInt('stats_total_$mk') ?? 0;
         _modeP1Wins[mk] = prefs.getInt('stats_p1_wins_$mk') ?? 0;

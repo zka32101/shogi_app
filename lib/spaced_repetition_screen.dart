@@ -350,7 +350,7 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
 
     // Check premium status
     final prefs = await SharedPreferences.getInstance();
-    _isPremium = prefs.getBool('subscription_active') ?? false;
+    _isPremium = PurchaseService.isPremium;
 
     // Load SRS items
     final srsJson = prefs.getStringList('srs_items_json') ?? [];

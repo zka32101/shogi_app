@@ -326,113 +326,129 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
         board: _kyogyoku(),
         highlights: const {(8, 4)},
         difficulty: '初級',
+        vertStrength: 1, horizStrength: 1, movesToBuild: 0,
       ),
       _CastleData(
         name: '矢倉（やぐら）',
-        description: '8八玉・7八金・7七銀・6七金で組む居飛車の代表的な囲い。上部が厚く、縦の攻めに強い。',
+        description: '8八玉・7八金・7七銀・6七金で組む居飛車の代表的な囲い。上部が厚く縦の攻めに強い。横から崩されると弱い。',
         board: _yagura(),
         highlights: const {(7, 1), (7, 2), (6, 2), (6, 3)},
         difficulty: '初級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 8,
       ),
       _CastleData(
         name: '美濃囲い（みのがこい）',
-        description: '2八玉・3八金・3七銀の3枚で組む振り飛車の定番囲い。少ない手数で完成し、横からの攻めに強い。',
+        description: '2八玉・3八金・3七銀の3枚で組む振り飛車の定番囲い。少ない手数で完成し横からの攻めに強い。上（玉頭方向）からは弱い。',
         board: _mino(),
         highlights: const {(7, 7), (7, 6), (6, 6)},
         difficulty: '初級',
+        vertStrength: 1, horizStrength: 3, movesToBuild: 6,
       ),
       _CastleData(
         name: '舟囲い（ふねがこい）',
-        description: '5八玉・4八金・6八金の最短形。急戦にすぐ対応でき、玉を最低限安全にする実戦的な構え。',
+        description: '5八玉・4八金・6八金の最短形。急戦にすぐ対応でき素早く組める。横からの攻めに弱く長期戦不向き。',
         board: _funegakoi(),
         highlights: const {(7, 4), (7, 5), (7, 3)},
         difficulty: '初級',
+        vertStrength: 1, horizStrength: 1, movesToBuild: 3,
       ),
       // 中級
       _CastleData(
         name: '金無双（きんむそう）',
-        description: '8八玉・7八金・6八金・7七銀でまとめる囲い。相振り飛車でよく使われ、素早く組めるが横からの攻めに注意。',
+        description: '8八玉・7八金・6八金・7七銀でまとめる囲い。相振り飛車でよく使われ素早く組める。上部に比較的強いが横からの攻めに注意。',
         board: _kinmusou(),
         highlights: const {(7, 1), (7, 2), (7, 3), (6, 2)},
         difficulty: '中級',
+        vertStrength: 2, horizStrength: 1, movesToBuild: 5,
       ),
       _CastleData(
         name: '銀冠（ぎんかん）',
-        description: '8八玉・7八金・6七金・8七銀の形。銀を玉の真上（8七）に冠のように乗せ、上部の攻めに手厚い囲い。',
+        description: '8八玉・7八金・8七銀・6七金の形。銀を玉の真上に冠のように乗せ上部の攻めに手厚い。美濃から発展した振り飛車の進化形。',
         board: _ginkan(),
         highlights: const {(7, 1), (7, 2), (6, 1), (6, 3)},
         difficulty: '中級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 10,
       ),
       _CastleData(
         name: '左美濃（ひだりみの）',
-        description: '居飛車側が2八玉・3八金・2七銀と組む形。美濃を左右反転させた構造で対抗形（居飛車vs振り飛車）で多用。',
+        description: '居飛車側が2八玉・3八金・2七銀・1八金と組む形。美濃を左右反転させた構造で対抗形（居飛車vs振り飛車）で多用される。',
         board: _hidarimino(),
         highlights: const {(7, 7), (7, 6), (6, 7), (7, 8)},
         difficulty: '中級',
+        vertStrength: 2, horizStrength: 3, movesToBuild: 7,
       ),
       _CastleData(
         name: '雁木（がんぎ）',
-        description: '6七金・7七銀・5七銀の2銀2金を高く構える形。攻守のバランスが良く対矢倉・対居飛車で有力。',
+        description: '6八玉・5八金・6七金・7七銀の2金2銀を高く構える形。攻守のバランスが良く対矢倉・対居飛車で有力。',
         board: _gangi(),
         highlights: const {(7, 3), (7, 4), (6, 3), (6, 2), (6, 4)},
         difficulty: '中級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 8,
       ),
       _CastleData(
         name: 'カニ囲い（かにがこい）',
-        description: '5九玉・6九金・4九金・5八銀の形。カニのハサミのような見た目。急戦志向で素早く攻撃に転じられる。',
+        description: '5九玉・6九金・4九金・5八銀の形。カニのハサミのような見た目。急戦志向で素早く攻撃に転じられる実戦的な構え。',
         board: _kanigakoi(),
         highlights: const {(8, 4), (8, 3), (8, 5), (7, 4)},
         difficulty: '中級',
+        vertStrength: 1, horizStrength: 2, movesToBuild: 4,
       ),
       _CastleData(
         name: '高美濃（たかみの）',
-        description: '美濃囲いの左金を4七へ上がった発展形。玉頭が厚くなり美濃より上部に強い。振り飛車の定番進化形。',
+        description: '美濃囲いの左金を4七へ上がった発展形。玉頭が厚くなり美濃より上部の攻めに強い。振り飛車の定番進化形で4手追加で完成。',
         board: _takamiino(),
         highlights: const {(7, 7), (7, 6), (6, 6), (6, 5)},
         difficulty: '中級',
+        vertStrength: 2, horizStrength: 3, movesToBuild: 9,
       ),
       // 上級
       _CastleData(
         name: '穴熊（あなぐま）',
-        description: '9九玉・8九金・7九金・9八銀・8八銀の形。玉を隅深く潜らせる最強クラスの囲い。組むのに手数がかかる。',
+        description: '9九玉・8九金・7九金・9八銀・8八銀の形。玉を隅深く潜らせる最強クラスの囲い。組むのに手数がかかる。一度組めば終盤に絶大な威力。',
         board: _anaguma(),
         highlights: const {(8, 0), (8, 1), (8, 2), (7, 0), (7, 1)},
         difficulty: '上級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 15,
       ),
       _CastleData(
         name: '矢倉角換わり',
-        description: '矢倉形を維持しつつ角を交換した局面。高度な読みが必要で、角打ちの隙を常に意識する必要がある。',
+        description: '矢倉形を維持しつつ角を交換した局面。高度な読みが必要で角打ちの隙を常に意識する必要がある。縦に強い矢倉形が基盤。',
         board: _yaguraKakuKawari(),
         highlights: const {(7, 1), (7, 2), (6, 2), (6, 3)},
         difficulty: '上級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 10,
       ),
       _CastleData(
         name: 'ビッグ4（びっぐふぉー）',
-        description: '9九玉・8九金・7九金・8八銀・7八銀の四枚穴熊。金銀4枚で玉を完全に囲う最強クラスの堅陣。組むのに手数がかかる。',
+        description: '9九玉・8九金・7九金・8八銀・7八銀の四枚穴熊。金銀4枚で玉を完全に囲う最強クラスの堅陣。縦横どちらにも強いが組むのに20手以上かかる。',
         board: _bigFour(),
         highlights: const {(8, 0), (8, 1), (8, 2), (7, 1), (7, 2)},
         difficulty: '上級',
+        vertStrength: 3, horizStrength: 3, movesToBuild: 20,
       ),
       _CastleData(
         name: '中住まい（なかずまい）',
-        description: '5八玉・6八金・4八金・7八銀・3八銀。玉を中央に置き左右の金銀で守る形。横からの攻めに強く、相居飛車の急戦で使われます。',
+        description: '5八玉・6八金・4八金・7八銀・3八銀。玉を中央に置き左右の金銀で守る。横に強く相居飛車の急戦で使われる。',
         board: _nakazumai(),
         highlights: const {(7, 4), (7, 3), (7, 5), (7, 2), (7, 6)},
         difficulty: '中級',
+        vertStrength: 2, horizStrength: 2, movesToBuild: 6,
       ),
       _CastleData(
         name: '木村美濃（きむらみの）',
-        description: '2八玉・3八金・5八金・4七銀。美濃の右銀を4七へ上がり、玉頭の守りと反撃力を高めた発展形。振り飛車で多用されます。',
+        description: '2八玉・3八金・5八金・4七銀。美濃の右銀を4七へ上がり玉頭の守りと反撃力を高めた発展形。横に強く振り飛車で多用。',
         board: _kimuraMino(),
         highlights: const {(7, 7), (7, 6), (7, 4), (6, 5)},
         difficulty: '中級',
+        vertStrength: 2, horizStrength: 3, movesToBuild: 8,
       ),
       _CastleData(
         name: '居飛車穴熊（いびしゃあなぐま）',
-        description: '9九玉・9八香・8八銀・7八金・6八金。居飛車側が玉を隅へ潜らせる対振り飛車の最堅陣。遠さと固さで終盤に絶大な威力を発揮します。',
+        description: '9九玉・9八香・8八銀・7八金・6八金。居飛車側が玉を隅へ潜らせる対振り飛車の最堅陣。遠さと固さで終盤に絶大な威力を発揮する。',
         board: _ibishaAnaguma(),
         highlights: const {(8, 0), (7, 1), (7, 2), (7, 3)},
         difficulty: '上級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 12,
       ),
     ];
 
@@ -499,6 +515,9 @@ class _CastleData {
   final List<List<Piece?>> board;
   final Set<(int, int)> highlights;
   final String difficulty;
+  final int vertStrength;   // 縦からの攻めへの強さ 1-3
+  final int horizStrength;  // 横からの攻めへの強さ 1-3
+  final int movesToBuild;   // 完成手数の目安
 
   const _CastleData({
     required this.name,
@@ -506,6 +525,9 @@ class _CastleData {
     required this.board,
     required this.highlights,
     required this.difficulty,
+    this.vertStrength = 2,
+    this.horizStrength = 2,
+    this.movesToBuild = 6,
   });
 }
 
@@ -569,6 +591,32 @@ class _CastleCard extends StatelessWidget {
             data.description,
             style: const TextStyle(color: Colors.white70, fontSize: 13, height: 1.5),
           ),
+          const SizedBox(height: 10),
+          // 評価項目バー
+          _EvalRow(label: '縦の強さ', value: data.vertStrength, color: Colors.blue.shade400),
+          const SizedBox(height: 4),
+          _EvalRow(label: '横の強さ', value: data.horizStrength, color: Colors.teal.shade400),
+          const SizedBox(height: 4),
+          Row(children: [
+            SizedBox(
+              width: 60,
+              child: Text('完成手数',
+                  style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(
+                color: Colors.amber.withAlpha(30),
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(color: Colors.amber.withAlpha(80)),
+              ),
+              child: Text(
+                data.movesToBuild == 0 ? '0手（組まない）'
+                    : '約${data.movesToBuild}手',
+                style: const TextStyle(color: Colors.amber, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ]),
           const SizedBox(height: 12),
           Center(
             child: MiniBoardWidget(
@@ -580,5 +628,30 @@ class _CastleCard extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _EvalRow extends StatelessWidget {
+  final String label;
+  final int value; // 1-3
+  final Color color;
+  const _EvalRow({required this.label, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      SizedBox(
+        width: 60,
+        child: Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+      ),
+      ...List.generate(3, (i) => Padding(
+        padding: const EdgeInsets.only(right: 3),
+        child: Icon(
+          i < value ? Icons.star_rounded : Icons.star_outline_rounded,
+          color: color,
+          size: 16,
+        ),
+      )),
+    ]);
   }
 }

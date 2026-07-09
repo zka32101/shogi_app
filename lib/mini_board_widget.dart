@@ -17,6 +17,8 @@ class MiniBoardWidget extends StatelessWidget {
   final bool boardFlipped;               // ボード反転時の駒向き調整
   final Map<PieceType, int> p1Hand;      // 先手持ち駒（表示用）
   final Map<PieceType, int> p2Hand;      // 後手持ち駒（表示用）
+  final List<List<int>>? p1AttackMap;    // 効き可視化: 先手の利き数（null=非表示）
+  final List<List<int>>? p2AttackMap;    // 効き可視化: 後手の利き数（null=非表示）
 
   const MiniBoardWidget({
     super.key,
@@ -33,6 +35,8 @@ class MiniBoardWidget extends StatelessWidget {
     this.boardFlipped = false,
     this.p1Hand = const {},
     this.p2Hand = const {},
+    this.p1AttackMap,
+    this.p2AttackMap,
   });
 
   // Colors matching game_screen.dart standard theme
@@ -82,6 +86,19 @@ class MiniBoardWidget extends StatelessWidget {
                 final isHintTo = hintTo == (r, c);
 
                 Color bg = _cellColor;
+                // 効き（利き）可視化: 先手=青、後手=赤、両方=紫
+                if (p1AttackMap != null && p2AttackMap != null) {
+                  final p1V = p1AttackMap![r][c];
+                  final p2V = p2AttackMap![r][c];
+                  final baseIntensity = piece != null ? 0.18 : 0.36;
+                  if (p1V > 0 && p2V == 0) {
+                    bg = Color.lerp(bg, Colors.blue.shade300, baseIntensity)!;
+                  } else if (p2V > 0 && p1V == 0) {
+                    bg = Color.lerp(bg, Colors.red.shade300, baseIntensity)!;
+                  } else if (p1V > 0 && p2V > 0) {
+                    bg = Color.lerp(bg, Colors.purple.shade300, baseIntensity * 0.7)!;
+                  }
+                }
                 // 現在手番の駒に薄いハイライト
                 if (currentIsP1 != null && piece != null) {
                   if (piece.isPlayer1 == currentIsP1) {

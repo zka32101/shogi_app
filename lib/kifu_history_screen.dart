@@ -45,8 +45,8 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
       list = list.where((r) {
         final res = r['result'] as String? ?? '';
         switch (_filterResult) {
-          case _FilterResult.p1Win:    return res.contains('先手');
-          case _FilterResult.p2Win:    return res.contains('後手');
+          case _FilterResult.p1Win:    return res.startsWith('先手の勝ち');
+          case _FilterResult.p2Win:    return res.startsWith('後手の勝ち');
           case _FilterResult.draw:     return res.contains('引き分け');
           case _FilterResult.favorite: return r['favorite'] == true;
           default: return true;
@@ -886,7 +886,9 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
 
   // ── 勝敗バッジ ──────────────────────────────
   Widget _resultBadge(String result) {
-    if (result.contains('先手')) {
+    // 結果文字列は必ず「{勝者}の勝ち」で始まる。投了の場合は敗者側の呼称も
+    // 括弧内に含むため contains() では誤判定する（startsWith で判定）。
+    if (result.startsWith('先手の勝ち')) {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -899,7 +901,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
         ],
       );
     }
-    if (result.contains('後手')) {
+    if (result.startsWith('後手の勝ち')) {
       return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
@@ -948,8 +950,8 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
     final isFavorite = r['favorite'] as bool? ?? false;
 
     Color resultColor = Colors.white54;
-    if (result.contains('先手')) resultColor = Colors.blue.shade300;
-    if (result.contains('後手')) resultColor = Colors.red.shade300;
+    if (result.startsWith('先手の勝ち')) resultColor = Colors.blue.shade300;
+    if (result.startsWith('後手の勝ち')) resultColor = Colors.red.shade300;
     if (result.contains('引き分け')) resultColor = Colors.grey;
 
     return Card(

@@ -347,18 +347,25 @@ List<_TsumeProb> _buildProblems() {
   }
 
   // ===== 3手詰め ② =====
-  // 龍で後手歩を取り王手→後手玉2一に逃げ→龍1一で詰み
-  // 後手玉 1一(0,0)、先手龍 1六(5,0)、先手金 3三(2,2)、後手歩 1四(3,0)
+  // 龍で後手歩を取り王手→後手玉2一に逃げ→角(馬)成りで詰み
+  // 後手玉 1一(0,0)、先手龍 1六(5,0)、先手金 3三(2,2)、先手角 2三(2,1)、後手歩 1四(3,0)
   // 手順:
   //   1. 龍 1六→1四(後手歩取り、縦で王手)
   //   2. 後手玉 1一→2一(0,1)逃げ(唯一の逃げ: 1二は龍縦・2二は金斜め封鎖)
-  //   3. 龍 1四→1一(0,0)→後手玉2一は龍隣接で詰み
+  //   3. 角 2三→3二成(1,2)、王手。2一の逃げ道は
+  //      1一=龍の縦利き、3一=馬の縦利き、2二=金と馬の利きで全て封鎖、
+  //      馬自体も金が守っているため取れず、詰み。
+  // (以前は3手目に龍を1一へ寄せる手を解として登録していたが、
+  //  1一の龍は無防備で王が取れてしまい実際には詰んでいなかった。
+  //  TsumeEngine.findMate による検証で不成立と判明したため、
+  //  角を追加して正しく詰む形に修正した)
   {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);          // 後手玉 1一(0,0)
     b[8][8] = Piece(PieceType.king, true);            // 先手玉 9九(8,8)
     b[5][0] = Piece(PieceType.promotedRook, true);   // 先手龍 1六(5,0)
     b[2][2] = Piece(PieceType.gold, true);            // 先手金 3三(2,2)
+    b[2][1] = Piece(PieceType.bishop, true);          // 先手角 2三(2,1)
     b[3][0] = Piece(PieceType.pawn, false);           // 後手歩 1四(3,0) ← 龍の王手を遮断
     list.add(_TsumeProb(
       title: '3手詰め ②',
@@ -369,9 +376,9 @@ List<_TsumeProb> _buildProblems() {
       solution: [
         AMove(fr: 5, fc: 0, tr: 3, tc: 0),  // 龍 1六→1四(後手歩取り、縦で王手)
         AMove(fr: 0, fc: 0, tr: 0, tc: 1),  // 後手玉 1一→2一(0,1)逃げ
-        AMove(fr: 3, fc: 0, tr: 0, tc: 0),  // 龍 1四→1一(0,0)、王を2一に追い詰め(詰み)
+        AMove(fr: 2, fc: 1, tr: 1, tc: 2, promote: true),  // 角 2三→3二成(1,2)、詰み
       ],
-      explanation: '龍で後手歩を取りながら王手。後手玉は2一に逃げるしかなく、龍が1一に入ると全逃げ道が塞がれ詰みです。',
+      explanation: '龍で後手歩を取りながら王手。後手玉は2一に逃げるしかなく、角が3二に成って馬になると、金と龍の利きで全逃げ道が塞がれ詰みです。',
     ));
   }
 
@@ -3341,11 +3348,7 @@ class _SolvePageState extends State<_SolvePage> {
 
     // ── 2. 詰将棋ルール: 攻め方の手は必ず王手 ──────────────────
     if (!GL.inCheck(_board, false)) {
-      _showWrong();
-      await Future.delayed(const Duration(milliseconds: 800));
-      if (!mounted) return;
-      _resetState();
-      setState(() => _verifying = false);
+      await _handleWrongAttempt();
       return;
     }
 
@@ -3388,11 +3391,7 @@ class _SolvePageState extends State<_SolvePage> {
 
     if (remaining <= 0) {
       // 手数を全て使ったが詰んでいない
-      _showWrong();
-      await Future.delayed(const Duration(milliseconds: 700));
-      if (!mounted) return;
-      _resetState();
-      setState(() => _verifying = false);
+      await _handleWrongAttempt(delayMs: 700);
       return;
     }
 
@@ -3407,11 +3406,7 @@ class _SolvePageState extends State<_SolvePage> {
 
     if (!mateResult.isMate) {
       // 残り手数内に詰み経路なし → 最初の局面に戻す
-      _showWrong();
-      await Future.delayed(const Duration(milliseconds: 700));
-      if (!mounted) return;
-      _resetState();
-      setState(() => _verifying = false);
+      await _handleWrongAttempt(delayMs: 700);
       return;
     }
 
@@ -3565,6 +3560,24 @@ class _SolvePageState extends State<_SolvePage> {
         backgroundColor: Colors.redAccent,
       ),
     );
+  }
+
+  // 誤答時の共通処理。onResetRequested が渡されている場合
+  // （デイリー詰将棋・ローグライトモード）は親側の残機/回数管理を
+  // 必ず経由させる。以前は _resetState() を直接呼んでいたため、
+  // ローグライトで間違えてもライフが減らないバグがあった。
+  Future<void> _handleWrongAttempt({int delayMs = 800}) async {
+    _showWrong();
+    await Future.delayed(Duration(milliseconds: delayMs));
+    if (!mounted) return;
+    if (widget.onResetRequested != null) {
+      widget.onResetRequested!();
+    } else {
+      setState(() {
+        _resetState();
+        _verifying = false;
+      });
+    }
   }
 
   // ===== 持ち駒ウィジェット =====

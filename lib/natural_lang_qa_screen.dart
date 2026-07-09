@@ -29,6 +29,7 @@ class _NaturalLangQAScreenState extends State<NaturalLangQAScreen> {
   String? _lastQuestion;
   String? _aiResponse;
   bool _responseVisible = false;
+  double _boardDisplaySize = 340; // LayoutBuilder で画面幅に応じて更新される
 
   @override
   void initState() {
@@ -203,19 +204,25 @@ class _NaturalLangQAScreenState extends State<NaturalLangQAScreen> {
                         style: TextStyle(fontSize: 12, color: Colors.grey),
                       ),
                       const SizedBox(height: 12),
-                      GestureDetector(
-                        onTapDown: (details) {
-                          // Find which cell was tapped
-                          _findTappedCell(details.localPosition);
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          _boardDisplaySize =
+                              constraints.maxWidth.clamp(0.0, 340.0);
+                          return GestureDetector(
+                            onTapDown: (details) {
+                              // Find which cell was tapped
+                              _findTappedCell(details.localPosition);
+                            },
+                            child: Container(
+                              color: Colors.grey.shade100,
+                              child: MiniBoardWidget(
+                                board: _board,
+                                showLabels: true,
+                                size: _boardDisplaySize,
+                              ),
+                            ),
+                          );
                         },
-                        child: Container(
-                          color: Colors.grey.shade100,
-                          child: MiniBoardWidget(
-                            board: _board,
-                            showLabels: true,
-                            size: 340,
-                          ),
-                        ),
                       ),
                     ],
                   ),
@@ -524,8 +531,8 @@ class _NaturalLangQAScreenState extends State<NaturalLangQAScreen> {
   void _findTappedCell(Offset localPosition) {
     // Calculate approximate cell from position
     // This is a simplified version - in production, consider using GestureDetector per cell
-    final cellSize = 340 / 9;
-    final labelOffset = 340 * 0.05;
+    final cellSize = _boardDisplaySize / 9;
+    final labelOffset = _boardDisplaySize * 0.05;
 
     int col = ((localPosition.dx - labelOffset) / cellSize).floor();
     int row = ((localPosition.dy) / cellSize).floor();

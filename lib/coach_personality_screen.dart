@@ -99,15 +99,31 @@ class _CoachPersonalityScreenState extends State<CoachPersonalityScreen>
     super.dispose();
   }
 
+  // レベルLに到達するために必要な累計対局数（レベルが上がるごとに必要局数も増える：
+  // Lv1=10局, Lv2はさらに20局(累計30局), Lv3はさらに30局(累計60局)...）
+  static int _gamesRequiredForLevel(int level) => 5 * level * (level + 1);
+
+  static int _levelForGames(int games) {
+    int level = 0;
+    while (level < 20 && games >= _gamesRequiredForLevel(level + 1)) {
+      level++;
+    }
+    return level;
+  }
+
+  int _totalGamesPlayed = 0;
+
   Future<void> _initializeCoachData() async {
     _prefs = await SharedPreferences.getInstance();
+    final totalGames = _prefs.getInt('stats_total') ?? 0;
     setState(() {
-      _coachRelationshipLevel =
-          _prefs.getInt('coach_relationship') ?? 0;
+      _totalGamesPlayed = totalGames;
+      _coachRelationshipLevel = _levelForGames(totalGames);
       _coachPersonality =
           _prefs.getString('coach_personality') ?? _analyzePlayStyle();
       _isLoading = false;
     });
+    _savePersistence();
   }
 
   String _analyzePlayStyle() {
@@ -119,7 +135,6 @@ class _CoachPersonalityScreenState extends State<CoachPersonalityScreen>
   }
 
   Future<void> _savePersistence() async {
-    await _prefs.setInt('coach_relationship', _coachRelationshipLevel);
     await _prefs.setString('coach_personality', _coachPersonality);
   }
 
@@ -131,14 +146,7 @@ class _CoachPersonalityScreenState extends State<CoachPersonalityScreen>
         DateTime.now().microsecond % personalityData.feedbackMessages.length;
     final feedback = personalityData.feedbackMessages[feedbackIndex];
 
-    // Increase relationship level
-    setState(() {
-      _coachRelationshipLevel++;
-      if (_coachRelationshipLevel > 20) _coachRelationshipLevel = 20;
-    });
-    _savePersistence();
-
-    // Show feedback popup
+    // レベルは実際の対局数からのみ決まる（このボタンでは上がらない）
     _showFeedbackPopup(feedback, personalityData.emoji);
   }
 
@@ -468,7 +476,9 @@ class _CoachPersonalityScreenState extends State<CoachPersonalityScreen>
                           Padding(
                             padding: const EdgeInsets.only(top: 8),
                             child: Text(
-                              '次のレベルまで: ${20 - _coachRelationshipLevel}',
+                              '次のレベルまで: あと'
+                              '${_gamesRequiredForLevel(_coachRelationshipLevel + 1) - _totalGamesPlayed}局'
+                              '（対局してレベルアップ）',
                               style: TextStyle(
                                 fontSize: 11,
                                 color: Colors.grey[600],
@@ -496,7 +506,7 @@ class _CoachPersonalityScreenState extends State<CoachPersonalityScreen>
                     child: ElevatedButton.icon(
                       onPressed: _simulateGameFeedback,
                       icon: const Icon(Icons.gamepad),
-                      label: const Text('対局後のフィードバック'),
+                      label: const Text('コーチのアドバイスを見る'),
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         backgroundColor: Colors.blue[400],

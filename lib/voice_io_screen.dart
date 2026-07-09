@@ -4,6 +4,8 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:speech_to_text/speech_recognition_result.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'speech_service.dart';
@@ -37,11 +39,12 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
   bool _isPlayer1 = true;
 
   // ── 音声入力状態 ──
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _speechAvailable = false;
   bool _isListening = false;
   String _transcribedText = '';
   String _lastMoveText = '';
   String _errorMessage = '';
-  Timer? _recordingTimer;
   int _recordingSeconds = 0;
 
   // ── TTS 再生状態 ──
@@ -67,13 +70,39 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat();
+    _initSpeech();
+  }
+
+  Future<void> _initSpeech() async {
+    final available = await _speech.initialize(
+      onError: (err) {
+        if (!mounted) return;
+        setState(() {
+          _isListening = false;
+          _errorMessage = 'マイクを認識できませんでした。もう一度お願いします';
+        });
+      },
+      onStatus: (status) {
+        if (!mounted) return;
+        if (status == 'done' || status == 'notListening') {
+          setState(() => _isListening = false);
+        }
+      },
+    );
+    if (!mounted) return;
+    setState(() {
+      _speechAvailable = available;
+      if (!available) {
+        _errorMessage = '音声認識が利用できません（マイクの権限を確認してください）';
+      }
+    });
   }
 
   @override
   void dispose() {
     _waveformController.dispose();
     _pulseController.dispose();
-    _recordingTimer?.cancel();
+    _speech.stop();
     super.dispose();
   }
 
@@ -84,48 +113,11 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
       _p2Hand = Map.from(widget.initialP2Hand ?? {});
     } else {
       // 初期棋面（平手）
+      // 盤面座標の慣例: row 0-2 = 後手(isPlayer1=false)、row 6-8 = 先手(isPlayer1=true)
+      // （natural_lang_qa_screen.dart 等、他画面と統一）
       _board = List.generate(9, (_) => List.filled(9, null));
-      // 先手の駒を配置
-      _board[0] = [
-        Piece(PieceType.lance, true),
-        Piece(PieceType.knight, true),
-        Piece(PieceType.silver, true),
-        Piece(PieceType.gold, true),
-        Piece(PieceType.king, true),
-        Piece(PieceType.gold, true),
-        Piece(PieceType.silver, true),
-        Piece(PieceType.knight, true),
-        Piece(PieceType.lance, true),
-      ];
-      _board[1] = [
-        null,
-        Piece(PieceType.rook, true),
-        null,
-        null,
-        null,
-        null,
-        null,
-        Piece(PieceType.bishop, true),
-        null,
-      ];
-      for (int c = 0; c < 9; c++) {
-        _board[2][c] = Piece(PieceType.pawn, true);
-      }
-
       // 後手の駒を配置
-      _board[6] = List.filled(9, Piece(PieceType.pawn, false));
-      _board[7] = [
-        null,
-        Piece(PieceType.bishop, false),
-        null,
-        null,
-        null,
-        null,
-        null,
-        Piece(PieceType.rook, false),
-        null,
-      ];
-      _board[8] = [
+      _board[0] = [
         Piece(PieceType.lance, false),
         Piece(PieceType.knight, false),
         Piece(PieceType.silver, false),
@@ -136,6 +128,45 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
         Piece(PieceType.knight, false),
         Piece(PieceType.lance, false),
       ];
+      _board[1] = [
+        null,
+        Piece(PieceType.rook, false),
+        null,
+        null,
+        null,
+        null,
+        null,
+        Piece(PieceType.bishop, false),
+        null,
+      ];
+      for (int c = 0; c < 9; c++) {
+        _board[2][c] = Piece(PieceType.pawn, false);
+      }
+
+      // 先手の駒を配置
+      _board[6] = List.filled(9, Piece(PieceType.pawn, true));
+      _board[7] = [
+        null,
+        Piece(PieceType.bishop, true),
+        null,
+        null,
+        null,
+        null,
+        null,
+        Piece(PieceType.rook, true),
+        null,
+      ];
+      _board[8] = [
+        Piece(PieceType.lance, true),
+        Piece(PieceType.knight, true),
+        Piece(PieceType.silver, true),
+        Piece(PieceType.gold, true),
+        Piece(PieceType.king, true),
+        Piece(PieceType.gold, true),
+        Piece(PieceType.silver, true),
+        Piece(PieceType.knight, true),
+        Piece(PieceType.lance, true),
+      ];
 
       _p1Hand = {};
       _p2Hand = {};
@@ -143,9 +174,16 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
   }
 
   // ───────────────────────────────────────────
-  // 音声入力
+  // 音声入力（speech_to_text による実音声認識）
   // ───────────────────────────────────────────
   Future<void> _startListening() async {
+    if (!_speechAvailable) {
+      setState(() => _errorMessage = '音声認識が利用できません（マイクの権限を確認してください）');
+      // 権限が拒否された直後などは再初期化を試みる
+      await _initSpeech();
+      if (!_speechAvailable) return;
+    }
+
     setState(() {
       _isListening = true;
       _transcribedText = '';
@@ -153,47 +191,34 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
       _recordingSeconds = 0;
     });
 
-    // 録音時間アニメーション
-    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (mounted) {
-        setState(() => _recordingSeconds++);
-      }
-      if (_recordingSeconds >= 10) {
-        _stopListening();
-      }
-    });
-
-    // シミュレート: 2秒後に認識結果を返す
-    await Future.delayed(const Duration(seconds: 2));
-
-    if (!mounted) return;
-
-    _recordingTimer?.cancel();
-
-    // モック認識テキスト（実装時は Speech-to-Text API 使用）
-    const mockResults = [
-      '7六歩',
-      '8四歩',
-      '7五歩',
-      '3三角',
-      '5六歩',
-      '4二玉',
-    ];
-
-    final recognized = mockResults[Random().nextInt(mockResults.length)];
-
-    setState(() {
-      _isListening = false;
-      _transcribedText = recognized;
-      _recordingSeconds = 0;
-    });
-
-    // 認識結果を解析して盤面に反映
-    _processVoiceMove(recognized);
+    await _speech.listen(
+      // ignore: deprecated_member_use
+      localeId: 'ja_JP',
+      // ignore: deprecated_member_use
+      listenFor: const Duration(seconds: 10),
+      // ignore: deprecated_member_use
+      pauseFor: const Duration(seconds: 3),
+      onResult: (SpeechRecognitionResult result) {
+        if (!mounted) return;
+        setState(() {
+          _recordingSeconds = (result.recognizedWords.length / 2).ceil();
+          _transcribedText = result.recognizedWords;
+        });
+        if (result.finalResult) {
+          final recognized = result.recognizedWords.trim();
+          setState(() => _isListening = false);
+          if (recognized.isEmpty) {
+            setState(() => _errorMessage = 'もう一度お願いします');
+          } else {
+            _processVoiceMove(recognized);
+          }
+        }
+      },
+    );
   }
 
   void _stopListening() {
-    _recordingTimer?.cancel();
+    _speech.stop();
     setState(() {
       _isListening = false;
       _recordingSeconds = 0;
@@ -204,11 +229,25 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
     }
   }
 
-  void _processVoiceMove(String moveText) {
+  // 音声認識結果は「七六歩」のような漢数字や「76歩」のような算用数字、
+  // どちらでも返ってくる可能性があるため、漢数字を算用数字へ正規化してから解析する。
+  static const _kanjiDigits = {
+    '一': '1', '二': '2', '三': '3', '四': '4', '五': '5',
+    '六': '6', '七': '7', '八': '8', '九': '9',
+  };
+
+  String _normalizeDigits(String text) {
+    var out = text;
+    _kanjiDigits.forEach((k, v) => out = out.replaceAll(k, v));
+    return out;
+  }
+
+  void _processVoiceMove(String rawMoveText) {
     // 簡易パーサー: "7六歩" の形式を解析
     // 実装時は詳細な棋譜解析ライブラリを使用
+    final moveText = _normalizeDigits(rawMoveText);
 
-    final pattern = RegExp(r'(\d)(\d)(.+)');
+    final pattern = RegExp(r'(\d)\D*(\d)(.+)');
     final match = pattern.firstMatch(moveText);
 
     if (match == null) {

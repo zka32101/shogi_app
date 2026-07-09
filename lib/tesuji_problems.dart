@@ -441,6 +441,7 @@ List<TesujiProb> buildTesujiProblems() {
     b[0][2] = const Piece(PieceType.gold, false); // 後手金 7一
     b[8][4] = const Piece(PieceType.king, true); // 先手玉 5九
     b[2][4] = const Piece(PieceType.silver, true); // 先手銀 5三
+    _p1(b, 2, 2, PieceType.silver); // 先手銀 7三（4二に紐をつける）
     _p1(b, 8, 5, PieceType.gold);
     _p1(b, 8, 3, PieceType.gold);
     _p1(b, 6, 6, PieceType.pawn);
@@ -956,6 +957,7 @@ List<TesujiProb> buildTesujiProblems() {
   {
     final b = _empty();
     _p1(b, 3, 5, PieceType.promotedBishop);
+    _p1(b, 3, 3, PieceType.silver); // 先手銀（着地点4三に紐をつける）
     _p2(b, 1, 3, PieceType.king);
     _p2(b, 1, 5, PieceType.gold);
     _p1(b, 8, 0, PieceType.king);
@@ -1042,12 +1044,12 @@ List<TesujiProb> buildTesujiProblems() {
   // mamori_10: 二重の守り（ダブルガード）
   {
     final b = _empty();
-    _p1(b, 3, 4, PieceType.gold); // 先手金 5四（前線・攻め駒でもある）
-    _p2(b, 2, 4, PieceType.rook); // 後手飛 5三（金を攻撃）
-    _p2(b, 2, 5, PieceType.bishop); // 後手角 4三（金を攻撃）
+    // 5四(3,4)は▲5四銀打の着地点のため駒を置かない
+    _p2(b, 2, 4, PieceType.rook); // 後手飛 5三
+    _p2(b, 2, 5, PieceType.bishop); // 後手角 4三
     _p2(b, 0, 8, PieceType.king);
     _p1(b, 8, 8, PieceType.king);
-    _p1(b, 5, 4, PieceType.rook); // 先手飛（金に紐）
+    _p1(b, 5, 4, PieceType.rook); // 先手飛（5四に紐）
     list.add(TesujiProb(
       id: 'mamori_10',
       title: '手筋テクニック ⑩（銀打ちで飛車と角を両取り）',
@@ -1056,7 +1058,7 @@ List<TesujiProb> buildTesujiProblems() {
       board: b,
       p1Hand: const {PieceType.silver: 1},
       p1Turn: true,
-      answer: const AMove(fr: -1, fc: -1, tr: 3, tc: 5, drop: PieceType.silver),
+      answer: const AMove(fr: -1, fc: -1, tr: 3, tc: 4, drop: PieceType.silver),
       difficulty: '中級',
     ));
   }
@@ -1228,6 +1230,7 @@ List<TesujiProb> buildTesujiProblems() {
     _p2(b, 1, 5, PieceType.king); // 後手玉 4二
     _p2(b, 2, 5, PieceType.gold); // 後手金 4三（玉の直下に金）
     _p1(b, 6, 5, PieceType.lance); // 先手香 4七
+    _p1(b, 3, 6, PieceType.silver); // 先手銀（着地点4三に紐をつける）
     _p1(b, 8, 8, PieceType.king);
     _p2(b, 0, 3, PieceType.silver);
     _p1(b, 7, 7, PieceType.pawn);
@@ -1257,7 +1260,7 @@ List<TesujiProb> buildTesujiProblems() {
       id: 'kintori_7',
       title: '王手金取り ⑦（桂②）',
       category: '王手金取り',
-      explanation: '▲6三桂成。桂馬を跳ねて金を取ります。取った後、桂馬の利きで玉に王手がかかる絶妙な手筋です。',
+      explanation: '▲6三桂不成。桂馬を跳ねて金を取ります（ここはあえて不成！）。不成の桂馬は前方2段・左右1マスに跳び、6三から5一の玉に直接王手がかかります。成ると金になり王手が消えるのがポイントです。',
       board: b,
       p1Hand: const {},
       p1Turn: true,
@@ -1272,6 +1275,7 @@ List<TesujiProb> buildTesujiProblems() {
     _p2(b, 0, 4, PieceType.king); // 後手玉 5一
     _p2(b, 1, 4, PieceType.gold); // 後手金 5二（玉の直下）
     _p1(b, 2, 4, PieceType.pawn); // 先手歩 5三
+    _p1(b, 2, 5, PieceType.silver); // 先手銀（着地点5二に紐をつける）
     _p1(b, 8, 0, PieceType.king);
     _p2(b, 0, 3, PieceType.silver);
     _p1(b, 5, 6, PieceType.rook);
@@ -1509,7 +1513,7 @@ List<TesujiProb> buildTesujiProblems() {
       board: b,
       p1Hand: const {PieceType.bishop: 1},
       p1Turn: true,
-      answer: const AMove(fr: -1, fc: -1, tr: 3, tc: 6, drop: PieceType.bishop),
+      answer: const AMove(fr: -1, fc: -1, tr: 0, tc: 6, drop: PieceType.bishop),
       difficulty: '中級',
     ));
   }
@@ -1888,7 +1892,7 @@ List<TesujiProb> buildTesujiProblems() {
       board: b,
       p1Hand: const {},
       p1Turn: true,
-      answer: const AMove(fr: 7, fc: 7, tr: 5, tc: 5),
+      answer: const AMove(fr: 7, fc: 7, tr: 4, tc: 4),
       difficulty: '上級',
     ));
   }
@@ -2308,11 +2312,11 @@ List<TesujiProb> buildTesujiProblems() {
       id: 'umaryuu_4',
       title: '馬・竜の活用 ④（竜で縦に王手）',
       category: '馬・竜の活用',
-      explanation: '▲5二竜。竜を5二に進めて王手をかけます。竜は縦に動きながら玉に迫ります。玉が逃げた後も竜の利きが続きます。',
+      explanation: '▲5三竜。竜を5三に進めて王手をかけます。玉に隣接せず縦の利きだけで王手できるため、竜自体は安全に残ります。',
       board: b,
       p1Hand: const {},
       p1Turn: true,
-      answer: const AMove(fr: 4, fc: 4, tr: 1, tc: 4),
+      answer: const AMove(fr: 4, fc: 4, tr: 2, tc: 4),
       difficulty: '中級',
     ));
   }
@@ -2323,6 +2327,7 @@ List<TesujiProb> buildTesujiProblems() {
     _p2(b, 1, 7, PieceType.gold); // 後手金 2二（馬の目標）
     _p2(b, 4, 6, PieceType.silver); // 後手銀（斜めを塞がない位置）
     _p1(b, 5, 3, PieceType.promotedBishop); // 先手馬 6四
+    _p1(b, 2, 8, PieceType.silver); // 先手銀（着地点2二に紐をつける、馬の斜め経路は塞がない）
     _p2(b, 0, 8, PieceType.king);
     _p1(b, 8, 0, PieceType.king);
     _p2(b, 2, 7, PieceType.pawn);
@@ -2367,6 +2372,7 @@ List<TesujiProb> buildTesujiProblems() {
     _p2(b, 1, 8, PieceType.gold); // 後手金 1二（端守り）
     _p2(b, 0, 8, PieceType.king); // 後手玉 1一
     _p1(b, 4, 5, PieceType.promotedBishop); // 先手馬 4五
+    _p1(b, 2, 8, PieceType.silver); // 先手銀（着地点1二に紐をつける、馬の斜め経路は塞がない）
     _p1(b, 8, 0, PieceType.king);
     _p2(b, 0, 7, PieceType.silver);
     _p1(b, 6, 3, PieceType.pawn);
@@ -2374,7 +2380,7 @@ List<TesujiProb> buildTesujiProblems() {
       id: 'umaryuu_7',
       title: '馬・竜の活用 ⑦（馬で端の守りを崩す）',
       category: '馬・竜の活用',
-      explanation: '▲2二馬。馬を2二に持ってきて、金や玉頭を脅かします。馬が近づくと隣接マスも攻められ、守りにくくなります。',
+      explanation: '▲1二馬。馬を1二に持ってきて、1一の玉頭に直接迫ります。馬が近づくと隣接マスも攻められ、守りにくくなります。',
       board: b,
       p1Hand: const {},
       p1Turn: true,
@@ -2396,11 +2402,11 @@ List<TesujiProb> buildTesujiProblems() {
       id: 'umaryuu_8',
       title: '馬・竜の活用 ⑧（竜で王手して金を攻める）',
       category: '馬・竜の活用',
-      explanation: '▲5二竜。竜で王手をかけます。玉が逃げれば馬で金を取ります。竜と馬の連携による攻めです。',
+      explanation: '▲5三竜。竜で王手をかけます。玉に隣接しないので竜は取られず安全、玉が逃げれば馬で金を取ります。竜と馬の連携による攻めです。',
       board: b,
       p1Hand: const {},
       p1Turn: true,
-      answer: const AMove(fr: 3, fc: 4, tr: 1, tc: 4),
+      answer: const AMove(fr: 3, fc: 4, tr: 2, tc: 4),
       difficulty: '上級',
     ));
   }
@@ -2605,6 +2611,58 @@ List<TesujiProb> buildTesujiProblems() {
       p1Turn: true,
       answer: const AMove(fr: -1, fc: -1, tr: 2, tc: 7, drop: PieceType.knight),
       difficulty: '上級',
+    ));
+  }
+
+  // ============================================================
+  // 飛車取り（追加）hisha_10
+  // ============================================================
+
+  // hisha_10: 馬で飛車取り
+  {
+    final b = _empty();
+    _p1(b, 5, 1, PieceType.promotedBishop); // 先手馬 8六
+    _p2(b, 3, 3, PieceType.rook); // 後手飛 6四（馬の斜め先）
+    _p2(b, 0, 8, PieceType.king);
+    _p1(b, 8, 0, PieceType.king);
+    _p2(b, 1, 7, PieceType.gold);
+    _p1(b, 6, 5, PieceType.pawn);
+    list.add(TesujiProb(
+      id: 'hisha_10',
+      title: '飛車取り ⑩（馬で取る）',
+      category: '飛車取り',
+      explanation: '▲6四馬。馬（成り角）を斜めに動かして後手の飛車を取ります。馬は角の斜め長距離移動に加え、隣接1マスにも動けます。角成り後の馬を攻め駒として活用する基本形です。',
+      board: b,
+      p1Hand: const {},
+      p1Turn: true,
+      answer: const AMove(fr: 5, fc: 1, tr: 3, tc: 3),
+      difficulty: '初級',
+    ));
+  }
+
+  // ============================================================
+  // 王手金取り（追加）kintori_9
+  // ============================================================
+
+  // kintori_9: 竜で金を取って王手
+  {
+    final b = _empty();
+    _p2(b, 0, 4, PieceType.king); // 後手玉 5一
+    _p2(b, 2, 4, PieceType.gold); // 後手金 5三（玉と同筋）
+    _p1(b, 5, 4, PieceType.promotedRook); // 先手竜 5六（同じ5筋）
+    _p1(b, 8, 8, PieceType.king);
+    _p2(b, 1, 3, PieceType.silver);
+    _p1(b, 6, 2, PieceType.pawn);
+    list.add(TesujiProb(
+      id: 'kintori_9',
+      title: '王手金取り ⑨（竜）',
+      category: '王手金取り',
+      explanation: '▲5三竜。竜で5三の金を取ります。竜は縦に5一の玉まで直通しているため、金を取った瞬間に王手がかかります。1手で金取りと王手を兼ねる「王手金取り」です。',
+      board: b,
+      p1Hand: const {},
+      p1Turn: true,
+      answer: const AMove(fr: 5, fc: 4, tr: 2, tc: 4),
+      difficulty: '中級',
     ));
   }
 

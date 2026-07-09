@@ -1,8 +1,14 @@
 // lib/kifu_replay_screen.dart — 棋譜再生画面
 
 import 'dart:async';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image/image.dart' as img;
 import 'piece.dart';
+import 'logic.dart';
 import 'theme/app_theme.dart';
 
 // ===== 初期盤面生成 =====
@@ -96,17 +102,102 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
   int _filterPos = 0;
   double _speed = 1.0; // 再生速度 (0.5x / 1x / 2x)
 
+  // GIF書き出し用
+  final GlobalKey _boardCaptureKey = GlobalKey();
+  bool _isExportingGif = false;
+
+  // 効き（利き）可視化。設定画面のトグルと同じキーを共有する
+  static const _kShowAttackMapPref = 'review_show_attack_map';
+  bool _showAttackMap = false;
+
   @override
   void initState() {
     super.initState();
     final start = widget.initialStep.clamp(0, widget.moves.length);
     _resetToStep(start);
+    _loadAttackMapPref();
+  }
+
+  Future<void> _loadAttackMapPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _showAttackMap = prefs.getBool(_kShowAttackMapPref) ?? false;
+    });
+  }
+
+  Future<void> _toggleAttackMap() async {
+    final next = !_showAttackMap;
+    setState(() => _showAttackMap = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kShowAttackMapPref, next);
   }
 
   @override
   void dispose() {
     _playTimer?.cancel();
     super.dispose();
+  }
+
+  // ===== 対局をGIFアニメとして共有（X等への投稿用）=====
+  Future<void> _shareAsGif() async {
+    if (_isExportingGif) return;
+    _stopReplay();
+    final originalStep = _step;
+    setState(() => _isExportingGif = true);
+
+    try {
+      final totalMoves = widget.moves.length;
+      final frameCount = totalMoves + 1; // 初期局面込み
+
+      // フレーム数が多すぎるとGIFが重くなるため間引く（最大60枚程度）
+      const maxFrames = 60;
+      final stride = (frameCount / maxFrames).ceil().clamp(1, frameCount);
+      final steps = <int>[
+        for (int i = 0; i < frameCount; i += stride) i,
+      ];
+      if (steps.last != totalMoves) steps.add(totalMoves);
+
+      final encoder = img.GifEncoder(repeat: 0);
+      for (final step in steps) {
+        _resetToStep(step);
+        // 盤面の再描画を待ってからキャプチャする
+        await WidgetsBinding.instance.endOfFrame;
+        await Future.delayed(const Duration(milliseconds: 30));
+        if (!mounted) break;
+
+        final boundary = _boardCaptureKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+        if (boundary == null) continue;
+        final uiImage = await boundary.toImage(pixelRatio: 1.5);
+        final byteData =
+            await uiImage.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData == null) continue;
+        final frame = img.decodePng(byteData.buffer.asUint8List());
+        if (frame == null) continue;
+        // 終局局面は少し長めに表示
+        final isLast = step == totalMoves;
+        encoder.addFrame(frame, duration: isLast ? 150 : 45);
+      }
+
+      final gifBytes = encoder.finish();
+      if (gifBytes == null || !mounted) return;
+
+      final file = XFile.fromData(
+        gifBytes,
+        mimeType: 'image/gif',
+        name: 'shogi_kifu.gif',
+      );
+      await Share.shareXFiles(
+        [file],
+        text: '${widget.title}\n将棋アプリ「効棋」',
+      );
+    } catch (_) {
+      // 失敗時は静かに諦める（共有機能の付随機能のため）
+    } finally {
+      _resetToStep(originalStep);
+      if (mounted) setState(() => _isExportingGif = false);
+    }
   }
 
   // ===== 盤面を step 手目まで再構築 =====
@@ -231,29 +322,25 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
 
     _playTimer = Timer(Duration(milliseconds: delayMs), () {
       if (_isPlaying && mounted) {
+        // 自動再生中も手動操作(_resetToStep)と同じく実際に盤面へ手を適用する
+        // （以前はハイライトだけ更新し board を更新していなかったため、
+        //   自動再生中に駒が動いて見えないバグがあった）
+        final m = widget.moves[_step];
         setState(() {
+          _applyMove(m, board: board, p1Hand: p1Hand, p2Hand: p2Hand);
           _step++;
+          if (m.tr >= 0) {
+            _lastTR = m.tr;
+            _lastTC = m.tc;
+          }
         });
         if (_step < widget.moves.length) {
-          _applyCurrentMoveForReplay();
           _playNextMove();
         } else {
           _stopReplay();
         }
       }
     });
-  }
-
-  void _applyCurrentMoveForReplay() {
-    if (_step > 0 && _step <= widget.moves.length) {
-      final m = widget.moves[_step - 1];
-      if (m.tr >= 0) {
-        setState(() {
-          _lastTR = m.tr;
-          _lastTC = m.tc;
-        });
-      }
-    }
   }
 
   void _pauseReplay() {
@@ -295,6 +382,28 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
             ),
           ],
         ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.visibility,
+              color: _showAttackMap ? Colors.orangeAccent : Colors.white54,
+            ),
+            tooltip: _showAttackMap ? '効き非表示' : '効きを表示',
+            onPressed: _toggleAttackMap,
+          ),
+          IconButton(
+            icon: _isExportingGif
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Colors.white70),
+                  )
+                : const Icon(Icons.movie_creation_outlined, color: Colors.white70),
+            tooltip: '対局をGIFで共有',
+            onPressed: _isExportingGif ? null : _shareAsGif,
+          ),
+        ],
       ),
       body: SafeArea(
         child: Column(
@@ -304,7 +413,12 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
             // 盤面
             Expanded(
               flex: 5,
-              child: Center(child: _boardWidget()),
+              child: Center(
+                child: RepaintBoundary(
+                  key: _boardCaptureKey,
+                  child: _boardWidget(),
+                ),
+              ),
             ),
             // 先手持ち駒
             _handArea(isP1: true),
@@ -372,6 +486,11 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
 
   // ===== 将棋盤 =====
   Widget _boardWidget() {
+    final List<List<int>>? atkP1Map =
+        _showAttackMap ? GL.attackMap(board, true) : null;
+    final List<List<int>>? atkP2Map =
+        _showAttackMap ? GL.attackMap(board, false) : null;
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final size = constraints.maxWidth < constraints.maxHeight
@@ -396,13 +515,27 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
                     final piece = board[row][col];
                     final isHighlight = _lastTR == row && _lastTC == col;
 
+                    Color cellTint = Colors.transparent;
+                    if (atkP1Map != null && atkP2Map != null) {
+                      final p1V = atkP1Map[row][col];
+                      final p2V = atkP2Map[row][col];
+                      final baseIntensity = piece != null ? 60 : 110;
+                      if (p1V > 0 && p2V == 0) {
+                        cellTint = Colors.blue.withAlpha(baseIntensity);
+                      } else if (p2V > 0 && p1V == 0) {
+                        cellTint = Colors.red.withAlpha(baseIntensity);
+                      } else if (p1V > 0 && p2V > 0) {
+                        cellTint = Colors.purple.withAlpha((baseIntensity * 0.7).round());
+                      }
+                    }
+
                     return Container(
                       width: cellSize,
                       height: cellSize,
                       decoration: BoxDecoration(
                         color: isHighlight
                             ? Colors.yellow.withAlpha(80)
-                            : Colors.transparent,
+                            : cellTint,
                         border: const Border(
                           right: BorderSide(color: Colors.black54, width: 0.5),
                           bottom: BorderSide(color: Colors.black54, width: 0.5),

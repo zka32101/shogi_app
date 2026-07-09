@@ -58,6 +58,7 @@ class NetworkGameService {
   static StreamSubscription?     _matchWatchSub;
   static String?                 _myMatchKey;
   static Completer<MatchResult>? _activeCompleter; // キャンセル用
+  static Timer?                  _rescanTimer; // ホスト待機中の再スキャン用
 
   static String? get roomCode     => _roomCode;
   static bool    get isHost       => _isHost;
@@ -74,6 +75,7 @@ class NetworkGameService {
     int myRating = 1000,
     String strengthPref = 'any',
     bool rated = true,
+    int timeLimitSec = 600,
   }) async {
     if (!_firebaseReady) throw Exception('Firebase未設定');
     cancelMatchmaking();
@@ -110,6 +112,7 @@ class NetworkGameService {
         'status':       'open',
         'rating':       myRating,
         'strengthPref': strengthPref,
+        'timeLimitSec': timeLimitSec,
         'createdAt':    ServerValue.timestamp,
       });
       print('[MATCH] RTDBエントリ作成完了 key=$_myMatchKey');
@@ -126,21 +129,18 @@ class NetworkGameService {
     await Future.delayed(const Duration(milliseconds: 800));
     if (completer.isCompleted) return completer.future;
 
-    // 古いエントリをクリーンアップ（120秒以上前のエントリを削除）
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-
-    String? foundHostKey;
-    try {
-      final snap = await mqRef.get();
-      if (snap.exists) {
+    // ホスト候補をスキャンする（[ignorePref]=true で強さフィルタを無視した緩和スキャン）
+    Future<(String?, int?)> scanForHost({bool ignorePref = false}) async {
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      String? foundKey;
+      int? foundRating;
+      try {
+        final snap = await mqRef.get();
+        if (!snap.exists) return (null, null);
         final myKey = _myMatchKey;
-        if (myKey == null || completer.isCompleted) {
-          if (!completer.isCompleted) completer.completeError(const MatchCancelledException());
-          return completer.future;
-        }
+        if (myKey == null) return (null, null);
         final all = Map<String, dynamic>.from(snap.value as Map);
         for (final kv in all.entries) {
-          if (completer.isCompleted) break;
           final key = kv.key as String;
           if (key == myKey) continue;
           // 自分より先に来た人（キーが小さい = 先着）のみ対象
@@ -154,24 +154,33 @@ class NetworkGameService {
             print('[MATCH] 古いエントリ削除: $key');
             continue;
           }
-          // 強さフィルタ
+          // 持ち時間が一致しないと対局が成立しないため、これは常に必須のフィルタ
+          // （強さフィルタと違い、待機時間が延びても緩和しない）
+          final hostTimeLimit = (d['timeLimitSec'] as num?)?.toInt() ?? 600;
+          if (hostTimeLimit != timeLimitSec) continue;
+          // 強さフィルタ（緩和スキャン時はスキップ）
           final r = (d['rating'] as num?)?.toInt() ?? 1000;
-          if (strengthPref == 'weak'   && r > myRating + 50) continue;
-          if (strengthPref == 'strong' && r < myRating - 50) continue;
+          if (!ignorePref) {
+            if (strengthPref == 'weak'   && r > myRating + 50) continue;
+            if (strengthPref == 'strong' && r < myRating - 50) continue;
+          }
           // 最も古いホスト（最小キー）を選ぶ
-          if (foundHostKey == null || key.compareTo(foundHostKey!) < 0) {
-            foundHostKey = key;
+          if (foundKey == null || key.compareTo(foundKey!) < 0) {
+            foundKey = key;
+            foundRating = r;
           }
         }
+      } catch (e) {
+        print('[MATCH] スキャンエラー: $e');
       }
-    } catch (e) {
-      print('[MATCH] スキャンエラー: $e');
+      return (foundKey, foundRating);
     }
 
-    if (foundHostKey != null) {
-      // ══ ゲストとして参加 ════════════════════════════════════════════════
-      print('[MATCH] GUEST → ホスト=$foundHostKey');
-      final hostKey = foundHostKey;
+    // 見つかったホストのゲストとして参加する
+    Future<void> becomeGuest(String hostKey, int? hostRating) async {
+      print('[MATCH] GUEST → ホスト=$hostKey');
+      _rescanTimer?.cancel();
+      _rescanTimer = null;
 
       // 自分のエントリは不要なので削除
       myRef.remove().catchError((_) {});
@@ -185,6 +194,7 @@ class NetworkGameService {
       });
 
       // ホストがマッチを作成してmatchId(=roomCode)を書くのを待つ
+      _matchWatchSub?.cancel();
       _matchWatchSub = mqRef.child(hostKey).onValue.listen((event) async {
         if (completer.isCompleted) return;
         final data = event.snapshot.value as Map?;
@@ -210,18 +220,50 @@ class NetworkGameService {
 
         if (!completer.isCompleted) {
           completer.complete(MatchResult(
-            matchId:    matchId,
-            isPlayer1:  false,
-            myPlayerId: myId,
+            matchId:        matchId,
+            isPlayer1:      false,
+            myPlayerId:     myId,
+            opponentRating: hostRating,
           ));
         }
       });
+    }
 
+    final (foundHostKey, foundHostRating) = await scanForHost();
+    if (completer.isCompleted) return completer.future;
+
+    if (foundHostKey != null) {
+      // ══ ゲストとして参加 ════════════════════════════════════════════════
+      await becomeGuest(foundHostKey, foundHostRating);
     } else {
       // ══ ホストとして待機 ════════════════════════════════════════════════
       print('[MATCH] HOST 待機中 myKey=$_myMatchKey');
       _isHost = true;
       bool _roomCreating = false;
+
+      // 待機中も定期的に再スキャンし、初回スキャン後に現れた／強さフィルタで
+      // 見送っていたホストがいれば見つけ次第ゲストとして合流する。
+      // 序盤は元の強さ設定を維持し、20秒経過後はフィルタを無視して緩和する
+      // （将棋クエスト等の「見つからなければ徐々に範囲を広げる」挙動に近づける）。
+      var rescanElapsedSec = 0;
+      _rescanTimer = Timer.periodic(const Duration(seconds: 7), (timer) async {
+        if (completer.isCompleted || _roomCreating) {
+          timer.cancel();
+          return;
+        }
+        rescanElapsedSec += 7;
+        final (rescanKey, rescanRating) =
+            await scanForHost(ignorePref: rescanElapsedSec >= 20);
+        if (completer.isCompleted || _roomCreating) {
+          timer.cancel();
+          return;
+        }
+        if (rescanKey != null) {
+          timer.cancel();
+          _isHost = false;
+          await becomeGuest(rescanKey, rescanRating);
+        }
+      });
 
       _matchWatchSub = myRef.onValue.listen((event) async {
         if (completer.isCompleted || _roomCreating) return;
@@ -231,11 +273,14 @@ class NetworkGameService {
 
         _roomCreating = true;
         _matchWatchSub?.cancel();
+        _rescanTimer?.cancel();
+        _rescanTimer = null;
         print('[MATCH] HOST: ゲスト参加確認 → マッチ作成');
 
         try {
           final hostUid  = myId;
           final guestUid = data['guestId'] as String? ?? 'guest_${Random().nextInt(9999)}';
+          final guestRating = (data['guestRating'] as num?)?.toInt();
 
           // RTDBにgames/{matchId}を作成（matchIdはRTDBのpushKeyで生成）
           final gamesRef = FirebaseDatabase.instance.ref('games');
@@ -245,9 +290,10 @@ class NetworkGameService {
           final boardSync = BoardSyncService();
           await boardSync.initMatchBoard(
             matchId,
-            board:     GL.initialBoard(),
-            player1Id: hostUid,
-            player2Id: guestUid,
+            board:        GL.initialBoard(),
+            player1Id:    hostUid,
+            player2Id:    guestUid,
+            timeLimitSec: timeLimitSec,
           );
 
           // Firestoreにmatches documentを作成（オプション: 認証エラー時はスキップ）
@@ -258,6 +304,8 @@ class NetworkGameService {
               'player2_id':   guestUid,
               'player1_name': 'プレイヤー1',
               'player2_name': 'プレイヤー2',
+              'player1_time': timeLimitSec,
+              'player2_time': timeLimitSec,
               'status':       'playing',
               'result':       null,
               'winner_id':    null,
@@ -280,9 +328,10 @@ class NetworkGameService {
 
           if (!completer.isCompleted) {
             completer.complete(MatchResult(
-              matchId:    matchId,
-              isPlayer1:  true,
-              myPlayerId: hostUid,
+              matchId:        matchId,
+              isPlayer1:      true,
+              myPlayerId:     hostUid,
+              opponentRating: guestRating,
             ));
           }
         } catch (e) {
@@ -324,6 +373,8 @@ class NetworkGameService {
 
     _matchWatchSub?.cancel();
     _matchWatchSub = null;
+    _rescanTimer?.cancel();
+    _rescanTimer = null;
 
     // Firebase削除はfire-and-forget（UIをブロックしない）
     final keyToDelete = _myMatchKey;
@@ -663,10 +714,12 @@ class MatchResult {
   final String matchId;
   final bool   isPlayer1;  // true=先手  false=後手
   final String myPlayerId; // 自分のプレイヤーID（勝敗判定用）
+  final int?   opponentRating; // マッチング時点の相手レーティング（対局後のレーティング計算用）
   const MatchResult({
     required this.matchId,
     required this.isPlayer1,
     required this.myPlayerId,
+    this.opponentRating,
   });
 }
 

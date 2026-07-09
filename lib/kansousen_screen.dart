@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
@@ -120,10 +121,30 @@ class _KansousenScreenState extends State<KansousenScreen> {
   PieceType? _studySelHand;
   Set<(int, int)> _studyHL = {};
 
+  // 効き（利き）可視化。設定画面のトグルと同じキーを共有する
+  static const _kShowAttackMapPref = 'review_show_attack_map';
+  bool _showAttackMap = false;
+
   @override
   void initState() {
     super.initState();
     _buildSnapshots();
+    _loadAttackMapPref();
+  }
+
+  Future<void> _loadAttackMapPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _showAttackMap = prefs.getBool(_kShowAttackMapPref) ?? false;
+    });
+  }
+
+  Future<void> _toggleAttackMap() async {
+    final next = !_showAttackMap;
+    setState(() => _showAttackMap = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kShowAttackMapPref, next);
   }
 
   @override
@@ -139,6 +160,11 @@ class _KansousenScreenState extends State<KansousenScreen> {
       (r) => List<Piece?>.generate(9, (c) => b[8 - r][8 - c]),
     );
     return flipped;
+  }
+
+  /// 効きマップ（int）を盤面と同じ向きに180度反転
+  List<List<int>> _flipIntMap(List<List<int>> m) {
+    return List.generate(9, (r) => List.generate(9, (c) => m[8 - r][8 - c]));
   }
 
   // ── 検討モード操作 ──
@@ -420,6 +446,15 @@ class _KansousenScreenState extends State<KansousenScreen> {
             tooltip: _studyMode ? '感想戦に戻る' : '検討モード',
             onPressed: _toggleStudyMode,
           ),
+          // 効き可視化
+          IconButton(
+            icon: Icon(
+              Icons.visibility,
+              color: _showAttackMap ? Colors.orangeAccent : Colors.white54,
+            ),
+            tooltip: _showAttackMap ? '効き非表示' : '効きを表示',
+            onPressed: _toggleAttackMap,
+          ),
           // AI対局
           IconButton(
             icon: const Icon(Icons.computer, color: Colors.amber),
@@ -437,10 +472,6 @@ class _KansousenScreenState extends State<KansousenScreen> {
             // ─── 手番情報 ───
             if (move != null)
               _moveInfoBar(move, quality, evalChg),
-
-            // ─── テンプレート解説 ───
-            if (move != null && !_studyMode)
-              _commentWidget(move, quality, evalChg, bestMove),
 
             // ─── 盤面 ───
             Expanded(
@@ -463,6 +494,13 @@ class _KansousenScreenState extends State<KansousenScreen> {
                       final dispBoard = widget.flipped ? _flipBoard(rawBoard) : rawBoard;
                       final dispP1Hand = _studyMode ? _studyP1Hand : snap.p1Hand;
                       final dispP2Hand = _studyMode ? _studyP2Hand : snap.p2Hand;
+                      List<List<int>>? atkP1Map, atkP2Map;
+                      if (_showAttackMap) {
+                        final rawP1 = GL.attackMap(rawBoard, true);
+                        final rawP2 = GL.attackMap(rawBoard, false);
+                        atkP1Map = widget.flipped ? _flipIntMap(rawP1) : rawP1;
+                        atkP2Map = widget.flipped ? _flipIntMap(rawP2) : rawP2;
+                      }
 
                       return RepaintBoundary(
                         key: _boardAreaKey,
@@ -490,6 +528,8 @@ class _KansousenScreenState extends State<KansousenScreen> {
                                 size: cs.maxWidth,
                                 highlightSquares: _studyMode ? _studyHL : const {},
                                 boardFlipped: widget.flipped,
+                                p1AttackMap: atkP1Map,
+                                p2AttackMap: atkP2Map,
                               ),
                               if (!_studyMode && needsBest && topMoves.isNotEmpty)
                                 Positioned(
@@ -594,102 +634,6 @@ class _KansousenScreenState extends State<KansousenScreen> {
                   ),
                 );
               }),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _generateComment(
-    KifuMove move,
-    MoveQuality? quality,
-    int? evalChg,
-    AMove? bestMove,
-  ) {
-    if (quality == null) return '';
-
-    final chg = evalChg ?? 0;
-    final absChg = chg.abs();
-    final sign = chg >= 0 ? '+' : '';
-
-    // ゲームフェーズ（序盤/中盤/終盤）
-    final phase = _step <= 20 ? '序盤' : _step <= 60 ? '中盤' : '終盤';
-
-    // 手の種類
-    final isDrop = move.note.contains('打');
-    final isPromote = move.promote || move.note.contains('成');
-
-    // 推奨手の表記
-    String bestStr = '';
-    if (bestMove != null) {
-      final mark = move.p1 ? '▲' : '△';
-      if (bestMove.drop != null) {
-        bestStr = '$mark${pieceLabel(bestMove.drop!)}打(${9 - bestMove.tc}${_rowKanji[bestMove.tr]})';
-      } else if (bestMove.fr >= 0) {
-        bestStr = '$mark${_sq(bestMove.tr, bestMove.tc)}';
-      }
-    }
-
-    switch (quality) {
-      case MoveQuality.excellent:
-        if (absChg >= 500) return '[$phase] 絶好手！評価値が$sign$chg上昇し形勢が大きく動きました。';
-        if (isPromote) return '[$phase] 成りが絶好手！（$sign$chg）駒の攻撃力が一気に増します。';
-        if (isDrop) return '[$phase] 持ち駒を効果的に活用した好手です。（$sign$chg）';
-        return '[$phase] 絶好手！（$sign$chg）局面をリードする一手です。';
-
-      case MoveQuality.good:
-        if (isDrop) return '[$phase] 持ち駒を活かした好判断です。';
-        if (isPromote) return '[$phase] 的確な成りで優位を拡大します。';
-        return '[$phase] 好手。局面を有利に進める積極的な一手です。';
-
-      case MoveQuality.normal:
-        if (_step <= 10) return '[序盤] 自然な出だしです。';
-        return '[$phase] 局面を維持する手堅い一手です。';
-
-      case MoveQuality.dubious:
-        if (bestStr.isNotEmpty) {
-          return '[$phase] 疑問手（$sign$chg）。$bestStr の方が優れていました。';
-        }
-        return '[$phase] 疑問手（$sign$chg）。より良い手があったかもしれません。';
-
-      case MoveQuality.bad:
-        if (absChg >= 500) {
-          final extra = bestStr.isNotEmpty ? ' $bestStr が有力でした。' : '';
-          return '[$phase] 悪手！（$sign$chg）この手で形勢が逆転しました。$extra';
-        }
-        if (bestStr.isNotEmpty) {
-          return '[$phase] 悪手（$sign$chg）。$bestStr の方が有力でした。';
-        }
-        return '[$phase] 悪手（$sign$chg）。局面を大きく損ないました。';
-    }
-  }
-
-  Widget _commentWidget(KifuMove move, MoveQuality? quality, int? evalChg, AMove? bestMove) {
-    final text = _generateComment(move, quality, evalChg, bestMove);
-    if (text.isEmpty) return const SizedBox.shrink();
-
-    final color = quality?.color ?? Colors.white54;
-    final icon = quality?.icon ?? Icons.info_outline;
-
-    return Container(
-      color: const Color(0xFF081525),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 14),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              text,
-              style: TextStyle(
-                color: quality == MoveQuality.bad || quality == MoveQuality.dubious
-                    ? color
-                    : Colors.white70,
-                fontSize: 12,
-                height: 1.4,
-              ),
             ),
           ),
         ],

@@ -43,6 +43,25 @@ import 'defeat_screen.dart';
 import 'practice_points_system.dart';
 import 'theme/app_theme.dart';
 import 'badge_service.dart';
+import 'castle_guide_service.dart';
+
+// AppBarオーバーフローメニュー用の行（const で使えるよう独立ウィジェット化）
+class _StaticMenuRow extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _StaticMenuRow(this.icon, this.label);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, color: Colors.white70, size: 20),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(color: Colors.white)),
+      ],
+    );
+  }
+}
 
 // ── コーチモード補助関数 ──────────────────────────────
 int _pEvalChange(int before, int after, bool wasP1Turn) =>
@@ -395,6 +414,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   // --- タイマー ---
   Timer? _timer;
+  // 終局ダイアログで一定時間操作がなければ棋譜振り返り画面へ自動遷移
+  Timer? _postGameAutoNavTimer;
   int p1Time = 0, p2Time = 0;
   // 秒読み（byoyomi）
   bool _p1InByoyomi = false;
@@ -603,6 +624,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _timerBlinkAnim?.dispose();
     _timer?.cancel();
     _aiElapsedTimer?.cancel();
+    _postGameAutoNavTimer?.cancel();
 
     _coachBadgeTimer?.cancel();
     _castleBannerAnim?.dispose();
@@ -688,7 +710,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           kifu: List.from(kifu),
           initialBoard: _coachInitialBoard!,
           result: result ?? '未終了',
-          playerIsP1: !s.aiIsP2, // AI が後手なら player は先手
+          playerIsP1: s.aiIsP2, // AI が後手なら player は先手
         ),
       ),
     );
@@ -730,6 +752,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               _p1ByoyomiRemaining = 0;
               result = '後手の勝ち！（時間切れ）';
               _timer?.cancel();
+              if (vsAI) Future.microtask(() => _updateWinStreak(!s.aiIsP2));
               Future.microtask(() => _showGameEndDialog());
             }
           } else {
@@ -743,6 +766,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               } else {
                 result = '後手の勝ち！（時間切れ）';
                 _timer?.cancel();
+                if (vsAI) Future.microtask(() => _updateWinStreak(!s.aiIsP2));
                 Future.microtask(() => _showGameEndDialog());
               }
             }
@@ -754,6 +778,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               _p2ByoyomiRemaining = 0;
               result = '先手の勝ち！（時間切れ）';
               _timer?.cancel();
+              if (vsAI) Future.microtask(() => _updateWinStreak(s.aiIsP2));
               Future.microtask(() => _showGameEndDialog());
             }
           } else {
@@ -766,6 +791,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               } else {
                 result = '先手の勝ち！（時間切れ）';
                 _timer?.cancel();
+                if (vsAI) Future.microtask(() => _updateWinStreak(s.aiIsP2));
                 Future.microtask(() => _showGameEndDialog());
               }
             }
@@ -836,7 +862,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Future<void> _loadPlayerRating() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final rating = prefs.getInt('rating_current') ?? 700;
+      final rating = prefs.getInt('rating_ai_current') ?? 700;
       if (mounted) setState(() => _playerRating = rating);
     } catch (_) {}
   }
@@ -1124,23 +1150,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   );
 
   // ===== 戦型自動判定 =====
+  // 以前は先手の飛車位置だけを見る簡易ロジックで、「三間飛車」のように
+  // ▲/△の接頭辞なしのラベルを返していた。一方で _detectStrategyFor は
+  // 同じ戦型でも「△三間飛車」のように接頭辞付きで検出するため、
+  // 同一の戦型が棋譜上で表記違いの別物として重複して見えるバグがあった。
+  // _detectStrategyFor に一本化し、指し手数の多い側（=戦型が明確な側）を
+  // 優先して同じ接頭辞付き表記で返すことで表記を統一する。
   String _detectOpening() {
-    // 飛車位置から戦型を推定（手数10手以降）
     if (kifu.length < 10) return '';
-    for (int r = 0; r < 9; r++) {
-      for (int c = 0; c < 9; c++) {
-        final p = board[r][c];
-        if (p == null || !p.isPlayer1) continue;
-        if (p.type == PieceType.rook) {
-          // col 0=9筋, col 8=1筋。先手飛車の列で戦型判断
-          if (c == 3) return '四間飛車';
-          if (c == 4) return '中飛車';
-          if (c == 2) return '三間飛車';
-          if (c == 1) return '向かい飛車';
-          if (c >= 6) return '居飛車';
-        }
-      }
-    }
+    final humanIsP1 = !_userIsP2;
+    final humanStrat = _detectStrategyFor(humanIsP1);
+    if (humanStrat.isNotEmpty) return (humanIsP1 ? '▲' : '△') + humanStrat;
+    final oppStrat = _detectStrategyFor(!humanIsP1);
+    if (oppStrat.isNotEmpty) return (humanIsP1 ? '△' : '▲') + oppStrat;
     return '居飛車';
   }
 
@@ -1275,11 +1297,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         return '';
       }
 
-      // ── ec≥3, er=0: カニ囲い・箱囲い ──
+      // ── ec≥3, er=0: カニ囲い ──
       if (ec >= 3 && er == 0) {
         if (chk(0, 1, PieceType.gold) && chk(0, -1, PieceType.gold)) {
           if (chk(1, 0, PieceType.silver)) return 'カニ囲い';
-          return '箱囲い';
         }
         return '';
       }
@@ -1398,20 +1419,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return '';
   }
 
+  // 「○○囲い」のように既に「囲い」で終わる名称に、さらに「囲い」を
+  // 重複させて表示しないようにする（例: 「カニ囲い囲い」を防ぐ）
+  String _castleCompletionTag(String mark, String castleName) {
+    final suffix = castleName.endsWith('囲い') ? '完成' : '囲い完成';
+    return '$mark$castleName$suffix';
+  }
+
   // ===== 囲い完成チェック（_endTurn 末尾から呼ぶ）=====
   void _checkCastleCompletion() {
     final p1Castle = _detectCastleFor(true);
     final p2Castle = _detectCastleFor(false);
     if (p1Castle.isNotEmpty && p1Castle != _detectedCastleP1) {
       _detectedCastleP1 = p1Castle;
-      final tag = '▲$p1Castle囲い完成';
+      final tag = _castleCompletionTag('▲', p1Castle);
       _castleTags[kifu.length] = tag;
       _showCastleBanner(tag);
       return;
     }
     if (p2Castle.isNotEmpty && p2Castle != _detectedCastleP2) {
       _detectedCastleP2 = p2Castle;
-      final tag = '△$p2Castle囲い完成';
+      final tag = _castleCompletionTag('△', p2Castle);
       _castleTags[kifu.length] = tag;
       _showCastleBanner(tag);
       return;
@@ -1642,6 +1670,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
+  // 感想戦画面へ遷移（終局後の既定の振り返り先）
+  void _openKansousenScreen(BuildContext ctx) {
+    final initialBoard =
+        _boardSnaps.isNotEmpty ? _boardSnaps.first : _initBoard(s.handicap);
+    Navigator.push(
+      ctx,
+      MaterialPageRoute(
+        builder: (_) => KansousenScreen(
+          moves: List.from(kifu),
+          initialBoard: initialBoard,
+          title: '${kifu.length}手の対局',
+          pieceTheme: s.theme,
+        ),
+      ),
+    );
+  }
+
   // ゲーム終了ダイアログ
   Future<void> _showGameEndDialog() async {
     if (!mounted || result == null) return;
@@ -1670,7 +1715,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         analysis = await KifuAnalyticsService().analyzeAndSaveGame(
           evalHistory: _evalHistory,
           moveNotations: kifu.map((m) => m.note).toList(),
-          playerWon: result != null && result!.contains(_userIsP2 ? '後手' : '先手'),
+          playerWon: _resultWonBy(_userIsP2 ? '後手' : '先手'),
           openingName: _openingLabel.isNotEmpty ? _openingLabel : null,
           playerIsP1: !_userIsP2,
         );
@@ -1680,11 +1725,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       }
     }
     if (vsAI && s.opponentCharacterId != null) {
-      final aiWon = result!.contains(s.aiIsP2 ? '後手' : '先手');
+      final aiWon = _resultWonBy(s.aiIsP2 ? '後手' : '先手');
       _showDialogue(aiWon ? DialogueTrigger.aiWins : DialogueTrigger.aiLoses);
     }
 
-    final playerWon = vsAI ? result!.contains(_userIsP2 ? '後手' : '先手') : false;
+    final playerWon = vsAI ? _resultWonBy(_userIsP2 ? '後手' : '先手') : false;
     final loss = _lossStreak;
 
     // 敗北時の敗北体験ウィジェット表示
@@ -1699,6 +1744,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         const Duration(milliseconds: 1200),
         () => _checkDanPromotion(true),
       );
+
+    // 一定時間メニューを選ばなければ、感想戦画面へ自動的に移動する
+    _postGameAutoNavTimer?.cancel();
+    _postGameAutoNavTimer = Timer(const Duration(seconds: 25), () {
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst || !route.isCurrent);
+      Navigator.of(context).pop(); // 終局ダイアログを閉じる
+      if (kifu.isNotEmpty) {
+        _openKansousenScreen(context);
+      }
+    });
 
     showDialog(
       context: context,
@@ -1726,7 +1782,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
           ],
         ),
-        content: SingleChildScrollView(
+        content: Listener(
+          onPointerDown: (_) => _postGameAutoNavTimer?.cancel(),
+          child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1767,20 +1825,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ),
               const SizedBox(height: 8),
 
-              // 棋譜を振り返る
+              // 感想戦（振り返り）
               if (kifu.isNotEmpty)
                 _postGameBtn(
                   icon: Icons.history,
-                  label: '棋譜を振り返る',
+                  label: '感想戦で振り返る',
                   color: Colors.teal.shade700,
                   onTap: () {
                     Navigator.pop(ctx);
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const KifuHistoryScreen(),
-                      ),
-                    );
+                    _openKansousenScreen(context);
                   },
                 ),
               const SizedBox(height: 6),
@@ -2032,6 +2085,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               ),
             ],
           ),
+        ),
         ),
       ),
     );
@@ -2601,7 +2655,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         'moves': kifu.map((m) => m.toJson()).toList(),
       };
       list.insert(0, record);
-      if (list.length > 20) list.removeLast();
+      // 定跡統計（opening_stats_screen.dart）が意味のあるサンプル数を
+      // 確保できるよう、以前の20件から拡大している
+      if (list.length > 100) list.removeLast();
       await prefs.setString('kifu_records', jsonEncode(list));
       // 対局統計を更新
       await _updateStats();
@@ -3006,6 +3062,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         'stats_moves_sum',
         (prefs.getInt('stats_moves_sum') ?? 0) + kifu.length,
       );
+      // AI対局の総数（勝敗に関わらず加算。弱点分析系画面の勝率計算に使用）
+      if (vsAI) {
+        await prefs.setInt(
+          'stats_total_ai',
+          (prefs.getInt('stats_total_ai') ?? 0) + 1,
+        );
+      }
 
       // 勝敗判定（_resultWonBy: startsWith ベースで判定。理由は同メソッド参照）
       bool? playerWon;
@@ -3013,7 +3076,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final p2Won = _resultWonBy('後手');
       if (result != null) {
         if (vsAI) {
-          final playerIsP1 = !s.aiIsP2;
+          // AI が後手(aiIsP2=true)なら player は先手(P1)。
+          // 以前は !s.aiIsP2 としており符号が逆で、
+          // 既定設定（AIが後手）で勝っても敗北判定されレーティングが
+          // 下がるバグの原因になっていた。
+          final playerIsP1 = s.aiIsP2;
           playerWon = (p1Won && playerIsP1) || (p2Won && !playerIsP1);
         }
         if (p1Won) {
@@ -3098,7 +3165,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
       // レーティング更新（AI対局・レーティング戦のみ）
       if (vsAI && s.aiRated && playerWon != null) {
-        final prevRating = prefs.getInt('rating_current') ?? 700;
+        final prevRating = prefs.getInt('rating_ai_current') ?? 700;
         final prevRankStr = ratingToRank(prevRating);
 
         // Elo 変動量（難度別: random,easy,medium,hard,beginner,elementary,upperMedium,expert）
@@ -3107,7 +3174,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             : [-3, -7, -15, -20, -4, -10, -18, -30][s.aiLevel.index];
         final newRating = (prevRating + delta).clamp(0, 9999);
 
-        await prefs.setInt('rating_current', newRating);
         await prefs.setInt('rating_ai_current', newRating);
 
         // 昇段チェック
@@ -3235,7 +3301,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final weekKey = '${now.year}-W${(now.day / 7).ceil()}';
       final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
 
-      if (result != null && result!.contains('勝')) {
+      // vsAI では「プレイヤー自身」が勝った場合のみカウント（相手＝AIの勝ちで
+      // 誤加算しないよう startsWith ベースの _resultWonBy で判定）
+      final playerWonThisGame = vsAI
+          ? _resultWonBy(_userIsP2 ? '後手' : '先手')
+          : (result != null && result!.contains('勝'));
+      if (playerWonThisGame) {
         // 勝利時のみストリーク更新
         final weekStreak = (prefs.getInt('weekly_streak_$weekKey') ?? 0) + 1;
         final monthStreak = (prefs.getInt('monthly_streak_$monthKey') ?? 0) + 1;
@@ -3306,7 +3377,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
       final prefs = await SharedPreferences.getInstance();
       final streakDays = prefs.getInt('practice_streak_days') ?? 0;
-      final isPremium = prefs.getBool('is_premium') ?? false;
+      final isPremium = PurchaseService.isPremium;
 
       // 今回の対局で獲得した修練値を計算
       final todayPoints = await _calculateTodayPracticePoints();
@@ -3500,7 +3571,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       if (kifuJson == null) return;
 
       final List<dynamic> moves = jsonDecode(kifuJson);
-      final playerIsP1 = !s.aiIsP2;
+      final playerIsP1 = s.aiIsP2; // AI が後手なら player は先手
 
       // 初期盤面に戻す
       if (!mounted) return;
@@ -3556,7 +3627,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // ===== リベンジ: 敗着検出 =====
   Future<void> _detectDefeatMove() async {
     try {
-      final playerIsP1 = !s.aiIsP2;
+      final playerIsP1 = s.aiIsP2; // AI が後手なら player は先手
       var testBoard = List.generate(9, (_) => List<Piece?>.filled(9, null));
       var testP1Hand = <PieceType, int>{};
       var testP2Hand = <PieceType, int>{};
@@ -3942,76 +4013,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               tooltip: '投了',
               onPressed: _resign,
             ),
-          // コーチモード: 待ったボタン
-          if (s.coachMode && result == null && kifu.length >= (vsAI ? 2 : 1))
-            IconButton(
-              icon: const Icon(Icons.undo, color: AppTheme.accent),
-              tooltip: '待った（やり直し）',
-              onPressed: _takata,
-            ),
-          // コーチモード: 講評ボタン（対局中も見られる）
-          if (s.coachMode && kifu.isNotEmpty)
-            IconButton(
-              icon: const Icon(
-                Icons.psychology_outlined,
-                color: Colors.deepPurpleAccent,
-              ),
-              tooltip: 'AI講評',
-              onPressed: _openCoachReport,
-            ),
-          // 局面メモ
-          IconButton(
-            icon: Icon(
-              _memos.containsKey(kifu.length)
-                  ? Icons.note
-                  : Icons.note_add_outlined,
-              color: _memos.containsKey(kifu.length)
-                  ? Colors.amber
-                  : Colors.white54,
-            ),
-            tooltip: 'メモ',
-            onPressed: _openMemoDialog,
-          ),
-          // 局面分析（ヒント）
-          IconButton(
-            icon: Icon(
-              Icons.lightbulb_outline,
-              color: _analysisMode ? Colors.yellow : Colors.white54,
-            ),
-            tooltip: _analysisMode ? '分析オフ' : '局面分析（ヒント）',
-            onPressed: () => setState(() {
-              _analysisMode = !_analysisMode;
-              if (_analysisMode) {
-                _computeHint();
-              } else {
-                _hintMove = null;
-              }
-            }),
-          ),
-          // 効果音 ON/OFF
-          IconButton(
-            icon: Icon(
-              SoundService.enabled ? Icons.volume_up : Icons.volume_off,
-              color: SoundService.enabled ? Colors.white : Colors.white38,
-            ),
-            tooltip: SoundService.enabled ? '音をオフ' : '音をオン',
-            onPressed: () => setState(() {
-              SoundService.enabled = !SoundService.enabled;
-            }),
-          ),
-          // 効き可視化
-          IconButton(
-            icon: Icon(
-              Icons.visibility,
-              color: showAttackMap ? Colors.orangeAccent : Colors.white54,
-            ),
-            tooltip: showAttackMap ? '利き非表示' : '利きを表示',
-            onPressed: () => setState(() {
-              showAttackMap = !showAttackMap;
-              _updateAtkMap();
-            }),
-          ),
-          // 棋譜/盤面切替
+          // 棋譜/盤面切替（頻繁に使うため直接表示）
           IconButton(
             icon: Icon(
               showKifu ? Icons.grid_on : Icons.list_alt,
@@ -4020,127 +4022,220 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             tooltip: showKifu ? '盤面' : '棋譜',
             onPressed: () => setState(() => showKifu = !showKifu),
           ),
-          // 盤面スナップショット
-          IconButton(
-            icon: const Icon(Icons.camera_alt_outlined, color: Colors.white70),
-            tooltip: '盤面を画像で共有',
-            onPressed: _captureBoard,
-          ),
-          // 局面ブックマーク
-          IconButton(
-            icon: Icon(
-              Icons.bookmark_add_outlined,
-              color: _bookmarkCount > 0
-                  ? Colors.amber.shade300
-                  : Colors.white54,
-            ),
-            tooltip: 'ブックマーク',
-            onPressed: result == null
-                ? () => showModalBottomSheet(
-                    context: context,
-                    backgroundColor: AppTheme.surface,
-                    builder: (_) => SafeArea(
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          ListTile(
-                            leading: const Icon(
-                              Icons.bookmark_add,
-                              color: Colors.amber,
-                            ),
-                            title: const Text(
-                              'この局面をブックマーク',
-                              style: TextStyle(color: Colors.white),
-                            ),
-                            onTap: () {
-                              Navigator.pop(context);
-                              _bookmarkPosition();
-                            },
-                          ),
-                          ListTile(
-                            leading: Icon(
-                              Icons.bookmarks,
-                              color: Colors.amber.shade300,
-                            ),
-                            title: Text(
-                              'ブックマーク一覧 ($_bookmarkCount件)',
-                              style: const TextStyle(color: Colors.white),
-                            ),
-                            onTap: () {
-                              Navigator.pop(context);
-                              _showBookmarks();
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                : _showBookmarks,
-          ),
-          // 対局ミッション
-          IconButton(
-            icon: Icon(
-              Icons.flag,
-              color: _showMissionPanel
-                  ? Colors.deepPurpleAccent
-                  : Colors.white38,
-            ),
-            tooltip: 'ミッション',
-            onPressed: () =>
-                setState(() => _showMissionPanel = !_showMissionPanel),
-          ),
-          // KIFエクスポート
-          IconButton(
-            icon: const Icon(Icons.file_download, color: Colors.white70),
-            tooltip: '棋譜エクスポート',
-            onPressed: kifu.isEmpty ? null : _showKifExport,
-          ),
-          // 保存
-          IconButton(
-            icon: const Icon(Icons.save, color: Colors.white70),
-            tooltip: '棋譜保存',
-            onPressed: kifu.isEmpty ? null : _saveKifu,
-          ),
-          // この局面を報告
-          IconButton(
-            icon: const Icon(Icons.bug_report_outlined, color: Colors.white38),
-            tooltip: 'バグ報告・改善要望',
-            onPressed: _reportPosition,
-          ),
-          // 新局
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            tooltip: '新局',
-            onPressed: () => setState(() {
-              board = _initBoard(s.handicap);
-              p1Hand = {};
-              p2Hand = {};
-              p1Turn = true;
-              result = null;
-              kifu = [];
-              _clearSel();
-              lastFR = null;
-              lastFC = null;
-              lastTR = null;
-              lastTC = null;
-              _hintMove = null;
-              _updateAtkMap();
-              if (s.timeLimitSec != null) {
-                p1Time = s.timeLimitSec!;
-                p2Time = s.timeLimitSec!;
-                _p1InByoyomi = false;
-                _p2InByoyomi = false;
-                _p1ByoyomiRemaining = 0;
-                _p2ByoyomiRemaining = 0;
-                _startTimer();
-              }
-              if (vsAI && !s.aiIsP2)
-                Future.delayed(const Duration(milliseconds: 600), _runAI);
-            }),
-          ),
+          _buildOverflowMenu(),
         ],
       ),
       body: showKifu ? _kifuView() : _gameView(),
+    );
+  }
+
+  // ボタン過多でAppBarから溢れないよう、使用頻度の低い操作をここにまとめる
+  Widget _buildOverflowMenu() {
+    void newGame() => setState(() {
+      board = _initBoard(s.handicap);
+      p1Hand = {};
+      p2Hand = {};
+      p1Turn = true;
+      result = null;
+      kifu = [];
+      _clearSel();
+      lastFR = null;
+      lastFC = null;
+      lastTR = null;
+      lastTC = null;
+      _hintMove = null;
+      _updateAtkMap();
+      if (s.timeLimitSec != null) {
+        p1Time = s.timeLimitSec!;
+        p2Time = s.timeLimitSec!;
+        _p1InByoyomi = false;
+        _p2InByoyomi = false;
+        _p1ByoyomiRemaining = 0;
+        _p2ByoyomiRemaining = 0;
+        _startTimer();
+      }
+      if (vsAI && !s.aiIsP2) {
+        Future.delayed(const Duration(milliseconds: 600), _runAI);
+      }
+    });
+
+    void openBookmarkMenu() {
+      if (result != null) {
+        _showBookmarks();
+        return;
+      }
+      showModalBottomSheet(
+        context: context,
+        backgroundColor: AppTheme.surface,
+        builder: (_) => SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: const Icon(Icons.bookmark_add, color: Colors.amber),
+                title: const Text('この局面をブックマーク',
+                    style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _bookmarkPosition();
+                },
+              ),
+              ListTile(
+                leading: Icon(Icons.bookmarks, color: Colors.amber.shade300),
+                title: Text('ブックマーク一覧 ($_bookmarkCount件)',
+                    style: const TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showBookmarks();
+                },
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return PopupMenuButton<String>(
+      icon: const Icon(Icons.more_vert, color: Colors.white),
+      color: AppTheme.surface,
+      onSelected: (value) {
+        switch (value) {
+          case 'takata':
+            _takata();
+            break;
+          case 'coach_report':
+            _openCoachReport();
+            break;
+          case 'memo':
+            _openMemoDialog();
+            break;
+          case 'analysis':
+            setState(() {
+              _analysisMode = !_analysisMode;
+              if (_analysisMode) {
+                _computeHint();
+              } else {
+                _hintMove = null;
+              }
+            });
+            break;
+          case 'sound':
+            setState(() => SoundService.enabled = !SoundService.enabled);
+            break;
+          case 'attack_map':
+            setState(() {
+              showAttackMap = !showAttackMap;
+              _updateAtkMap();
+            });
+            break;
+          case 'screenshot':
+            _captureBoard();
+            break;
+          case 'bookmark':
+            openBookmarkMenu();
+            break;
+          case 'mission':
+            setState(() => _showMissionPanel = !_showMissionPanel);
+            break;
+          case 'kif_export':
+            _showKifExport();
+            break;
+          case 'save':
+            _saveKifu();
+            break;
+          case 'report':
+            _reportPosition();
+            break;
+          case 'new_game':
+            newGame();
+            break;
+        }
+      },
+      itemBuilder: (context) => [
+        if (s.coachMode && result == null && kifu.length >= (vsAI ? 2 : 1))
+          PopupMenuItem(
+            value: 'takata',
+            child: _menuRow(Icons.undo, '待った（やり直し）',
+                color: AppTheme.accent),
+          ),
+        if (s.coachMode && kifu.isNotEmpty)
+          PopupMenuItem(
+            value: 'coach_report',
+            child: _menuRow(Icons.psychology_outlined, 'AI講評',
+                color: Colors.deepPurpleAccent),
+          ),
+        PopupMenuItem(
+          value: 'memo',
+          child: _menuRow(
+            _memos.containsKey(kifu.length)
+                ? Icons.note
+                : Icons.note_add_outlined,
+            'メモ',
+            color: _memos.containsKey(kifu.length) ? Colors.amber : null,
+          ),
+        ),
+        PopupMenuItem(
+          value: 'analysis',
+          child: _menuRow(Icons.lightbulb_outline,
+              _analysisMode ? '分析オフ' : '局面分析（ヒント）',
+              color: _analysisMode ? Colors.yellow : null),
+        ),
+        PopupMenuItem(
+          value: 'sound',
+          child: _menuRow(
+              SoundService.enabled ? Icons.volume_up : Icons.volume_off,
+              SoundService.enabled ? '音をオフ' : '音をオン'),
+        ),
+        PopupMenuItem(
+          value: 'attack_map',
+          child: _menuRow(Icons.visibility,
+              showAttackMap ? '利き非表示' : '利きを表示',
+              color: showAttackMap ? Colors.orangeAccent : null),
+        ),
+        const PopupMenuItem(
+          value: 'screenshot',
+          child: _StaticMenuRow(Icons.camera_alt_outlined, '盤面を画像で共有'),
+        ),
+        PopupMenuItem(
+          value: 'bookmark',
+          child: _menuRow(Icons.bookmark_add_outlined,
+              'ブックマーク ($_bookmarkCount件)',
+              color: _bookmarkCount > 0 ? Colors.amber.shade300 : null),
+        ),
+        PopupMenuItem(
+          value: 'mission',
+          child: _menuRow(Icons.flag, 'ミッション',
+              color: _showMissionPanel ? Colors.deepPurpleAccent : null),
+        ),
+        if (kifu.isNotEmpty)
+          const PopupMenuItem(
+            value: 'kif_export',
+            child: _StaticMenuRow(Icons.file_download, '棋譜エクスポート'),
+          ),
+        if (kifu.isNotEmpty)
+          const PopupMenuItem(
+            value: 'save',
+            child: _StaticMenuRow(Icons.save, '棋譜保存'),
+          ),
+        const PopupMenuItem(
+          value: 'report',
+          child: _StaticMenuRow(Icons.bug_report_outlined, 'バグ報告・改善要望'),
+        ),
+        const PopupMenuItem(
+          value: 'new_game',
+          child: _StaticMenuRow(Icons.refresh, '新局'),
+        ),
+      ],
+    );
+  }
+
+  Widget _menuRow(IconData icon, String label, {Color? color}) {
+    return Row(
+      children: [
+        Icon(icon, color: color ?? Colors.white70, size: 20),
+        const SizedBox(width: 12),
+        Text(label, style: const TextStyle(color: Colors.white)),
+      ],
     );
   }
 
@@ -4149,16 +4244,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // 有利な側の色(先手=青系/後手=赤系)へ背景を染め、その陣側を濃くする。
   BoxDecoration _advantageDecoration() {
     const base = AppTheme.bg;      // 中立のベース
-    const senteColor = Color(0xFF1B3E7A); // 先手＝青系
-    const goteColor = Color(0xFF6B1E2E);  // 後手＝赤系
+    const senteColor = Color(0xFF2A5CC4); // 先手＝青系（鮮やかに）
+    const goteColor = Color(0xFFB0243F);  // 後手＝赤系（鮮やかに）
     const maxScore = 3000.0;
     final t = (_evalScore.clamp(-3000, 3000)) / maxScore; // -1..1
     final strength = t.abs();
     final lead = t >= 0 ? senteColor : goteColor;
     // 終局後は決着側の色をしっかり出す
-    final boost = result != null ? 0.15 : 0.0;
-    final strong = Color.lerp(base, lead, (strength * 0.55 + boost).clamp(0.0, 0.6))!;
-    final weak = Color.lerp(base, lead, (strength * 0.20).clamp(0.0, 0.25))!;
+    final boost = result != null ? 0.22 : 0.0;
+    final strong = Color.lerp(base, lead, (strength * 0.85 + boost).clamp(0.0, 0.95))!;
+    final mid = Color.lerp(base, lead, (strength * 0.45 + boost * 0.6).clamp(0.0, 0.55))!;
+    final weak = Color.lerp(base, lead, (strength * 0.15).clamp(0.0, 0.2))!;
     // 有利側が画面の上下どちらにいるか（ユーザーは常に下＝!_userIsP2が先手側）
     final senteAdvant = _evalScore >= 0;
     final senteAtBottom = !_userIsP2;
@@ -4167,8 +4263,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       gradient: LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: strongAtBottom ? [weak, strong] : [strong, weak],
-        stops: const [0.35, 1.0],
+        colors: strongAtBottom ? [weak, mid, strong] : [strong, mid, weak],
+        stops: const [0.0, 0.5, 1.0],
       ),
     );
   }
@@ -4176,8 +4272,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Widget _gameView() {
     // ユーザーは常に下に表示
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 700),
-      curve: Curves.easeOut,
+      duration: const Duration(milliseconds: 900),
+      curve: Curves.easeInOutCubic,
       decoration: _advantageDecoration(),
       child: SafeArea(
       child: Stack(
@@ -5099,24 +5195,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 s.labelStyle == PieceLabelStyle.english
                     ? pieceLabelEn(piece.type, piece.isPlayer1)
                     : piece.label,
-                style: TextStyle(
+                style: komaLabelStyle(
+                  isPromoted: piece.isPromoted,
                   fontSize: s.labelStyle == PieceLabelStyle.english
-                      ? cellW * .40
-                      : cellW * .50,
-                  fontWeight: FontWeight.w900,
-                  color: piece.isPromoted
-                      ? const Color(0xFFB3261E)
-                      : const Color(0xFF2C1A0A),
-                  height: 1.0,
-                  shadows: [
-                    Shadow(
-                      color: piece.isPromoted
-                          ? const Color(0xFFB3261E).withAlpha(50)
-                          : Colors.black.withAlpha(35),
-                      offset: const Offset(0.5, 0.8),
-                      blurRadius: 1,
-                    ),
-                  ],
+                      ? cellW * .42
+                      : cellW * .52,
                 ),
               ),
             ),
@@ -5213,10 +5296,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     clipBehavior: Clip.hardEdge,
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(3),
-                      border: Border.all(
-                        color: const Color(0xFF8D6E4A), // 明るい木縁
-                        width: 2,
-                      ),
+                      // 外枠線は GridOverlayPainter が盤面と同じ座標系で描く
+                      // （Container の border は decoration.padding により
+                      //   内側コンテンツを縮めてしまい、グリッド線・駒とズレる）
                       gradient: LinearGradient(
                         begin: Alignment.topLeft,
                         end: Alignment.bottomRight,
@@ -5556,6 +5638,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               ),
                             );
                           },
+                        ),
+                        // 囲いガイド矢印
+                        if (s.castleGuideEnabled && result == null && kifu.length <= s.castleGuideMaxPly)
+                          IgnorePointer(
+                            child: CustomPaint(
+                              painter: _CastleGuideArrowPainter(
+                                arrows: CastleGuideService.getGuideArrows(board, s.castleGuideName, s.aiIsP2),
+                                cellW: cellW,
+                                cellH: cellH,
+                                flipBoard: flipBoard,
+                              ),
+                              size: Size(boardSize, boardH),
+                            ),
+                          ),
+                        // グリッド線・星は最前面に重ねる（マスの不透明背景に隠れないように）
+                        IgnorePointer(
+                          child: CustomPaint(
+                            painter: GridOverlayPainter(
+                              borderColor: _cellBorder,
+                              outerBorderColor: const Color(0xFF8D6E4A), // 明るい木縁
+                              outerBorderWidth: 2.4,
+                              starColor: s.theme == PieceTheme.dark
+                                  ? Colors.white70
+                                  : Colors.black87,
+                            ),
+                            size: Size(boardSize, boardH),
+                          ),
                         ),
                       ],
                     ),
@@ -6080,3 +6189,68 @@ const _pieceGuide = <PieceType, String>{
   PieceType.promotedLance: '成香：金と同じ動き',
   PieceType.promotedPawn: 'と金：金と同じ動き',
 };
+
+// ===== 囲いガイド矢印描画 =====
+class _CastleGuideArrowPainter extends CustomPainter {
+  final List<(int, int, int, int)> arrows;
+  final double cellW;
+  final double cellH;
+  final bool flipBoard;
+
+  const _CastleGuideArrowPainter({
+    required this.arrows,
+    required this.cellW,
+    required this.cellH,
+    required this.flipBoard,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (arrows.isEmpty) return;
+
+    final linePaint = Paint()
+      ..color = const Color(0xCC1AAA55)
+      ..strokeWidth = cellW * 0.1
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    final fillPaint = Paint()
+      ..color = const Color(0xCC1AAA55)
+      ..style = PaintingStyle.fill;
+
+    for (final (fr, fc, tr, tc) in arrows) {
+      final dfr = (flipBoard ? 8 - fr : fr).toDouble();
+      final dfc = (flipBoard ? 8 - fc : fc).toDouble();
+      final dtr = (flipBoard ? 8 - tr : tr).toDouble();
+      final dtc = (flipBoard ? 8 - tc : tc).toDouble();
+
+      final from = Offset((dfc + 0.5) * cellW, (dfr + 0.5) * cellH);
+      final to   = Offset((dtc + 0.5) * cellW, (dtr + 0.5) * cellH);
+      final d    = to - from;
+      final len  = d.distance;
+      if (len < 1) continue;
+
+      final arrowSize = cellW * 0.27;
+      final ux = d.dx / len;
+      final uy = d.dy / len;
+      // Shorten line so it doesn't overlap the arrowhead
+      final tip  = to;
+      final tail = from + Offset(ux * arrowSize * 0.5, uy * arrowSize * 0.5);
+      final lineEnd = tip - Offset(ux * arrowSize * 0.85, uy * arrowSize * 0.85);
+      canvas.drawLine(tail, lineEnd, linePaint);
+
+      // Arrowhead triangle
+      final p1 = tip - Offset(ux * arrowSize - uy * arrowSize * 0.5, uy * arrowSize + ux * arrowSize * 0.5);
+      final p2 = tip - Offset(ux * arrowSize + uy * arrowSize * 0.5, uy * arrowSize - ux * arrowSize * 0.5);
+      canvas.drawPath(
+        Path()..moveTo(tip.dx, tip.dy)..lineTo(p1.dx, p1.dy)..lineTo(p2.dx, p2.dy)..close(),
+        fillPaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CastleGuideArrowPainter old) =>
+      old.arrows.length != arrows.length ||
+      old.flipBoard != flipBoard ||
+      old.cellW != cellW;
+}

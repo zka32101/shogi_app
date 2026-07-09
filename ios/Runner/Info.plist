@@ -76,5 +76,9 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>音声で棋譜（指し手）を入力するためにマイクを使用します。</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>話した指し手を認識するために音声認識を使用します。</string>
 </dict>
 </plist>

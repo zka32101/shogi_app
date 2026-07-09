@@ -381,7 +381,9 @@ class _LishogiPuzzleScreenState extends State<LishogiPuzzleScreen>
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(5),
-        border: Border.all(color: const Color(0xFF4E342E), width: 3),
+        // 外枠線は GridOverlayPainter が盤面と同じ座標系で描く
+        // （Container の border は decoration.padding により
+        //   内側コンテンツを縮めてしまい、グリッド線・駒とズレる）
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -425,6 +427,18 @@ class _LishogiPuzzleScreenState extends State<LishogiPuzzleScreen>
           ),
           if (_animFR != null && t < 0.999)
             _buildAnimOverlay(cellSz),
+          // グリッド線・星は最前面に重ねる（マスの不透明背景に隠れないように）
+          IgnorePointer(
+            child: CustomPaint(
+              painter: GridOverlayPainter(
+                borderColor: config.cellBorder,
+                outerBorderColor: const Color(0xFF4E342E),
+                outerBorderWidth: 3.0,
+                starColor: starColor,
+              ),
+              size: Size(sz, sz),
+            ),
+          ),
         ],
       ),
     );
@@ -526,13 +540,9 @@ class _LishogiPuzzleScreenState extends State<LishogiPuzzleScreen>
             quarterTurns: pointsUp ? 0 : 2,
             child: Text(
               piece.label,
-              style: TextStyle(
-                fontSize: cellW * 0.50,
-                fontWeight: FontWeight.bold,
-                color: piece.isPromoted
-                    ? const Color(0xFFB3261E)
-                    : const Color(0xFF3A2A18),
-                height: 1.0,
+              style: komaLabelStyle(
+                isPromoted: piece.isPromoted,
+                fontSize: cellW * 0.52,
               ),
             ),
           ),

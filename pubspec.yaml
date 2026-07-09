@@ -50,6 +50,12 @@ dependencies:
   # グラフ・チャート
   fl_chart: ^0.65.0
 
+  # 棋譜再生のGIFアニメ書き出し（動画共有用）
+  image: ^4.8.0
+
+  # 音声入力（棋譜の読み上げ入力）
+  speech_to_text: ^7.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
