@@ -36,9 +36,11 @@ class DefeatExperienceWidget extends StatelessWidget {
     // Null/empty チェック
     if (result.isEmpty) return const SizedBox.shrink();
 
-    final isLoss = result.contains('敗') ||
-        (result.contains('後手') && result.contains('勝')) ||
-        (result.contains('先手') && result.contains('勝'));
+    // このウィジェットは常にプレイヤーの敗北時にのみ呼び出される
+    // （呼び出し元 game_screen.dart の _showGameEndDialog で判定済み）。
+    // 旧ロジックは「先手」「後手」の両方に「勝」が付けば真になる式で、
+    // 投了時の勝者/敗者両方の呼称を含む文言により常にtrueになっていた。
+    const isLoss = true;
 
     return SingleChildScrollView(
       child: Container(

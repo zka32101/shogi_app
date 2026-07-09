@@ -16,6 +16,7 @@ import 'castle_patterns_screen.dart';
 import 'strategies_screen.dart';
 import 'screens/strategies_screen_v2.dart';
 import 'stats_screen.dart';
+import 'opening_stats_screen.dart';
 import 'tutorial_screen.dart';
 import 'strength_test_screen.dart';
 import 'speech_service.dart';
@@ -23,6 +24,7 @@ import 'sound_service.dart';
 import 'joseki_screen.dart';
 import 'tsume_screen.dart';
 import 'tesuji_screen.dart';
+import 'strategy_map_screen.dart';
 import 'proverbs_screen.dart';
 import 'ad_service.dart';
 import 'purchase_service.dart';
@@ -74,6 +76,12 @@ import 'services/fcm_service.dart';
 
 import 'screens/customize_screen.dart';
 import 'screens/past_self_battle_screen.dart';
+import 'screens/statistics_screen.dart';
+import 'screens/leaderboard_screen.dart';
+import 'screens/custom_period_analysis_screen.dart';
+import 'screens/personalized_lesson_screen.dart';
+import 'services/kifu_analytics_service.dart';
+import 'models/game_analysis.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -114,6 +122,8 @@ Future<void> _initializeBackgroundServices() async {
     AiDataService.downloadOpeningBook();
     // G1: プッシュ通知初期化（バックグラウンドハンドラはFirebase.initializeApp後に登録必須）
     await FcmService().initialize();
+    // 通知タップ時の画面遷移コールバックも Firebase 初期化後に登録
+    FcmService().onNotificationTap = _handleNotificationTap;
   } catch (_) {
     // Firebase 未設定の場合はスキップ（ネットワーク対局機能は無効）
   }
@@ -121,6 +131,60 @@ Future<void> _initializeBackgroundServices() async {
 
 // プッシュ通知タップ時に BuildContext なしで画面遷移するためのキー
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
+
+// ── プッシュ通知タップ時の画面遷移 ─────────────────────────
+// Firebase 初期化後にのみ登録されるトップレベル関数（_initializeBackgroundServices 参照）
+void _handleNotificationTap(Map<String, dynamic> data) {
+  final nav = rootNavigatorKey.currentState;
+  if (nav == null) return;
+  final screen = data['screen'] as String?;
+  switch (screen) {
+    case 'match':
+      final matchId = data['match_id'] as String?;
+      if (matchId != null) _openMatch(nav, matchId);
+      break;
+    case 'friends':
+    case 'challenge':
+      nav.push(MaterialPageRoute(builder: (_) => const FriendScreen()));
+      break;
+    case 'achievements':
+      nav.push(MaterialPageRoute(builder: (_) => const AchievementScreen()));
+      break;
+    case 'match_history':
+      final uid = NetworkService().currentUser?.uid;
+      if (uid != null) {
+        nav.push(MaterialPageRoute(
+            builder: (_) => MatchHistoryScreen(userId: uid)));
+      }
+      break;
+    case 'daily_challenge':
+      nav.push(MaterialPageRoute(builder: (_) => const DailyChallengeScreen()));
+      break;
+  }
+}
+
+Future<void> _openMatch(NavigatorState nav, String matchId) async {
+  try {
+    final uid = NetworkService().currentUser?.uid;
+    if (uid == null) return;
+    final doc = await FirebaseFirestore.instance
+        .collection('matches')
+        .doc(matchId)
+        .get();
+    if (!doc.exists) return;
+    final data = doc.data()!;
+    final isPlayer1 = data['player1_id'] == uid;
+    final timeLimitSec = (data['player1_time'] as int?) ?? 600;
+    nav.push(MaterialPageRoute(
+      builder: (_) => MatchScreen(
+        matchId: matchId,
+        isPlayer1: isPlayer1,
+        myPlayerId: uid,
+        timeLimitSec: timeLimitSec,
+      ),
+    ));
+  } catch (_) {}
+}
 
 class ShogiApp extends StatefulWidget {
   const ShogiApp({super.key});
@@ -136,60 +200,12 @@ class _ShogiAppState extends State<ShogiApp> {
   void initState() {
     super.initState();
     _loadThemePreference();
-    FcmService().onNotificationTap = _handleNotificationTap;
-  }
-
-  // ── プッシュ通知タップ時の画面遷移 ─────────────────────────
-  void _handleNotificationTap(Map<String, dynamic> data) {
-    final nav = rootNavigatorKey.currentState;
-    if (nav == null) return;
-    final screen = data['screen'] as String?;
-    switch (screen) {
-      case 'match':
-        final matchId = data['match_id'] as String?;
-        if (matchId != null) _openMatch(nav, matchId);
-        break;
-      case 'friends':
-      case 'challenge':
-        nav.push(MaterialPageRoute(builder: (_) => const FriendScreen()));
-        break;
-      case 'achievements':
-        nav.push(MaterialPageRoute(builder: (_) => const AchievementScreen()));
-        break;
-      case 'match_history':
-        final uid = NetworkService().currentUser?.uid;
-        if (uid != null) {
-          nav.push(MaterialPageRoute(
-              builder: (_) => MatchHistoryScreen(userId: uid)));
-        }
-        break;
-      case 'daily_challenge':
-        nav.push(MaterialPageRoute(builder: (_) => const DailyChallengeScreen()));
-        break;
-    }
-  }
-
-  Future<void> _openMatch(NavigatorState nav, String matchId) async {
-    try {
-      final uid = NetworkService().currentUser?.uid;
-      if (uid == null) return;
-      final doc = await FirebaseFirestore.instance
-          .collection('matches')
-          .doc(matchId)
-          .get();
-      if (!doc.exists) return;
-      final data = doc.data()!;
-      final isPlayer1 = data['player1_id'] == uid;
-      final timeLimitSec = (data['player1_time'] as int?) ?? 600;
-      nav.push(MaterialPageRoute(
-        builder: (_) => MatchScreen(
-          matchId: matchId,
-          isPlayer1: isPlayer1,
-          myPlayerId: uid,
-          timeLimitSec: timeLimitSec,
-        ),
-      ));
-    } catch (_) {}
+    // 注意: FcmService().onNotificationTap の登録は Firebase 初期化後
+    // （_initializeBackgroundServices 内）で行うこと。ここで FcmService() に
+    // 触れると、その場で FirebaseMessaging.instance が生成され、
+    // まだ Firebase.initializeApp() が完了していない場合に
+    // 「No Firebase App '[DEFAULT]' has been created」で即クラッシュし、
+    // 起動直後にグレー画面になる（実機で確認済みの不具合）。
   }
 
   Future<void> _loadThemePreference() async {
@@ -775,6 +791,14 @@ class _PlayTabState extends State<_PlayTab> {
               () => _go(context, const StatsScreen()),
             ),
             const SizedBox(height: 8),
+            _bigButton(
+              context,
+              '定跡統計',
+              Icons.insights,
+              Colors.teal.shade600,
+              () => _go(context, const OpeningStatsScreen()),
+            ),
+            const SizedBox(height: 8),
             // ゴースト棋士カード
             GestureDetector(
               onTap: () {
@@ -894,6 +918,18 @@ class _StudyTab extends StatelessWidget {
 
   void _go(BuildContext ctx, Widget screen) {
     Navigator.push(ctx, MaterialPageRoute(builder: (_) => screen));
+  }
+
+  // 分析済み対局データ（GameAnalysis）を読み込んでから遷移する画面用。
+  // KifuAnalyticsService.getAllAnalyses() は既存の対局分析保存機能
+  // （_showGameEndDialog → analyzeAndSaveGame）が書き込んだデータを読む。
+  Future<void> _goWithAnalyses(
+    BuildContext ctx,
+    Widget Function(List<GameAnalysis> games) builder,
+  ) async {
+    final games = await KifuAnalyticsService().getAllAnalyses();
+    if (!ctx.mounted) return;
+    Navigator.push(ctx, MaterialPageRoute(builder: (_) => builder(games)));
   }
 
   @override
@@ -1050,11 +1086,13 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('次の一手', Icons.lightbulb, () => _go(context, const NextMoveScreen())),
         _StudyItem('手筋トレーニング', Icons.psychology, () => _go(context, const TesujiScreen())),
         _StudyItem('囲い崩し道場', Icons.shield_outlined, () => _go(context, const CastleBreakScreen())),
+        _StudyItem('自動生成パズル', Icons.auto_fix_high, () => _go(context, const PuzzleGeneratorScreen())),
       ]),
       _StudySection('定跡・囲い・基礎', Icons.menu_book, const Color(0xFF5C6BC0), [
         _StudyItem('定跡ガイド', Icons.route, () => _go(context, const JosekiScreen())),
         _StudyItem('囲いパターン', Icons.security, () => _go(context, const CastlePatternsScreen())),
         _StudyItem('戦法', Icons.trending_up, () => _go(context, const StrategiesScreen())),
+        _StudyItem('対策マップ', Icons.alt_route, () => _go(context, const StrategyMapScreen())),
         _StudyItem('戦法（AI評価版）', Icons.smart_toy, () => _go(context, const StrategiesScreenV2()), requiresPremium: true),
         _StudyItem('将棋の格言', Icons.format_quote, () => _go(context, const ProverbsScreen())),
         _StudyItem('駒の動き', Icons.book, () => _go(context, const RulesScreen())),
@@ -1080,13 +1118,19 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('忘却曲線AI', Icons.calendar_today, () => _go(context, const SpacedRepetitionScreen()), requiresPremium: true),
         _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen()), requiresPremium: true),
         _StudyItem('自然言語Q&A', Icons.chat, () => _go(context, const NaturalLangQAScreen()), requiresPremium: true),
-        _StudyItem('難易度自動調整', Icons.tune, () => _go(context, const AdaptiveDifficultyScreen(userId: 'user_default')), requiresPremium: true),
-        _StudyItem('カメラOCR', Icons.camera_alt, () => _go(context, const CameraOCRScreen(isPremiumUser: true)), requiresPremium: true),
+        _StudyItem('難易度自動調整', Icons.tune, () => _go(context, AdaptiveDifficultyScreen(userId: 'user_default', isPremium: PurchaseService.isPremium)), requiresPremium: true),
+        _StudyItem('カメラOCR', Icons.camera_alt, () => _go(context, CameraOCRScreen(isPremiumUser: PurchaseService.isPremium)), requiresPremium: true),
         _StudyItem('音声入出力', Icons.mic, () => _go(context, const VoiceIOScreen()), requiresPremium: true),
+        _StudyItem('パーソナライズ学習', Icons.menu_book, () => _go(context, const PersonalizedLessonScreen()), requiresPremium: true),
       ]),
       _StudySection('記録・実績', Icons.leaderboard, const Color(0xFF78909C), [
         _StudyItem('ランキング', Icons.leaderboard, () => _go(context, const RankingScreen())),
         _StudyItem('バッジ', Icons.military_tech, () => _go(context, const BadgeScreen())),
+        _StudyItem('総合統計', Icons.public, () => _go(context, const StatisticsScreen())),
+        _StudyItem('スコアボード', Icons.emoji_events_outlined,
+            () => _goWithAnalyses(context, (games) => LeaderboardScreen(games: games))),
+        _StudyItem('期間別分析', Icons.date_range,
+            () => _goWithAnalyses(context, (games) => CustomPeriodAnalysisScreen(games: games))),
       ]),
     ];
     final widgets = <Widget>[];
@@ -1543,6 +1587,12 @@ class _SettingsTab extends StatelessWidget {
             ]),
             const SizedBox(height: 20),
 
+            // ── 感想戦・再生表示 ──
+            _sectionLabel('感想戦・再生表示'),
+            const SizedBox(height: 8),
+            _settingCard([const _AttackMapToggleRow()]),
+            const SizedBox(height: 20),
+
             // ── 言語設定 ──
             _sectionLabel('言語 / Language'),
             const SizedBox(height: 8),
@@ -1666,6 +1716,56 @@ class _SettingsTab extends StatelessWidget {
 }
 
 // ===== 共通ウィジェット =====
+
+// 感想戦・棋譜再生画面での「効き（利き）」可視化のON/OFF設定。
+// kansousen_screen.dart / kifu_replay_screen.dart と同じキーを共有し、
+// 画面側のトグルボタンとこの設定を相互に同期させる。
+class _AttackMapToggleRow extends StatefulWidget {
+  const _AttackMapToggleRow();
+
+  @override
+  State<_AttackMapToggleRow> createState() => _AttackMapToggleRowState();
+}
+
+class _AttackMapToggleRowState extends State<_AttackMapToggleRow> {
+  static const _kShowAttackMapPref = 'review_show_attack_map';
+  bool _enabled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _enabled = prefs.getBool(_kShowAttackMapPref) ?? false);
+  }
+
+  Future<void> _toggle(bool next) async {
+    setState(() => _enabled = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kShowAttackMapPref, next);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: const Icon(Icons.visibility, color: Colors.orangeAccent),
+      title: const Text('駒の効きを可視化',
+          style: TextStyle(color: Colors.white, fontSize: 14)),
+      subtitle: const Text('感想戦・棋譜再生画面で先手/後手の利きを色分け表示',
+          style: TextStyle(color: Colors.white38, fontSize: 11)),
+      trailing: Switch(
+        value: _enabled,
+        activeColor: Colors.orangeAccent,
+        onChanged: _toggle,
+      ),
+    );
+  }
+}
 
 Widget _sectionLabel(String text) => Text(
   text,

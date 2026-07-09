@@ -25,9 +25,6 @@ class BoardPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cellW = size.width / 9;
-    final cellH = size.height / 9;
-
     // ── 1. 有利度オーバーレイ ──────────────────────────────────────────────
     if (advantageRatio != null && advantageRatio != 0.5) {
       final Color advantageColor;
@@ -61,10 +58,7 @@ class BoardPainter extends CustomPainter {
     // ── 3. 木目縞（疑似木目）─ 水平の微細な縞模様 ────────────────────────
     _drawWoodGrain(canvas, size);
 
-    // ── 4. グリッドライン（外周太・内線細） ────────────────────────────────
-    _drawGrid(canvas, size, cellW, cellH);
-
-    // ── 5. 内側ハイライト（盤の上端に白光沢） ────────────────────────────
+    // ── 4. 内側ハイライト（盤の上端に白光沢） ────────────────────────────
     final topHighlight = Paint()
       ..shader = LinearGradient(
         begin: Alignment.topCenter,
@@ -75,8 +69,10 @@ class BoardPainter extends CustomPainter {
     canvas.drawRect(
         Rect.fromLTWH(0, 0, size.width, size.height * 0.25), topHighlight);
 
-    // ── 6. 星（ほし） ─────────────────────────────────────────────────────
-    _drawHoshi(canvas, cellW, cellH);
+    // 注意: グリッド線・星（ほし）はここでは描かない。
+    // マス目は不透明な背景色を持つ Container で1マスずつ描画されるため、
+    // ここで描いても真上から塗りつぶされて見えなくなる。
+    // 実際の描画は GridOverlayPainter（マスの上に重ねる）が担当する。
   }
 
   void _drawWoodGrain(Canvas canvas, Size size) {
@@ -119,57 +115,6 @@ class BoardPainter extends CustomPainter {
     }
   }
 
-  void _drawGrid(Canvas canvas, Size size, double cellW, double cellH) {
-    // 内線
-    final innerPaint = Paint()
-      ..color = borderColor.withAlpha(borderColor.alpha)
-      ..strokeWidth = 0.6;
-
-    for (int i = 1; i < 9; i++) {
-      canvas.drawLine(
-          Offset(i * cellW, 0), Offset(i * cellW, size.height), innerPaint);
-      canvas.drawLine(
-          Offset(0, i * cellH), Offset(size.width, i * cellH), innerPaint);
-    }
-
-    // 外周線（太め）
-    final outerPaint = Paint()
-      ..color = borderColor
-      ..strokeWidth = 1.8
-      ..strokeCap = StrokeCap.square;
-
-    // top
-    canvas.drawLine(Offset(0, 0), Offset(size.width, 0), outerPaint);
-    // bottom
-    canvas.drawLine(
-        Offset(0, size.height), Offset(size.width, size.height), outerPaint);
-    // left
-    canvas.drawLine(Offset(0, 0), Offset(0, size.height), outerPaint);
-    // right
-    canvas.drawLine(
-        Offset(size.width, 0), Offset(size.width, size.height), outerPaint);
-  }
-
-  void _drawHoshi(Canvas canvas, double cellW, double cellH) {
-    final starPaint = Paint()
-      ..color = starColor
-      ..style = PaintingStyle.fill;
-    final hoshiRadius = cellW * 0.11;
-
-    const hoshiPositions = [(3, 3), (3, 6), (6, 3), (6, 6)];
-    for (final (row, col) in hoshiPositions) {
-      final x = col * cellW;
-      final y = row * cellH;
-      // 白ハイライト（立体感）
-      canvas.drawCircle(
-        Offset(x - 0.6, y - 0.6),
-        hoshiRadius * 0.5,
-        Paint()..color = Colors.white.withAlpha(70)..style = PaintingStyle.fill,
-      );
-      canvas.drawCircle(Offset(x, y), hoshiRadius, starPaint);
-    }
-  }
-
   @override
   bool shouldRepaint(covariant BoardPainter old) {
     return old.cellColor != cellColor ||
@@ -183,4 +128,79 @@ class BoardPainter extends CustomPainter {
 
   @override
   bool shouldRebuildSemantics(covariant BoardPainter oldDelegate) => false;
+}
+
+/// グリッド線と星（ほし）だけを描く軽量painter。
+/// マス目（1マスごとの不透明な色付きContainer）の「上」に重ねて使うこと。
+/// BoardPainter は背景（木目・グラデーション）用で、マスの下に敷くと
+/// グリッド線がマスの塗りつぶしで隠れてしまうため、線はこちらに分離している。
+class GridOverlayPainter extends CustomPainter {
+  final Color borderColor;
+  final Color starColor;
+  final Color? outerBorderColor; // 未指定なら borderColor を使う
+  final double outerBorderWidth;
+
+  const GridOverlayPainter({
+    required this.borderColor,
+    this.starColor = const Color(0xDD000000),
+    this.outerBorderColor,
+    this.outerBorderWidth = 1.8,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final cellW = size.width / 9;
+    final cellH = size.height / 9;
+
+    // 内線
+    final innerPaint = Paint()
+      ..color = borderColor
+      ..strokeWidth = 0.6;
+    for (int i = 1; i < 9; i++) {
+      canvas.drawLine(
+          Offset(i * cellW, 0), Offset(i * cellW, size.height), innerPaint);
+      canvas.drawLine(
+          Offset(0, i * cellH), Offset(size.width, i * cellH), innerPaint);
+    }
+
+    // 外周線（太め・盤の縁は内線と別の明るい色で強調できる）
+    final outerPaint = Paint()
+      ..color = outerBorderColor ?? borderColor
+      ..strokeWidth = outerBorderWidth
+      ..strokeCap = StrokeCap.square;
+    canvas.drawLine(Offset(0, 0), Offset(size.width, 0), outerPaint);
+    canvas.drawLine(
+        Offset(0, size.height), Offset(size.width, size.height), outerPaint);
+    canvas.drawLine(Offset(0, 0), Offset(0, size.height), outerPaint);
+    canvas.drawLine(
+        Offset(size.width, 0), Offset(size.width, size.height), outerPaint);
+
+    // 星（ほし）
+    final starPaint = Paint()
+      ..color = starColor
+      ..style = PaintingStyle.fill;
+    final hoshiRadius = cellW * 0.11;
+    const hoshiPositions = [(3, 3), (3, 6), (6, 3), (6, 6)];
+    for (final (row, col) in hoshiPositions) {
+      final x = col * cellW;
+      final y = row * cellH;
+      canvas.drawCircle(
+        Offset(x - 0.6, y - 0.6),
+        hoshiRadius * 0.5,
+        Paint()..color = Colors.white.withAlpha(70)..style = PaintingStyle.fill,
+      );
+      canvas.drawCircle(Offset(x, y), hoshiRadius, starPaint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant GridOverlayPainter old) =>
+      old.borderColor != borderColor ||
+      old.starColor != starColor ||
+      old.outerBorderColor != outerBorderColor ||
+      old.outerBorderWidth != outerBorderWidth;
+
+  @override
+  bool shouldRebuildSemantics(covariant GridOverlayPainter oldDelegate) =>
+      false;
 }

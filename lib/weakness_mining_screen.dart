@@ -56,9 +56,9 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
   Future<void> _initializeData() async {
     _prefs = await SharedPreferences.getInstance();
 
-    // Load stats
-    _totalAiGames = _prefs.getInt('total_ai_games') ?? 0;
-    _aiWins = _prefs.getInt('ai_wins') ?? 0;
+    // Load stats（total_ai_games/ai_winsは存在しないキーで常に0だったため修正）
+    _totalAiGames = _prefs.getInt('stats_total_ai') ?? 0;
+    _aiWins = _prefs.getInt('stats_p1_wins_ai') ?? 0;
 
     // Load or analyze weakness patterns
     await _loadOrAnalyzeWeaknesses();

@@ -21,13 +21,17 @@ import '../theme_config.dart';
 import '../theme/app_theme.dart';
 import 'dart:ui' show FontFeature;
 import '../services/cheat_detection_service.dart';
+import '../services/rating_service.dart';
 import '../badge_service.dart';
+import '../stats_screen.dart' show ratingToRank, ratingToColor;
+import '../rank_badge_widget.dart' show showRankUpDialog;
 
 class MatchScreen extends StatefulWidget {
   final String matchId;
   final bool isPlayer1;
   final String myPlayerId; // 自分のプレイヤーID（勝敗判定用）
   final int timeLimitSec;  // 持ち時間（秒）: 600=10分, 300=5分
+  final int? opponentRating; // マッチング時点の相手レーティング（対局後のレーティング反映用。不明ならnull=反映しない）
 
   const MatchScreen({
     super.key,
@@ -35,6 +39,7 @@ class MatchScreen extends StatefulWidget {
     required this.isPlayer1,
     this.myPlayerId = '',
     this.timeLimitSec = 600,
+    this.opponentRating,
   });
 
   @override
@@ -73,6 +78,7 @@ class _MatchScreenState extends State<MatchScreen> {
   int? _prevCurrentTurn;
   bool _trackingSaved = false;
   bool _badgeChecked = false;
+  bool _ratingApplied = false;
 
   // キャラクターアイコン
   String? _myCharIconId;
@@ -168,6 +174,11 @@ class _MatchScreenState extends State<MatchScreen> {
         if (!_badgeChecked) {
           _badgeChecked = true;
           Future.microtask(() => _checkNetBadges(state!));
+        }
+        // レーティング反映（1回のみ、レーティング戦かつ相手のレーティングが分かる場合のみ）
+        if (!_ratingApplied) {
+          _ratingApplied = true;
+          Future.microtask(() => _applyNetworkRatingUpdate(state!));
         }
       }
       return state;
@@ -1352,6 +1363,65 @@ class _MatchScreenState extends State<MatchScreen> {
       if (newBadges.isNotEmpty && mounted) {
         await Future.delayed(const Duration(milliseconds: 400));
         if (mounted) await _showBadgeUnlockDialog(newBadges);
+      }
+    } catch (_) {}
+  }
+
+  // ── ネット対局レーティング反映 ─────────────────────────────
+  // finishMatchWithRating は名前と裏腹に実際のレーティング計算を行わないため、
+  // 対局終了を検知するこの一箇所でElo計算を実行しrating_currentに反映する
+  // （AI対局と同じキーを使うことでレーティングスケールを統一する）。
+  // レーティングはサーバー権威ではなく端末ローカル管理のため、両者が同じ入力
+  // （自分の直近rating_current・マッチング時に交換した相手レーティング）で
+  // 同じ計算式を実行することで対称的に整合させる。
+  Future<void> _applyNetworkRatingUpdate(NetworkBoardState state) async {
+    try {
+      final oppRating = widget.opponentRating;
+      if (oppRating == null) return; // 相手レーティング不明（招待対局等）は反映しない
+
+      final myId = widget.myPlayerId.isNotEmpty
+          ? widget.myPlayerId
+          : (_networkService.currentUser?.uid ?? '');
+      final winner = state.winner;
+      if (winner == null || winner.isEmpty) return; // 引き分けはレーティング変動なし
+      final myWon = winner == myId;
+
+      final prefs = await SharedPreferences.getInstance();
+      final myRating = prefs.getInt('rating_net_current') ?? 1000;
+      final myGames = prefs.getInt('rating_network_games') ?? 0;
+
+      final change = RatingService().calculateRatingChange(
+        player1Rating: myRating,
+        player2Rating: oppRating,
+        player1Won: myWon,
+        player1Games: myGames,
+        player2Games: myGames, // 相手の対局数は不明なため自分と同じK値を仮定
+      );
+      final delta = change['player1'] ?? 0;
+      final prevRankStr = ratingToRank(myRating);
+      final newRating = (myRating + delta).clamp(0, 9999);
+
+      await prefs.setInt('rating_net_current', newRating);
+      await prefs.setInt('rating_network_games', myGames + 1);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(delta >= 0
+              ? 'レーティング +$delta（$newRating）'
+              : 'レーティング $delta（$newRating）'),
+          backgroundColor:
+              delta >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+
+      final newRankStr = ratingToRank(newRating);
+      if (newRankStr != prevRankStr && delta > 0) {
+        await Future.delayed(const Duration(milliseconds: 800));
+        if (mounted) {
+          await showRankUpDialog(context, newRankStr, ratingToColor(newRating));
+        }
       }
     } catch (_) {}
   }

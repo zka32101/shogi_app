@@ -151,7 +151,7 @@ class _ShodanRoadmapScreenState extends State<ShodanRoadmapScreen> {
         _rating      = prefs.getInt('rating_current') ?? 700;
         _tsumeCount  = tsumeCount;
         _tesujiCount = tesujiCount;
-        _totalGames  = prefs.getInt('total_games') ?? 0;
+        _totalGames  = prefs.getInt('stats_total') ?? 0; // total_gamesは存在しないキーで常に0だった
       });
     }
   }

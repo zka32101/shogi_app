@@ -6,6 +6,8 @@ import 'dart:math' as math;
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'theme/app_theme.dart';
+import 'purchase_service.dart';
+import 'screens/premium_screen.dart';
 
 class _GenPuzzle {
   final String id;
@@ -291,7 +293,6 @@ class PuzzleGeneratorScreen extends StatefulWidget {
 
 class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
   static const _kPuzzlesKey = 'generated_puzzles';
-  static const _kPremiumKey = 'is_premium';
 
   static const _bgColor = AppTheme.bg;
   static const _appBarColor = AppTheme.surface;
@@ -302,7 +303,7 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
   List<_GenPuzzle> _collection = [];
   _GenPuzzle? _preview;
   int _selectedMoves = 1;
-  bool _isPremium = false;
+  bool get _isPremium => PurchaseService.isPremium;
   bool _loading = true;
 
   @override
@@ -313,7 +314,6 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
 
   Future<void> _loadCollection() async {
     final prefs = await SharedPreferences.getInstance();
-    _isPremium = prefs.getBool(_kPremiumKey) ?? false;
     final raw = prefs.getString(_kPuzzlesKey);
     if (raw != null) {
       try {
@@ -378,12 +378,6 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
         ),
       );
     }
-  }
-
-  Future<void> _unlockPremium() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_kPremiumKey, true);
-    setState(() => _isPremium = true);
   }
 
   void _showSolveDialog(_GenPuzzle puzzle) {
@@ -746,7 +740,10 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _unlockPremium,
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PremiumScreen()),
+                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _goldColor,
                       padding:

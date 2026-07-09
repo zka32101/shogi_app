@@ -10,16 +10,6 @@ import 'purchase_service.dart';
 import 'screens/match_screen.dart';
 import 'theme/app_theme.dart';
 
-// ── 変則ルール選択データ ──────────────────────────────────────
-const _variantOptions = [
-  (VariantType.normal,        '標準',         Icons.sports_esports),
-  (VariantType.captureForced, '取る一手',      Icons.flash_on),
-  (VariantType.checkForced,   '王手将棋',      Icons.gavel),
-  (VariantType.hiddenPieces,  'かくし将棋',    Icons.visibility_off),
-  (VariantType.kagemusha,     '影武者',        Icons.theater_comedy),
-  (VariantType.invader,       'インベーダー',  Icons.rocket_launch),
-];
-
 // ── 相手の強さ設定 ────────────────────────────────────────────
 enum _StrengthPref { weak, any, strong }
 
@@ -27,6 +17,16 @@ const _strengthOptions = [
   (_StrengthPref.weak,   '弱め',      Icons.sentiment_satisfied),
   (_StrengthPref.any,    'なんでも',  Icons.people),
   (_StrengthPref.strong, '強め',      Icons.military_tech),
+];
+
+// ── 持ち時間プリセット（将棋ウォーズ風）────────────────────────
+// 現状のネット対局クロックは秒読み無しの単純な切れ負け方式のため、
+// それに合わせたプリセットのみ用意する（値=持ち時間秒）
+const _timeControlOptions = [
+  (600, '10分切れ負け', Icons.hourglass_bottom),
+  (300, '5分切れ負け',  Icons.timer_outlined),
+  (180, '3分切れ負け',  Icons.bolt),
+  (60,  '1分切れ負け',  Icons.flash_on),
 ];
 
 // ── 1日あたりの無料ネット対局数上限 ──────────────────────────
@@ -58,8 +58,12 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
   VariantType _selectedVariant = VariantType.normal;
   // 相手の強さ設定
   _StrengthPref _strengthPref = _StrengthPref.any;
+  // 持ち時間プリセット（秒）
+  int _timeControlSec = _timeControlOptions.first.$1;
   // レーティング戦かどうか
   bool _rated = true;
+  // マッチング相手が見つからなかった（AI対局への切り替えを提案する）
+  bool _matchNotFound = false;
 
   @override
   void dispose() {
@@ -126,6 +130,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       _error   = '';
       _loading = false;
       _matchingElapsed = 0;
+      _matchNotFound = false;
     });
     _matchingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _matchingElapsed++);
@@ -143,14 +148,17 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
         myRating:     myRating,
         strengthPref: strengthStr,
         rated:        _rated,
+        timeLimitSec: _timeControlSec,
       );
       print('[DEBUG] マッチング成功: ${result.matchId}');
       _matchingTimer?.cancel();
       await _checkDailyLimit(countUp: true);
       if (mounted) _goToMatchScreen(
-        matchId:    result.matchId,
-        isPlayer1:  result.isPlayer1,
-        myPlayerId: result.myPlayerId,
+        matchId:        result.matchId,
+        isPlayer1:      result.isPlayer1,
+        myPlayerId:     result.myPlayerId,
+        opponentRating: result.opponentRating,
+        timeLimitSec:   _timeControlSec,
       );
     } on TimeoutException catch (e) {
       print('[DEBUG] マッチングタイムアウト: $e');
@@ -159,6 +167,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
         setState(() {
           _state = _LobbyState.initial;
           _error = '対戦相手が見つかりませんでした。(${e.duration?.inSeconds}秒)';
+          _matchNotFound = true;
         });
       }
     } catch (e, st) {
@@ -183,6 +192,24 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     }
   }
 
+  // ─── 対戦相手が見つからない場合のAI対局フォールバック ───────────────────
+  // 常時マッチング可能な人数を確保できるとは限らないため、待たせすぎないよう
+  // 現在のレーティングに応じた強さのAIとすぐに対局を始められるようにする。
+  Future<void> _fallbackToAI() async {
+    final prefs = await SharedPreferences.getInstance();
+    final currentRating = prefs.getInt('rating_current') ?? 700;
+    final settings = GameSettings(
+      mode: GameMode.vsAI,
+      aiLevel: autoAiLevelFromRating(currentRating),
+      aiIsP2: true,
+      aiRated: _rated,
+    );
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => GameScreen(settings: settings)),
+    );
+  }
+
   // ─── マッチングキャンセル ────────────────────────────────────────────────
   void _cancelMatchmaking() {
     _matchingTimer?.cancel();
@@ -191,6 +218,7 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       setState(() {
         _state = _LobbyState.initial;
         _error = '';
+        _matchNotFound = false;
       });
     }
   }
@@ -254,14 +282,18 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     required String matchId,
     required bool isPlayer1,
     required String myPlayerId,
+    int? opponentRating,
+    int timeLimitSec = 600,
   }) {
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
         builder: (_) => MatchScreen(
-          matchId:    matchId,
-          isPlayer1:  isPlayer1,
-          myPlayerId: myPlayerId,
+          matchId:        matchId,
+          isPlayer1:      isPlayer1,
+          myPlayerId:     myPlayerId,
+          opponentRating: opponentRating,
+          timeLimitSec:   timeLimitSec,
         ),
       ),
     );
@@ -485,90 +517,6 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     }
   }
 
-  // ─── 変則ルール選択ピッカー ───────────────────────────────────────────────
-  Widget _buildVariantPicker() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            const Icon(Icons.auto_awesome, color: Colors.deepPurpleAccent, size: 16),
-            const SizedBox(width: 6),
-            const Text(
-              '変則ルール',
-              style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1),
-            ),
-            if (_selectedVariant != VariantType.normal) ...[
-              const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.deepPurple.withAlpha(80),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.deepPurpleAccent.withAlpha(150)),
-                ),
-                child: Text(
-                  _variantOptions.firstWhere((o) => o.$1 == _selectedVariant).$2,
-                  style: const TextStyle(color: Colors.deepPurpleAccent, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ]),
-          const SizedBox(height: 10),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: _variantOptions.map((option) {
-              final (type, label, icon) = option;
-              final isSelected = _selectedVariant == type;
-              return GestureDetector(
-                onTap: () => setState(() => _selectedVariant = type),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 160),
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: isSelected
-                        ? Colors.deepPurple.withAlpha(180)
-                        : const Color(0xFF0F1A30),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(
-                      color: isSelected ? Colors.deepPurpleAccent : Colors.white24,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        icon,
-                        size: 14,
-                        color: isSelected ? Colors.white : Colors.white54,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          color: isSelected ? Colors.white : Colors.white54,
-                          fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ─── 相手の強さ選択ピッカー ──────────────────────────────────────────────
   Widget _buildStrengthPicker() {
     return Container(
@@ -635,6 +583,71 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     );
   }
 
+  // ─── 持ち時間プリセット選択 ──────────────────────────────────────────────
+  Widget _buildTimeControlPicker() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            Icon(Icons.access_time, color: Colors.amberAccent, size: 16),
+            SizedBox(width: 6),
+            Text(
+              '持ち時間',
+              style: TextStyle(color: Colors.white54, fontSize: 12, letterSpacing: 1),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _timeControlOptions.map((option) {
+              final (sec, label, icon) = option;
+              final isSelected = _timeControlSec == sec;
+              return GestureDetector(
+                onTap: () => setState(() => _timeControlSec = sec),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.amber.withAlpha(180)
+                        : const Color(0xFF0F1A30),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected ? Colors.amberAccent : Colors.white24,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(icon, size: 14, color: isSelected ? Colors.black : Colors.white54),
+                      const SizedBox(width: 4),
+                      Text(
+                        label,
+                        style: TextStyle(
+                          color: isSelected ? Colors.black : Colors.white54,
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ─── レーティング戦トグル ────────────────────────────────────────────────
   Widget _buildRatedToggle() {
     return Container(
@@ -689,8 +702,8 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        // ─── 変則ルール選択 ───────────────────────────────────────────────
-        _buildVariantPicker(),
+        // ─── 持ち時間プリセット ───────────────────────────────────────────
+        _buildTimeControlPicker(),
         const SizedBox(height: 12),
         // ─── 相手の強さ設定 ───────────────────────────────────────────────
         _buildStrengthPicker(),
@@ -778,6 +791,15 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
         if (_error.isNotEmpty) ...[
           const SizedBox(height: 20),
           _errorText(_error),
+        ],
+        if (_matchNotFound) ...[
+          const SizedBox(height: 12),
+          _bigButton(
+            label:  'AIと対局する',
+            icon:   Icons.smart_toy_outlined,
+            color:  const Color(0xFF2C5F2D),
+            onTap:  _fallbackToAI,
+          ),
         ],
       ],
     );

@@ -152,11 +152,15 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
 
-    _totalGames = prefs.getInt('total_games') ?? 0;
-    _totalWins = prefs.getInt('total_wins') ?? 0;
+    // 実際に game_screen.dart が書き込んでいるキーに合わせる
+    // （total_games/total_wins/total_ai_games/ai_wins は存在しないキーで
+    //  常に0になっていたバグ）。_totalGames/_totalWins は全モード通算、
+    // _totalAiGames/_aiWins はAI対局のみの内訳。
+    _totalGames = prefs.getInt('stats_total') ?? 0;
+    _totalWins = prefs.getInt('stats_total_wins') ?? 0;
     _rating = prefs.getInt('rating_current') ?? 1000;
-    _totalAiGames = prefs.getInt('total_ai_games') ?? 0;
-    _aiWins = prefs.getInt('ai_wins') ?? 0;
+    _totalAiGames = prefs.getInt('stats_total_ai') ?? 0;
+    _aiWins = prefs.getInt('stats_p1_wins_ai') ?? 0;
     _p2Wins = prefs.getInt('stats_p2_wins') ?? 0;
 
     final allKeys = prefs.getKeys();
@@ -196,7 +200,8 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     final endgameScore = _clamp100(_tsumeClearedCount / 100.0 * 100);
     final tacticsScore = _clamp100(_tesujiClearedCount / 80.0 * 100);
     final openingsScore = _clamp100(_josekiAvgScore);
-    final expScore = _clamp100((_totalGames + _totalAiGames) / 200.0 * 100);
+    // _totalGames は既に全モード通算なので、AI対局分を二重加算しない
+    final expScore = _clamp100(_totalGames / 200.0 * 100);
     final ratingScore = _clamp100((_rating - 500) / 2000.0 * 100);
 
     // 攻撃力: AI対局での勝率 × 80 + 手筋クリア数ボーナス × 20
@@ -204,8 +209,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     final attackScore = _clamp100(aiWinRate * 80 + (_tesujiClearedCount / 80.0 * 20));
 
     // 防御力: 全対局での後手勝率（守りの指標）+ 詰将棋ボーナス
-    final totalAll = _totalGames + _totalAiGames;
-    final p2WinRate = totalAll > 0 ? _p2Wins / totalAll : 0.0;
+    final p2WinRate = _totalGames > 0 ? _p2Wins / _totalGames : 0.0;
     final defenseScore = _clamp100(p2WinRate * 80 + (_tsumeClearedCount / 100.0 * 20));
 
     _dimensions = [
@@ -394,7 +398,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
             children: [
               _statChip('レーティング', '$_rating', Icons.bar_chart),
               const SizedBox(width: 8),
-              _statChip('総対局数', '${_totalGames + _totalAiGames}局', Icons.games),
+              _statChip('総対局数', '$_totalGames局', Icons.games),
               const SizedBox(width: 8),
               _statChip('通算勝率', '$winRate%', Icons.emoji_events),
             ],
