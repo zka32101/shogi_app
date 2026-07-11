@@ -386,6 +386,9 @@ List<List<Piece?>> _prob20Board() {
 
 // 問21: 駒の両取り (中級)
 // ▲6三銀: 7四(3,2)→6三(2,3)で6二金(1,3)と5四飛(3,4)に両当たり
+// (旧版は後手飛車(5四)と先手玉(5九)が同じ5筋に位置し、間を遮る駒もなく
+//  先手玉が開始局面から王手を受けている不成立な局面だった。
+//  TsumeEngineでの検証により発覚・修正: 5筋に先手歩を配置して遮断)
 List<List<Piece?>> _prob21Board() {
   final b = _empty();
   b[8][4] = Piece(PieceType.king, true);
@@ -393,6 +396,7 @@ List<List<Piece?>> _prob21Board() {
   b[3][2] = Piece(PieceType.silver, true);  // 7四（6三に1手で動ける）
   b[8][5] = Piece(PieceType.gold, true);
   b[8][3] = Piece(PieceType.gold, true);
+  b[6][4] = Piece(PieceType.pawn, true);    // 4筋を遮断（後手飛車との間）
   b[0][4] = Piece(PieceType.king, false);
   b[1][3] = Piece(PieceType.gold, false);   // 6二金（6三銀の攻撃目標1）
   b[3][4] = Piece(PieceType.rook, false);   // 5四飛（6三銀の攻撃目標2）
@@ -467,11 +471,16 @@ List<List<Piece?>> _prob25Board() {
 }
 
 // 問26: 詰みを読む(上級) — 飛車を成り込んで王手（▲5二飛成）
+// (旧版は先手飛車(5三)と後手玉(5一)が同じ5筋に位置し、間を遮る駒もなく
+//  後手玉が開始局面から王手を受けている不成立な局面だった。
+//  TsumeEngineでの検証により発覚・修正: 5二に後手歩を置き、
+//  飛車が歩を取りながら成り込んで王手をかける形にした)
 List<List<Piece?>> _prob26Board() {
   final b = _empty();
   b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一
   b[0][3] = Piece(PieceType.gold, false);   // 6一金
   b[0][5] = Piece(PieceType.gold, false);   // 4一金
+  b[1][4] = Piece(PieceType.pawn, false);   // 5二歩（4筋を遮断・成り込みの取り駒）
   b[2][4] = Piece(PieceType.rook, true);    // 先手飛 5三
   b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
@@ -488,21 +497,29 @@ List<List<Piece?>> _prob27Board() {
 }
 
 // 問28: 敵玉を追い詰める — 飛車を走らせて王手（▲2三飛）
+// (旧版は先手飛車(2六)と後手玉(2一)が同じ2筋に位置し、間を遮る駒もなく
+//  後手玉が開始局面から王手を受けている不成立な局面だった。
+//  TsumeEngineでの検証により発覚・修正: 飛車を6三から2三へ横に走らせて
+//  王手をかける形にした)
 List<List<Piece?>> _prob28Board() {
   final b = _empty();
   b[0][7] = Piece(PieceType.king, false);   // 後手玉 2一
   b[0][6] = Piece(PieceType.gold, false);   // 3一金
-  b[5][7] = Piece(PieceType.rook, true);    // 先手飛 2六
+  b[2][3] = Piece(PieceType.rook, true);    // 先手飛 6三
   b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
 
 // 問29: 詰めロジックの応用 — 9筋の飛車を成り込んで王手（▲9二飛成）
+// (旧版は先手飛車(9五)が後手玉(9一)と同じ9筋にあり開始局面から王手を
+//  受けていた上、守りの金(8二)自身も斜めに後手玉へ利いており二重に
+//  不成立だった。TsumeEngineでの検証により発覚・修正: 飛車を6二から
+//  9二へ横に成り込む形にし、金は桂馬に変更して着地点のみを守るようにした)
 List<List<Piece?>> _prob29Board() {
   final b = _empty();
   b[0][0] = Piece(PieceType.king, false);   // 後手玉 9一
-  b[1][1] = Piece(PieceType.gold, false);   // 8二金（守り）
-  b[4][0] = Piece(PieceType.rook, true);    // 先手飛 9五
+  b[3][1] = Piece(PieceType.knight, true);  // 8四桂（9二の守り）
+  b[1][3] = Piece(PieceType.rook, true);    // 先手飛 6二
   b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九
   return b;
 }
@@ -823,7 +840,7 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '敵玉を追い詰める',
     difficulty: '上級',
-    description: '先手番。2六の飛車を走らせて2一の後手玉に王手をかける手は？',
+    description: '先手番。6三の飛車を走らせて2一の後手玉に王手をかける手は？',
     board: _prob28Board(),
     options: ['▲2三飛', '▲1三飛', '▲3三飛', '▲2二飛'],
     correctIndex: 0,
@@ -834,7 +851,7 @@ final List<_NMProb> _problems = [
   _NMProb(
     title: '詰めロジックの応用',
     difficulty: '上級',
-    description: '先手番。9五の飛車を成り込んで9一の後手玉に王手をかける手は？',
+    description: '先手番。6二の飛車を成り込んで9一の後手玉に王手をかける手は？',
     board: _prob29Board(),
     options: ['▲9三飛成', '▲9二飛成', '▲8二飛成', '▲9四飛'],
     correctIndex: 1,
@@ -1321,26 +1338,6 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
                             height: 1.5,
                           ),
                         ),
-                        if (prob.sourceTitle != null) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Icon(Icons.link, size: 14, color: Colors.blue.shade400),
-                              const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  '出典: ${prob.sourceTitle}',
-                                  style: TextStyle(
-                                    color: Colors.blue.shade400,
-                                    fontSize: 11,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
                       ],
                     ),
                   ),

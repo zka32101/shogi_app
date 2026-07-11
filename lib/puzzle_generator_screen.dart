@@ -166,107 +166,126 @@ void _place(List<List<Piece?>> b, int r, int c, Piece p) {
   if (r >= 0 && r < 9 && c >= 0 && c < 9) b[r][c] = p;
 }
 
-int _cl(int v) => v.clamp(0, 8);
-
 // ── 8 Templates ──────────────────────────────────────────────────────────────
+// (旧版は8テンプレート全てで開始局面から玉に王手がかかっており
+//  ―一部は二重・三重王手― 不成立だった。テンプレート1の解答文も
+//  「玉の位置に成り込む」という将棋のルール上不可能な手を説明していた。
+//  また旧版は生成のたびランダムオフセット(dr,dc)を各駒に個別加算・clamp
+//  しており、盤端付近の駒がclampで相対位置を崩す事故も起きていた。
+//  TsumeEngineでの検証により発覚・修正: 各テンプレートを開始局面が合法
+//  （王手でも行き詰まりでもない）かつ解答手が実際に王手・詰みとなる形に
+//  再設計し、位置のランダム化は廃止して固定局面にした)
 
-typedef _TemplateFn = Map<String, dynamic> Function(int dr, int dc);
+typedef _TemplateFn = Map<String, dynamic> Function();
 
-Map<String, dynamic> _template1(int dr, int dc) {
+Map<String, dynamic> _template1() {
   final b = _emptyBoard();
-  _place(b, _cl(0 + dr), _cl(0 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(2 + dr), _cl(0 + dc), Piece(PieceType.rook, true));
-  _place(b, _cl(1 + dr), _cl(1 + dc), Piece(PieceType.gold, true));
+  _place(b, 0, 8, Piece(PieceType.king, false));
+  _place(b, 1, 3, Piece(PieceType.rook, true));
+  _place(b, 2, 7, Piece(PieceType.gold, true));
   return {
     'board': b,
-    'answerDesc': '▲飛車を玉の位置に成り込むのが正解（飛成）',
+    'answerDesc': '▲飛車を9二へ横に成り込むのが正解（龍王の八方に利き、金が守る）',
     'title': '隅の詰み（飛・金）',
   };
 }
 
-Map<String, dynamic> _template2(int dr, int dc) {
+Map<String, dynamic> _template2() {
   final b = _emptyBoard();
-  _place(b, _cl(0 + dr), _cl(8 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(2 + dr), _cl(6 + dc), Piece(PieceType.bishop, true));
-  _place(b, _cl(1 + dr), _cl(7 + dc), Piece(PieceType.gold, true));
+  _place(b, 0, 0, Piece(PieceType.king, false));
+  _place(b, 4, 4, Piece(PieceType.pawn, false));
+  _place(b, 2, 1, Piece(PieceType.gold, true));
+  _place(b, 2, 0, Piece(PieceType.knight, true));
+  _place(b, 3, 0, Piece(PieceType.knight, true));
+  _place(b, 0, 2, Piece(PieceType.bishop, true));
   return {
     'board': b,
-    'answerDesc': '▲角で斜めから王手、金が逃げ道を塞ぐ',
+    'answerDesc': '▲角を2二へ進めて斜めから王手、金・桂が逃げ道を塞ぐ',
     'title': '隅の詰み（角・金）',
   };
 }
 
-Map<String, dynamic> _template3(int dr, int dc) {
+Map<String, dynamic> _template3() {
   final b = _emptyBoard();
-  _place(b, _cl(8 + dr), _cl(4 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(6 + dr), _cl(4 + dc), Piece(PieceType.rook, true));
-  _place(b, _cl(7 + dr), _cl(3 + dc), Piece(PieceType.gold, true));
-  _place(b, _cl(7 + dr), _cl(5 + dc), Piece(PieceType.gold, true));
+  _place(b, 8, 4, Piece(PieceType.king, false));
+  _place(b, 4, 4, Piece(PieceType.pawn, false));
+  _place(b, 7, 3, Piece(PieceType.gold, true));
+  _place(b, 7, 5, Piece(PieceType.gold, true));
+  _place(b, 8, 3, Piece(PieceType.lance, true));
+  _place(b, 8, 5, Piece(PieceType.lance, true));
+  _place(b, 6, 7, Piece(PieceType.rook, true));
   return {
     'board': b,
-    'answerDesc': '▲飛車で中段の玉を追い詰める',
+    'answerDesc': '▲飛車を中段まで進め、金二枚・香二本で中段の玉を追い詰める',
     'title': '中段の詰み（飛・金二枚）',
   };
 }
 
-Map<String, dynamic> _template4(int dr, int dc) {
+Map<String, dynamic> _template4() {
   final b = _emptyBoard();
-  _place(b, _cl(0 + dr), _cl(0 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(1 + dr), _cl(1 + dc), Piece(PieceType.silver, true));
-  _place(b, _cl(0 + dr), _cl(2 + dc), Piece(PieceType.lance, true));
+  _place(b, 0, 0, Piece(PieceType.king, false));
+  _place(b, 4, 4, Piece(PieceType.pawn, false));
+  _place(b, 2, 2, Piece(PieceType.silver, true));
+  _place(b, 2, 0, Piece(PieceType.knight, true));
+  _place(b, 3, 0, Piece(PieceType.knight, true));
+  _place(b, 3, 1, Piece(PieceType.knight, true));
+  _place(b, 8, 1, Piece(PieceType.lance, true));
   return {
     'board': b,
-    'answerDesc': '▲銀で王手し、香で退路を封じる',
+    'answerDesc': '▲銀を2二へ進めて王手し、桂・香で退路を封じる',
     'title': '銀・香の詰み',
   };
 }
 
-Map<String, dynamic> _template5(int dr, int dc) {
+Map<String, dynamic> _template5() {
   final b = _emptyBoard();
-  _place(b, _cl(0 + dr), _cl(4 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(1 + dr), _cl(3 + dc), Piece(PieceType.gold, true));
-  _place(b, _cl(1 + dr), _cl(5 + dc), Piece(PieceType.gold, true));
-  _place(b, _cl(2 + dr), _cl(4 + dc), Piece(PieceType.rook, true));
+  _place(b, 0, 4, Piece(PieceType.king, false));
+  _place(b, 4, 4, Piece(PieceType.pawn, false));
+  _place(b, 1, 2, Piece(PieceType.gold, true));
+  _place(b, 1, 6, Piece(PieceType.gold, true));
+  _place(b, 3, 3, Piece(PieceType.knight, true));
+  _place(b, 1, 5, Piece(PieceType.rook, true));
   return {
     'board': b,
-    'answerDesc': '▲飛車で正面から迫り、金二枚で逃げ道を塞ぐ',
+    'answerDesc': '▲飛車を5二へ寄せて正面から迫り、金二枚で逃げ道を塞ぐ',
     'title': '上辺の詰み（飛・金二枚）',
   };
 }
 
-Map<String, dynamic> _template6(int dr, int dc) {
+Map<String, dynamic> _template6() {
   final b = _emptyBoard();
-  _place(b, _cl(4 + dr), _cl(0 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(3 + dr), _cl(0 + dc), Piece(PieceType.gold, true));
-  _place(b, _cl(5 + dr), _cl(0 + dc), Piece(PieceType.gold, true));
-  _place(b, _cl(4 + dr), _cl(2 + dc), Piece(PieceType.rook, true));
+  _place(b, 8, 0, Piece(PieceType.king, false));
+  _place(b, 4, 4, Piece(PieceType.pawn, false));
+  _place(b, 8, 2, Piece(PieceType.gold, true));
+  _place(b, 6, 1, Piece(PieceType.silver, true));
+  _place(b, 7, 3, Piece(PieceType.rook, true));
   return {
     'board': b,
-    'answerDesc': '▲飛車で横から王手し、金二枚で挟む',
+    'answerDesc': '▲飛車を寄せて縦から王手し、金・銀で逃げ道を挟む',
     'title': '端の詰み（飛・金挟み）',
   };
 }
 
-Map<String, dynamic> _template7(int dr, int dc) {
+Map<String, dynamic> _template7() {
   final b = _emptyBoard();
-  _place(b, _cl(0 + dr), _cl(0 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(2 + dr), _cl(2 + dc), Piece(PieceType.promotedBishop, true));
-  _place(b, _cl(1 + dr), _cl(0 + dc), Piece(PieceType.pawn, true));
+  _place(b, 0, 0, Piece(PieceType.king, false));
+  _place(b, 2, 1, Piece(PieceType.pawn, true));
+  _place(b, 2, 0, Piece(PieceType.promotedBishop, true));
   return {
     'board': b,
-    'answerDesc': '▲龍馬（成角）で斜め王手、歩が逃げ道を封鎖',
+    'answerDesc': '▲龍馬（成角）を寄せて斜め王手、歩が退路を封鎖',
     'title': '成角・歩の詰み',
   };
 }
 
-Map<String, dynamic> _template8(int dr, int dc) {
+Map<String, dynamic> _template8() {
   final b = _emptyBoard();
-  _place(b, _cl(8 + dr), _cl(8 + dc), Piece(PieceType.king, false));
-  _place(b, _cl(6 + dr), _cl(8 + dc), Piece(PieceType.promotedRook, true));
-  _place(b, _cl(7 + dr), _cl(7 + dc), Piece(PieceType.silver, true));
+  _place(b, 8, 8, Piece(PieceType.king, false));
+  _place(b, 6, 7, Piece(PieceType.silver, true));
+  _place(b, 7, 5, Piece(PieceType.promotedRook, true));
   return {
     'board': b,
-    'answerDesc': '▲龍（成飛）で縦に迫り、銀が斜めの逃げ道を封じる',
+    'answerDesc': '▲龍（成飛）を寄せて縦に迫り、銀が斜めの逃げ道を封じる',
     'title': '下辺の詰み（龍・銀）',
   };
 }
@@ -338,9 +357,7 @@ class _PuzzleGeneratorScreenState extends State<PuzzleGeneratorScreen> {
   void _generate() {
     final rng = math.Random();
     final idx = rng.nextInt(_templates.length);
-    final dr = rng.nextInt(3) - 1; // -1, 0, or 1
-    final dc = rng.nextInt(3) - 1;
-    final tpl = _templates[idx](dr, dc);
+    final tpl = _templates[idx]();
     final board = tpl['board'] as List<List<Piece?>>;
     final answerDesc = tpl['answerDesc'] as String;
     final title = tpl['title'] as String;

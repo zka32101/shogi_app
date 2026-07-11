@@ -121,12 +121,59 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     return b;
   }
 
-  // 美濃囲い（みのがこい）— 2八玉、3八金、3七銀（振り飛車）
+  // 銀矢倉（ぎんやぐら）— 8八玉、7八金、7七銀、6七銀（矢倉の6七金を銀に変えた形）
+  // (shougi.jp の図で座標を確認)
+  static List<List<Piece?>> _ginYagura() {
+    final b = _empty();
+    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[6][3] = const Piece(PieceType.silver, true); // 6七銀（銀矢倉の特徴）
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[8][1] = const Piece(PieceType.knight, true); // 8九桂
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    return b;
+  }
+
+  // 片矢倉（かたやぐら）— 7八玉、6八金、7七銀、6七金（矢倉より一路控えた形）
+  // (shougi.jp の図で座標を確認)
+  static List<List<Piece?>> _kataYagura() {
+    final b = _empty();
+    b[7][2] = const Piece(PieceType.king, true);   // 7八玉
+    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[6][3] = const Piece(PieceType.gold, true);   // 6七金
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[8][1] = const Piece(PieceType.knight, true); // 8九桂
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    return b;
+  }
+
+  // 串カツ囲い（くしかつがこい）— 9八玉、8八銀、7八金、7九金、7七角
+  // (shougi.jp の図で座標を確認)
+  static List<List<Piece?>> _kushikatsu() {
+    final b = _empty();
+    b[7][0] = const Piece(PieceType.king, true);   // 9八玉
+    b[7][1] = const Piece(PieceType.silver, true); // 8八銀
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[8][2] = const Piece(PieceType.gold, true);   // 7九金
+    b[6][2] = const Piece(PieceType.bishop, true); // 7七角
+    b[8][1] = const Piece(PieceType.knight, true); // 8九桂
+    b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
+    return b;
+  }
+
+  // 美濃囲い（みのがこい）— 2八玉、3八銀、5八金（振り飛車）
+  // (shogi-joutatsu.com 図1-1「本美濃囲い」で座標を確認・修正。以前は
+  //  金と銀の座標が入れ替わった上に誤った位置（銀7七・金3八）になっており、
+  //  正しくは銀3八・金5八だった)
   static List<List<Piece?>> _mino() {
     final b = _empty();
     b[7][7] = const Piece(PieceType.king, true);   // 2八玉
-    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
-    b[6][6] = const Piece(PieceType.silver, true); // 3七銀
+    b[7][6] = const Piece(PieceType.silver, true); // 3八銀
+    b[7][4] = const Piece(PieceType.gold, true);   // 5八金
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
     b[7][5] = const Piece(PieceType.rook, true);   // 4八飛（四間飛車）
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
@@ -148,57 +195,67 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     return b;
   }
 
-  // 金無双（きんむそう）— 8八玉、7八金、6八金、7七銀（相振り飛車の囲い）
+  // 金無双（きんむそう）— 3八玉、2八銀、4八金、5八金（相振り飛車の囲い）
+  // (shogi-joutatsu.com「金無双」の図で座標を確認・修正。以前は矢倉と
+  //  同じ8八玉側の座標が入っており、実際の金無双とは逆サイドだった)
   static List<List<Piece?>> _kinmusou() {
     final b = _empty();
-    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
-    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
-    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
-    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
-    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
-    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
-    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[7][6] = const Piece(PieceType.king, true);   // 3八玉
+    b[7][7] = const Piece(PieceType.silver, true); // 2八銀
+    b[7][5] = const Piece(PieceType.gold, true);   // 4八金
+    b[7][4] = const Piece(PieceType.gold, true);   // 5八金
+    b[6][6] = const Piece(PieceType.pawn, true);   // 3七歩
+    b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
     return b;
   }
 
-  // 銀冠（ぎんかん）— 8八玉、7八金、6七金、8七銀（銀が玉の真上で冠の形）
+  // 銀冠（ぎんかん）— 2八玉、3八金、4七金、2七銀（銀が玉の真上で冠の形）
+  // (shogi-joutatsu.com「銀冠」の図で座標を確認・修正。以前は矢倉と同じ
+  //  8八玉側の座標が入っており、実際の銀冠とは逆サイドだった)
   static List<List<Piece?>> _ginkan() {
-    final b = _empty();
-    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
-    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
-    b[6][3] = const Piece(PieceType.gold, true);   // 6七金
-    b[6][1] = const Piece(PieceType.silver, true); // 8七銀（冠＝玉の真上）
-    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
-    b[5][0] = const Piece(PieceType.pawn, true);   // 9六歩
-    b[5][1] = const Piece(PieceType.pawn, true);   // 8六歩
-    b[5][2] = const Piece(PieceType.pawn, true);   // 7六歩
-    return b;
-  }
-
-  // 左美濃（ひだりみの）— 2八玉、3八金、2七銀（居飛車）
-  static List<List<Piece?>> _hidarimino() {
     final b = _empty();
     b[7][7] = const Piece(PieceType.king, true);   // 2八玉
     b[7][6] = const Piece(PieceType.gold, true);   // 3八金
-    b[6][7] = const Piece(PieceType.silver, true); // 2七銀
-    b[7][8] = const Piece(PieceType.gold, true);   // 1八金
+    b[6][5] = const Piece(PieceType.gold, true);   // 4七金
+    b[6][7] = const Piece(PieceType.silver, true); // 2七銀（冠＝玉の真上）
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
-    b[6][6] = const Piece(PieceType.pawn, true);   // 3七歩
-    b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
+    b[5][8] = const Piece(PieceType.pawn, true);   // 1六歩
+    b[5][7] = const Piece(PieceType.pawn, true);   // 2六歩
+    b[5][6] = const Piece(PieceType.pawn, true);   // 3六歩
     return b;
   }
 
-  // 雁木（がんぎ）— 6八玉、5八金、6七金、7七銀、5七銀
+  // 左美濃（ひだりみの）— 8八玉、7八銀、6八金、5八金、7七角（居飛車）
+  // (shogi-joutatsu.com 図1-1で座標を確認・修正。以前は美濃を左右反転させた
+  //  2八玉の座標が入っており、実際の左美濃とは逆サイドのデータだった)
+  static List<List<Piece?>> _hidarimino() {
+    final b = _empty();
+    b[7][1] = const Piece(PieceType.king, true);   // 8八玉
+    b[7][2] = const Piece(PieceType.silver, true); // 7八銀
+    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[7][4] = const Piece(PieceType.gold, true);   // 5八金
+    b[6][2] = const Piece(PieceType.bishop, true); // 7七角
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
+    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    return b;
+  }
+
+  // 雁木（がんぎ）— 5九玉、7八金、5八金、6七銀、4八銀（銀2枚のジグザグ形）
+  // (shogi-joutatsu.com「雁木囲いの基本形」で座標を確認・修正。以前は
+  //  銀が1枚しかなく、雁木の特徴である2枚銀のジグザグ形になっていなかった。
+  //  玉の位置も6八ではなく5九が正しい)
   static List<List<Piece?>> _gangi() {
     final b = _empty();
-    b[7][3] = const Piece(PieceType.king, true);   // 6八玉
+    b[8][4] = const Piece(PieceType.king, true);   // 5九玉
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
     b[7][4] = const Piece(PieceType.gold, true);   // 5八金
-    b[6][3] = const Piece(PieceType.gold, true);   // 6七金
-    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
-    b[6][4] = const Piece(PieceType.silver, true); // 5七銀
-    b[5][5] = const Piece(PieceType.pawn, true);   // 4六歩
-    b[5][6] = const Piece(PieceType.pawn, true);   // 3六歩
+    b[6][3] = const Piece(PieceType.silver, true); // 6七銀
+    b[7][5] = const Piece(PieceType.silver, true); // 4八銀
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
+    b[8][0] = const Piece(PieceType.lance, true);  // 9九香
+    b[8][8] = const Piece(PieceType.lance, true);  // 1九香
     return b;
   }
 
@@ -215,13 +272,15 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     return b;
   }
 
-  // 高美濃（たかみの）— 美濃の左金が4七に上がった形
+  // 高美濃（たかみの）— 美濃の金が4七に上がった形
+  // (shogi-joutatsu.com 図2-2「高美濃囲い」で座標を確認・修正。美濃囲いの
+  //  修正に合わせ、銀3八・金4七・金4九の正しい配置にした)
   static List<List<Piece?>> _takamiino() {
     final b = _empty();
     b[7][7] = const Piece(PieceType.king, true);   // 2八玉
-    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
-    b[6][6] = const Piece(PieceType.silver, true); // 3七銀（美濃のまま）
+    b[7][6] = const Piece(PieceType.silver, true); // 3八銀（美濃のまま）
     b[6][5] = const Piece(PieceType.gold, true);   // 4七金（高美濃の特徴）
+    b[8][5] = const Piece(PieceType.gold, true);   // 4九金
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
     b[7][5] = const Piece(PieceType.rook, true);   // 4八飛（振り飛車）
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
@@ -260,40 +319,46 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
   }
 
   // ビッグ4 — 9九玉＋金2枚・銀2枚で固める四枚穴熊の最強形
+  // (shougi.jp の図で座標を確認・修正。以前は金・銀の段が入れ替わっており、
+  //  香が9八へ上がって玉が9九に潜り込む形と、金8八・7八、銀8七・7七の
+  //  正しい配置になっていなかった)
   static List<List<Piece?>> _bigFour() {
     final b = _empty();
     b[8][0] = const Piece(PieceType.king, true);   // 9九玉
-    b[8][1] = const Piece(PieceType.gold, true);   // 8九金
-    b[8][2] = const Piece(PieceType.gold, true);   // 7九金
-    b[7][1] = const Piece(PieceType.silver, true); // 8八銀
-    b[7][2] = const Piece(PieceType.silver, true); // 7八銀
-    b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
-    b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
-    b[6][2] = const Piece(PieceType.pawn, true);   // 7七歩
+    b[7][0] = const Piece(PieceType.lance, true);  // 9八香（玉の真上）
+    b[7][1] = const Piece(PieceType.gold, true);   // 8八金
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[6][1] = const Piece(PieceType.silver, true); // 8七銀
+    b[6][2] = const Piece(PieceType.silver, true); // 7七銀
+    b[8][1] = const Piece(PieceType.knight, true); // 8九桂（未移動）
     return b;
   }
 
   // 中住まい（なかずまい）— 玉を中央5八に置き、左右の金銀で守る
+  // (shougi.jp の図で座標を確認・修正。以前は金・銀の位置が入れ替わって
+  //  おり、正しくは金が7八・3八、銀が4八（もう一方は7九のまま）だった)
   static List<List<Piece?>> _nakazumai() {
     final b = _empty();
     b[7][4] = const Piece(PieceType.king, true);   // 5八玉
-    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
-    b[7][5] = const Piece(PieceType.gold, true);   // 4八金
-    b[7][2] = const Piece(PieceType.silver, true); // 7八銀
-    b[7][6] = const Piece(PieceType.silver, true); // 3八銀
+    b[7][2] = const Piece(PieceType.gold, true);   // 7八金
+    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
+    b[7][5] = const Piece(PieceType.silver, true); // 4八銀
+    b[8][2] = const Piece(PieceType.silver, true); // 7九銀（未移動）
     b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
     b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
     b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
     return b;
   }
 
-  // 木村美濃（きむらみの）— 美濃の右銀を4七へ上がった発展形
+  // 木村美濃（きむらみの）— 美濃に金を4七へ足した発展形
+  // (美濃囲いの修正に合わせ、玉2八・銀3八・金5八の正しい基本形に
+  //  4七の金を加えた形にした)
   static List<List<Piece?>> _kimuraMino() {
     final b = _empty();
     b[7][7] = const Piece(PieceType.king, true);   // 2八玉
-    b[7][6] = const Piece(PieceType.gold, true);   // 3八金
+    b[7][6] = const Piece(PieceType.silver, true); // 3八銀
     b[7][4] = const Piece(PieceType.gold, true);   // 5八金
-    b[6][5] = const Piece(PieceType.silver, true); // 4七銀（木村美濃の特徴）
+    b[6][5] = const Piece(PieceType.gold, true);   // 4七金（木村美濃の特徴）
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
     b[5][5] = const Piece(PieceType.pawn, true);   // 4六歩
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
@@ -302,13 +367,14 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
   }
 
   // 居飛車穴熊（いびしゃあなぐま）— 居飛車側が9九へ玉を潜らせる対振り最堅陣
+  // (shogi-joutatsu.com 図2-1で座標を確認。金の1枚が6八ではなく7九だった)
   static List<List<Piece?>> _ibishaAnaguma() {
     final b = _empty();
     b[8][0] = const Piece(PieceType.king, true);   // 9九玉
     b[7][0] = const Piece(PieceType.lance, true);  // 9八香
     b[7][1] = const Piece(PieceType.silver, true); // 8八銀
     b[7][2] = const Piece(PieceType.gold, true);   // 7八金
-    b[7][3] = const Piece(PieceType.gold, true);   // 6八金
+    b[8][2] = const Piece(PieceType.gold, true);   // 7九金
     b[8][1] = const Piece(PieceType.knight, true); // 8九桂
     b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
@@ -338,9 +404,9 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
       ),
       _CastleData(
         name: '美濃囲い（みのがこい）',
-        description: '2八玉・3八金・3七銀の3枚で組む振り飛車の定番囲い。少ない手数で完成し横からの攻めに強い。上（玉頭方向）からは弱い。',
+        description: '2八玉・3八銀・5八金の3枚で組む振り飛車の定番囲い。少ない手数で完成し横からの攻めに強い。上（玉頭方向）からは弱い。',
         board: _mino(),
-        highlights: const {(7, 7), (7, 6), (6, 6)},
+        highlights: const {(7, 7), (7, 6), (7, 4)},
         difficulty: '初級',
         vertStrength: 1, horizStrength: 3, movesToBuild: 6,
       ),
@@ -355,33 +421,33 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
       // 中級
       _CastleData(
         name: '金無双（きんむそう）',
-        description: '8八玉・7八金・6八金・7七銀でまとめる囲い。相振り飛車でよく使われ素早く組める。上部に比較的強いが横からの攻めに注意。',
+        description: '3八玉・2八銀・4八金・5八金でまとめる囲い。相振り飛車でよく使われ素早く組める。上部に比較的強いが横からの攻めに注意。',
         board: _kinmusou(),
-        highlights: const {(7, 1), (7, 2), (7, 3), (6, 2)},
+        highlights: const {(7, 6), (7, 7), (7, 5), (7, 4)},
         difficulty: '中級',
         vertStrength: 2, horizStrength: 1, movesToBuild: 5,
       ),
       _CastleData(
         name: '銀冠（ぎんかん）',
-        description: '8八玉・7八金・8七銀・6七金の形。銀を玉の真上に冠のように乗せ上部の攻めに手厚い。美濃から発展した振り飛車の進化形。',
+        description: '2八玉・2七銀・3八金・4七金の形。銀を玉の真上に冠のように乗せ上部の攻めに手厚い。美濃から発展した振り飛車の進化形。',
         board: _ginkan(),
-        highlights: const {(7, 1), (7, 2), (6, 1), (6, 3)},
+        highlights: const {(7, 7), (6, 7), (7, 6), (6, 5)},
         difficulty: '中級',
         vertStrength: 3, horizStrength: 2, movesToBuild: 10,
       ),
       _CastleData(
         name: '左美濃（ひだりみの）',
-        description: '居飛車側が2八玉・3八金・2七銀・1八金と組む形。美濃を左右反転させた構造で対抗形（居飛車vs振り飛車）で多用される。',
+        description: '居飛車側が8八玉・7八銀・6八金・5八金と組む形。角を7七に上げて玉の斜め頭を守るのが特徴で、対抗形（居飛車vs振り飛車）で多用される。',
         board: _hidarimino(),
-        highlights: const {(7, 7), (7, 6), (6, 7), (7, 8)},
+        highlights: const {(7, 1), (7, 2), (7, 3), (7, 4)},
         difficulty: '中級',
         vertStrength: 2, horizStrength: 3, movesToBuild: 7,
       ),
       _CastleData(
         name: '雁木（がんぎ）',
-        description: '6八玉・5八金・6七金・7七銀の2金2銀を高く構える形。攻守のバランスが良く対矢倉・対居飛車で有力。',
+        description: '5九玉・7八金・5八金・6七銀・4八銀の2金2銀をジグザグに構える形。攻守のバランスが良く対矢倉・対居飛車で有力。',
         board: _gangi(),
-        highlights: const {(7, 3), (7, 4), (6, 3), (6, 2), (6, 4)},
+        highlights: const {(8, 4), (7, 2), (7, 4), (6, 3), (7, 5)},
         difficulty: '中級',
         vertStrength: 3, horizStrength: 2, movesToBuild: 8,
       ),
@@ -395,9 +461,9 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
       ),
       _CastleData(
         name: '高美濃（たかみの）',
-        description: '美濃囲いの左金を4七へ上がった発展形。玉頭が厚くなり美濃より上部の攻めに強い。振り飛車の定番進化形で4手追加で完成。',
+        description: '美濃囲いの金を4七へ上げた発展形。玉頭が厚くなり美濃より上部の攻めに強い。振り飛車の定番進化形で4手追加で完成。',
         board: _takamiino(),
-        highlights: const {(7, 7), (7, 6), (6, 6), (6, 5)},
+        highlights: const {(7, 7), (7, 6), (6, 5), (8, 5)},
         difficulty: '中級',
         vertStrength: 2, horizStrength: 3, movesToBuild: 9,
       ),
@@ -420,23 +486,23 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
       ),
       _CastleData(
         name: 'ビッグ4（びっぐふぉー）',
-        description: '9九玉・8九金・7九金・8八銀・7八銀の四枚穴熊。金銀4枚で玉を完全に囲う最強クラスの堅陣。縦横どちらにも強いが組むのに20手以上かかる。',
+        description: '9九玉・9八香・8八金・7八金・8七銀・7七銀の四枚穴熊。金銀4枚で玉を完全に囲う最強クラスの堅陣。縦横どちらにも強いが組むのに20手以上かかる。',
         board: _bigFour(),
-        highlights: const {(8, 0), (8, 1), (8, 2), (7, 1), (7, 2)},
+        highlights: const {(8, 0), (7, 0), (7, 1), (7, 2), (6, 1), (6, 2)},
         difficulty: '上級',
         vertStrength: 3, horizStrength: 3, movesToBuild: 20,
       ),
       _CastleData(
         name: '中住まい（なかずまい）',
-        description: '5八玉・6八金・4八金・7八銀・3八銀。玉を中央に置き左右の金銀で守る。横に強く相居飛車の急戦で使われる。',
+        description: '5八玉・7八金・3八金・4八銀・7九銀。玉を中央に置き左右の金銀で守る。横に強く相居飛車の急戦で使われる。',
         board: _nakazumai(),
-        highlights: const {(7, 4), (7, 3), (7, 5), (7, 2), (7, 6)},
+        highlights: const {(7, 4), (7, 2), (7, 6), (7, 5), (8, 2)},
         difficulty: '中級',
         vertStrength: 2, horizStrength: 2, movesToBuild: 6,
       ),
       _CastleData(
         name: '木村美濃（きむらみの）',
-        description: '2八玉・3八金・5八金・4七銀。美濃の右銀を4七へ上がり玉頭の守りと反撃力を高めた発展形。横に強く振り飛車で多用。',
+        description: '2八玉・3八銀・5八金・4七金。美濃に金を4七へ足して玉頭の守りと反撃力を高めた発展形。横に強く振り飛車で多用。',
         board: _kimuraMino(),
         highlights: const {(7, 7), (7, 6), (7, 4), (6, 5)},
         difficulty: '中級',
@@ -449,6 +515,30 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
         highlights: const {(8, 0), (7, 1), (7, 2), (7, 3)},
         difficulty: '上級',
         vertStrength: 3, horizStrength: 2, movesToBuild: 12,
+      ),
+      _CastleData(
+        name: '銀矢倉（ぎんやぐら）',
+        description: '8八玉・7八金・7七銀・6七銀。矢倉の6七金を銀に変えた形で、銀の斜め利きにより横からの攻めにやや強くなる。',
+        board: _ginYagura(),
+        highlights: const {(7, 1), (7, 2), (6, 2), (6, 3)},
+        difficulty: '中級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 8,
+      ),
+      _CastleData(
+        name: '片矢倉（かたやぐら）',
+        description: '7八玉・6八金・7七銀・6七金。矢倉より玉が一路控えた形で、組む手数がやや少なく角換わりで多用される。',
+        board: _kataYagura(),
+        highlights: const {(7, 2), (7, 3), (6, 2), (6, 3)},
+        difficulty: '中級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 7,
+      ),
+      _CastleData(
+        name: '串カツ囲い（くしかつがこい）',
+        description: '9八玉・8八銀・7八金・7九金・7七角。玉を9八に寄せつつ角を7七に活用する居飛車の堅陣。穴熊と矢倉の中間的な性質を持つ。',
+        board: _kushikatsu(),
+        highlights: const {(7, 0), (7, 1), (7, 2), (8, 2), (6, 2)},
+        difficulty: '上級',
+        vertStrength: 3, horizStrength: 2, movesToBuild: 11,
       ),
     ];
 

@@ -2,7 +2,6 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'theme/app_theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_screen.dart';
@@ -1634,34 +1633,6 @@ class _SettingsTab extends StatelessWidget {
                 type: FeedbackType.other,
               ),
             ]),
-            const SizedBox(height: 24),
-
-            // ── アプリについて ──
-            _sectionLabel('アプリについて'),
-            const SizedBox(height: 8),
-            _settingCard([
-              const Text(
-                '参考資料',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 12),
-              _SourceLink(
-                title: '将棋講座.com',
-                subtitle: '将棋の格言・定跡・囲いの総合情報',
-                url: 'https://xn--pet04dr1n5x9a.com/',
-              ),
-              const SizedBox(height: 10),
-              _SourceLink(
-                title: '将棋研究',
-                subtitle: '定跡・戦法・手筋の詳細解説',
-                url: 'https://www.shougi.jp/',
-              ),
-            ]),
-            const SizedBox(height: 24),
           ],
         ),
       ),
@@ -1961,74 +1932,6 @@ Widget _feedbackTile(
       ),
     ),
   );
-}
-
-class _SourceLink extends StatelessWidget {
-  final String title;
-  final String subtitle;
-  final String url;
-
-  const _SourceLink({
-    required this.title,
-    required this.subtitle,
-    required this.url,
-  });
-
-  Future<void> _openUrl() async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: _openUrl,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: Colors.blue.withAlpha(20),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.blue.withAlpha(80), width: 1),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.link, color: Colors.blue.shade400, size: 16),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      color: Colors.blue.shade400,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            Icon(
-              Icons.open_in_new,
-              color: Colors.blue.withAlpha(150),
-              size: 14,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 // ===== テーマプレビュー CustomPainter =====
