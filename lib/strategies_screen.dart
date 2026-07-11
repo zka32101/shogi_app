@@ -1,7 +1,6 @@
 // lib/strategies_screen.dart — 戦法（開き方）説明
 
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'utils/shogi_data_validator.dart';
@@ -42,16 +41,6 @@ class StrategiesScreen extends StatefulWidget {
 
 class _StrategiesScreenState extends State<StrategiesScreen> {
   _Difficulty? _selectedDifficulty;
-  String? _selectedSource;
-
-  // 検証用の主要将棋サイト
-  static const _verificationSources = {
-    'elmo': 'https://www.elmo.fun/',
-    '将棋DB2': 'https://www2.aoba.c.u-tokyo.ac.jp/shogi/',
-    'ニコニコ将棋': 'https://www.nicovideo.jp/tag/%E5%B0%86%E6%A3%8B',
-    '棋譜ぐんぐん': 'https://kifu.gg/',
-    '将棋連盟': 'https://www.jsa.or.jp/',
-  };
 
   List<Map<String, dynamic>> get _strategies => [
     // 既存戦法
@@ -122,7 +111,7 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
       'sourceTitle': '将棋研究',
       'sourceUrl': 'https://www.shougi.jp/learn/strategy/',
       'boardBuilder': () => _yokofuBoard(),
-      'highlights': const {(3, 2)},
+      'highlights': const {(3, 6)},
     },
     {
       'name': '相振飛車',
@@ -199,10 +188,6 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
     return _strategies.where((strategy) {
       if (_selectedDifficulty != null &&
           strategy['difficulty'] != _selectedDifficulty) {
-        return false;
-      }
-      if (_selectedSource != null &&
-          strategy['sourceTitle'] != _selectedSource) {
         return false;
       }
       return true;
@@ -357,8 +342,6 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final sources = {'将棋講座.com', '将棋研究'};
-
     return Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
@@ -420,44 +403,6 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
               ],
             ),
           ),
-          // 出典フィルター
-          Padding(
-            padding: const EdgeInsets.only(bottom: 20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  '出典',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  children: [
-                    _FilterChip(
-                      label: '全て',
-                      isSelected: _selectedSource == null,
-                      onPressed: () => setState(() => _selectedSource = null),
-                    ),
-                    ...sources.map((source) {
-                      return _FilterChip(
-                        label: source,
-                        isSelected: _selectedSource == source,
-                        onPressed: () => setState(
-                          () => _selectedSource =
-                              _selectedSource == source ? null : source,
-                        ),
-                      );
-                    }),
-                  ],
-                ),
-              ],
-            ),
-          ),
           _SectionTitle('戦法一覧 (${_filteredStrategies.length}件)'),
           if (_filteredStrategies.isEmpty)
             Padding(
@@ -481,8 +426,6 @@ class _StrategiesScreenState extends State<StrategiesScreen> {
                 strategy['memo'] as String,
                 board,
                 difficulty: strategy['difficulty'] as _Difficulty,
-                sourceUrl: strategy['sourceUrl'] as String?,
-                sourceTitle: strategy['sourceTitle'] as String?,
                 highlights: strategy['highlights'] as Set<(int, int)>,
               );
             }),
@@ -594,8 +537,6 @@ class _DetailedStrategy extends StatelessWidget {
   final String memo;
   final List<List<Piece?>> board;
   final Set<(int, int)> highlights;
-  final String? sourceUrl;
-  final String? sourceTitle;
   final _Difficulty difficulty;
 
   const _DetailedStrategy(
@@ -604,17 +545,8 @@ class _DetailedStrategy extends StatelessWidget {
     this.memo,
     this.board, {
     this.highlights = const {},
-    this.sourceUrl,
-    this.sourceTitle,
     required this.difficulty,
   });
-
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -666,22 +598,6 @@ class _DetailedStrategy extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            // 出典リンク
-            if (sourceTitle != null && sourceUrl != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: GestureDetector(
-                  onTap: () => _launchUrl(sourceUrl!),
-                  child: Text(
-                    '出典: $sourceTitle →',
-                    style: TextStyle(
-                      color: Colors.blue.shade300,
-                      fontSize: 11,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ),
             Text(
               description,
               style: const TextStyle(

@@ -136,7 +136,6 @@ class _CastleTabView extends StatefulWidget {
 
 class _CastleTabViewState extends State<_CastleTabView> {
   int _selectedDifficulty = 0; // 0=全て, 1=初級, 2=中級, 3=上級
-  String _selectedSource = 'all'; // 'all' or source title
 
   List<_CBProb> get _filteredProblems {
     var filtered = widget.problems;
@@ -146,19 +145,11 @@ class _CastleTabViewState extends State<_CastleTabView> {
       filtered = filtered.where((p) => p.difficulty == _selectedDifficulty).toList();
     }
 
-    // Source filter
-    if (_selectedSource != 'all') {
-      filtered = filtered.where((p) => p.sourceTitle == _selectedSource).toList();
-    }
-
     return filtered;
   }
 
   @override
   Widget build(BuildContext context) {
-    final uniqueSources = widget.problems.map((p) => p.sourceTitle).toSet().toList();
-    uniqueSources.sort();
-
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -218,47 +209,6 @@ class _CastleTabViewState extends State<_CastleTabView> {
         ),
         const SizedBox(height: 12),
 
-        // Source Filter
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F3460).withAlpha(150),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                '出典サイト',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: [
-                  _SourceChip(
-                    label: '全て',
-                    value: 'all',
-                    selected: _selectedSource == 'all',
-                    onTap: () => setState(() => _selectedSource = 'all'),
-                  ),
-                  ...uniqueSources.map((source) => _SourceChip(
-                    label: source ?? '不明',
-                    value: source ?? 'unknown',
-                    selected: _selectedSource == (source ?? 'unknown'),
-                    onTap: () => setState(() => _selectedSource = source ?? 'unknown'),
-                  )),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
         // Problem count
         Text(
           '${_filteredProblems.length}問を表示',
@@ -304,38 +254,6 @@ class _DifficultyChip extends StatelessWidget {
       ),
       side: BorderSide(
         color: selected ? Colors.amber : Colors.white30,
-      ),
-    );
-  }
-}
-
-class _SourceChip extends StatelessWidget {
-  final String label;
-  final String value;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _SourceChip({
-    required this.label,
-    required this.value,
-    required this.selected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FilterChip(
-      label: Text(label),
-      selected: selected,
-      onSelected: (_) => onTap(),
-      backgroundColor: Colors.transparent,
-      selectedColor: Colors.green.shade600,
-      labelStyle: TextStyle(
-        color: selected ? Colors.white : Colors.white70,
-        fontSize: 12,
-      ),
-      side: BorderSide(
-        color: selected ? Colors.green : Colors.white30,
       ),
     );
   }
@@ -515,16 +433,6 @@ class _ProblemCard extends StatelessWidget {
                   fontSize: 12,
                 ),
               ),
-              if (prob.sourceTitle != null) ...[
-                const SizedBox(height: 6),
-                Text(
-                  '出典：${prob.sourceTitle}',
-                  style: const TextStyle(
-                    color: Colors.white38,
-                    fontSize: 10,
-                  ),
-                ),
-              ],
             ],
           ),
         ),

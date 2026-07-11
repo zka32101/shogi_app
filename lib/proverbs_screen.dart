@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
-import 'widgets/source_link_widget.dart';
 import 'theme/app_theme.dart';
 
 // ===== カテゴリ定義 =====
@@ -188,16 +187,6 @@ class _ProverbCard extends StatelessWidget {
                 showLabels: false,
               ),
             ),
-            if (data.sourceUrl != null && data.sourceTitle != null) ...[
-              const SizedBox(height: 12),
-              Center(
-                child: SourceLinkWidget(
-                  sourceTitle: data.sourceTitle!,
-                  sourceUrl: data.sourceUrl!,
-                  padding: EdgeInsets.zero,
-                ),
-              ),
-            ],
           ],
         ),
       ),
@@ -610,19 +599,23 @@ List<_ProverbData> _buildAllProverbs() {
     }(),
 
     // 20. 詰めろの連続が勝利への道 [攻め]
+    // (旧版は先手金(0,5)が後手玉(0,4)に横から実際に王手をかけており、
+    //  「詰めろ」＝次に詰める脅しであってまだ王手ではない、という
+    //  概念と矛盾していた。金を(2,5)に配置し直し、王手ではなく
+    //  脅しを示す形にした)
     () {
       final b = _emptyBoard();
       b[0][4] = const Piece(PieceType.king, false);
       b[1][4] = const Piece(PieceType.gold, false);
       b[1][3] = const Piece(PieceType.silver, false);
-      b[2][4] = const Piece(PieceType.rook, true);   // 詰めろ
-      b[0][5] = const Piece(PieceType.gold, true);   // 詰めろ
+      b[2][4] = const Piece(PieceType.rook, true);   // 詰めろ（後手金が遮っており今は王手ではない）
+      b[2][5] = const Piece(PieceType.gold, true);   // 詰めろ
       b[8][4] = const Piece(PieceType.king, true);
       return _ProverbData(
         proverb: '詰めろの連続が勝利への道',
         explanation: '詰めろ（次に詰める脅し）を連続してかけ続けることで相手に受ける手を強制し勝利に繋げる。',
         board: b,
-        highlightSquares: {(2, 4), (0, 5), (0, 3), (0, 4)},
+        highlightSquares: {(2, 4), (2, 5), (0, 3), (0, 4)},
         category: _ProverbCategory.attack,
         sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/全般格言一覧.html',
         sourceTitle: '将棋講座.com',
@@ -655,18 +648,21 @@ List<_ProverbData> _buildAllProverbs() {
     }(),
 
     // 22. 垂れ歩は先手必勝 [攻め]
+    // (旧版は先手歩(1,4)が後手玉(0,4)の真正面に位置し実際に王手をかけて
+    //  おり、「垂れ歩」＝まだ王手ではない静かな脅しの歩、という概念と
+    //  矛盾していた。歩・飛車を1列ずらして玉の筋を避け、王手ではない形にした)
     () {
       final b = _emptyBoard();
       b[8][4] = const Piece(PieceType.king, true);
       b[0][4] = const Piece(PieceType.king, false);
-      b[1][4] = const Piece(PieceType.pawn, true);   // 垂れ歩（敵陣2段目）
+      b[1][5] = const Piece(PieceType.pawn, true);   // 垂れ歩（敵陣2段目）
       b[1][3] = const Piece(PieceType.gold, false);  // 受けに来た後手の金
-      b[3][4] = const Piece(PieceType.rook, true);   // 垂れ歩を支援する飛車
+      b[3][5] = const Piece(PieceType.rook, true);   // 垂れ歩を支援する飛車
       return _ProverbData(
         proverb: '垂れ歩は先手必勝',
         explanation: '敵陣の2段目に打った歩を「垂れ歩」という。飛車で守られた歩は相手が取れず受けを迫る強力な攻め。',
         board: b,
-        highlightSquares: {(1, 4), (1, 3)},
+        highlightSquares: {(1, 5), (1, 3)},
         category: _ProverbCategory.attack,
         sourceUrl: 'https://xn--pet04dr1n5x9a.com/格言/歩の格言一覧.html',
         sourceTitle: '将棋講座.com',
@@ -693,10 +689,15 @@ List<_ProverbData> _buildAllProverbs() {
     }(),
 
     // 24. 終盤は秒読みで指せ [一般]
+    // (旧版は先手飛車(2,4)と後手玉(0,4)の間の(1,4)が空いており、
+    //  実際に王手がかかった状態になっていた。この格言は一般的な終盤の
+    //  心構えについてであり特定の王手局面を示す意図ではないため、
+    //  後手歩を(1,4)に置いて遮り、王手ではない攻撃陣形の図にした)
     () {
       final b = _emptyBoard();
       b[0][4] = const Piece(PieceType.king, false);
       b[1][3] = const Piece(PieceType.gold, false);
+      b[1][4] = const Piece(PieceType.pawn, false);
       b[1][5] = const Piece(PieceType.silver, false);
       b[2][4] = const Piece(PieceType.rook, true);
       b[2][3] = const Piece(PieceType.gold, true);

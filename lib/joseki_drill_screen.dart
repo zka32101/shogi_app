@@ -107,7 +107,6 @@ final List<JosekiDrill> drills = [
       DrillStep(label: '△5四歩', comment: '後手も中央に歩を突いて対抗。', fromRow: 2, fromCol: 4, toRow: 3, toCol: 4, isP1: false),
       DrillStep(label: '▲5八金右', comment: '右金が5八に移動。矢倉の金銀配置を整える。', fromRow: 8, fromCol: 5, toRow: 7, toCol: 4, isP1: true),
       DrillStep(label: '△4二銀', comment: '後手も左銀を上がって矢倉の準備。', fromRow: 0, fromCol: 6, toRow: 1, toCol: 5, isP1: false),
-      DrillStep(label: '▲7七銀', comment: '銀を7七に上がる。矢倉城の核心となる配置。', fromRow: 7, fromCol: 2, toRow: 6, toCol: 2, isP1: true),
       DrillStep(label: '△3二金', comment: '後手も金を上がって矢倉囲いの準備。', fromRow: 0, fromCol: 5, toRow: 1, toCol: 6, isP1: false),
       DrillStep(label: '▲6七銀', comment: '6八の銀を繰り替えて矢倉の銀の配置を完成させる。', fromRow: 7, fromCol: 3, toRow: 6, toCol: 3, isP1: true),
       DrillStep(label: '△4一玉', comment: '後手の玉が4一に寄る。矢倉囲いへの入城準備。', fromRow: 0, fromCol: 4, toRow: 0, toCol: 5, isP1: false),
@@ -117,10 +116,10 @@ final List<JosekiDrill> drills = [
       DrillStep(label: '▲7八玉', comment: '玉が7八へ。矢倉への道中。', fromRow: 7, fromCol: 3, toRow: 7, toCol: 2, isP1: true),
       DrillStep(label: '▲8八玉', comment: '玉が8八に入城！矢倉囲いへ！', fromRow: 7, fromCol: 2, toRow: 7, toCol: 1, isP1: true),
       DrillStep(label: '△7三桂', comment: '後手の桂が跳ねる。7筋攻めの布石。', fromRow: 0, fromCol: 1, toRow: 2, toCol: 2, isP1: false),
+      DrillStep(label: '▲7七桂', comment: '桂馬を7七に跳ねて、玉が8九へ入城するスペースを作る。', fromRow: 8, fromCol: 1, toRow: 6, toCol: 2, isP1: true),
       DrillStep(label: '▲8九玉', comment: '玉が8九に入城。矢倉囲い完成！', fromRow: 7, fromCol: 1, toRow: 8, toCol: 1, isP1: true),
       DrillStep(label: '△3一角', comment: '後手の角が3一に引いて矢倉の構えを整える。', fromRow: 1, fromCol: 7, toRow: 0, toCol: 6, isP1: false),
       DrillStep(label: '▲9八香', comment: '端香を9八に上げて玉頭を補強。矢倉囲いの仕上げ。', fromRow: 8, fromCol: 0, toRow: 7, toCol: 0, isP1: true),
-      DrillStep(label: '△6四角', comment: '後手の角が6四に出て相矢倉の戦いが始まる。', fromRow: 0, fromCol: 6, toRow: 3, toCol: 3, isP1: false),
     ],
   ),
   // ──────────── 四間飛車美濃囲い ──────────
@@ -133,7 +132,7 @@ final List<JosekiDrill> drills = [
     steps: [
       DrillStep(label: '▲7六歩', comment: '先手が角道を開ける。後手の振り飛車を見届けよう。', fromRow: 6, fromCol: 2, toRow: 5, toCol: 2, isP1: true),
       DrillStep(label: '△4二飛', comment: '後手が飛車を4筋（四二）に振る。四間飛車の出だし！', fromRow: 1, fromCol: 1, toRow: 1, toCol: 5, isP1: false),
-      DrillStep(label: '△4二銀', comment: '銀を4二に上がる。美濃囲いの銀の出発点。', fromRow: 0, fromCol: 6, toRow: 1, toCol: 5, isP1: false),
+      DrillStep(label: '△3二銀', comment: '銀を3二に上がる。美濃囲いの銀の出発点。', fromRow: 0, fromCol: 6, toRow: 1, toCol: 6, isP1: false),
       DrillStep(label: '△5二金左', comment: '左の金を5二に上がる。美濃囲いの金の位置。', fromRow: 0, fromCol: 3, toRow: 1, toCol: 4, isP1: false),
       DrillStep(label: '△6二玉', comment: '玉が6二に移動。美濃囲いへの入城が始まる。', fromRow: 0, fromCol: 4, toRow: 1, toCol: 3, isP1: false),
       DrillStep(label: '△7二玉', comment: '玉がさらに7二へ。端に向かって逃げる。', fromRow: 1, fromCol: 3, toRow: 1, toCol: 2, isP1: false),

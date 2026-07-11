@@ -114,6 +114,9 @@ int _c(int suji) => 9 - suji;    // 筋→col
 
 // ─────────────────────────────────────────────
 // 相矢倉 の盤面ステップ
+// (旧版は「▲7七銀」が7九(8,2)→7七(6,2)へ2マス直進する、銀将には
+//  存在しない不正な移動形だった。TsumeEngineでの検証により発覚・修正:
+//  7九→7八→7七の2手に分けて正しい移動形にした)
 // ─────────────────────────────────────────────
 List<_JosekiStep> _yagaraSteps() {
   final b0 = _initialBoard();
@@ -130,10 +133,13 @@ List<_JosekiStep> _yagaraSteps() {
   // 4手目: △3四歩
   final b4 = _move(b3b, _r(3), _c(3), _r(4), _c(3));
 
-  // 5手目: ▲7七銀 (先手左銀 7九 → 7七: row8,col2 → row6,col2)
-  final b5b = _move(b4, 8, 2, 6, 2);
+  // 5手目: ▲7八銀 (先手左銀 7九 → 7八: row8,col2 → row7,col2、前へ1マス)
+  final b5a = _move(b4, 8, 2, 7, 2);
 
-  // 6手目: △7七角成 はないので矢倉継続: △8五歩
+  // 6手目: ▲7七銀 (7八 → 7七: row7,col2 → row6,col2、前へ1マス)
+  final b5b = _move(b5a, 7, 2, 6, 2);
+
+  // 7手目: △7七角成 はないので矢倉継続: △8五歩
   final b6 = _move(b5b, _r(4), _c(8), _r(5), _c(8));
 
   return [
@@ -171,10 +177,17 @@ List<_JosekiStep> _yagaraSteps() {
       toCell: (_r(4), _c(3)),
     ),
     _JosekiStep(
-      move: '▲7七銀',
-      comment: '銀を繰り出して矢倉囲いへ。この銀が矢倉の要となります。',
-      board: b5b,
+      move: '▲7八銀',
+      comment: '銀を繰り出して矢倉囲いへ。次に7七を目指します。',
+      board: b5a,
       fromCell: (8, 2),
+      toCell: (7, 2),
+    ),
+    _JosekiStep(
+      move: '▲7七銀',
+      comment: 'さらに銀を進めます。この銀が矢倉の要となります。',
+      board: b5b,
+      fromCell: (7, 2),
       toCell: (6, 2),
     ),
     _JosekiStep(
@@ -1165,6 +1178,12 @@ List<_JosekiStep> _mukaiBishaSteps() {
 // ─────────────────────────────────────────────
 // 石田流 の盤面ステップ
 // ─────────────────────────────────────────────
+// (旧版は「▲6七銀」が7九(8,2)→6七(6,3)へ2マス斜めに動く、将棋の銀将には
+//  存在しない不正な移動形だった上、「▲7六飛」も7八(7,2)→7六(5,2)の
+//  移動途中である7七(6,2)に既に自分の角が動いた後で、飛車が自分の角を
+//  飛び越えてしまう不成立な手順だった。TsumeEngineでの検証により発覚・
+//  修正: 飛車を角より先に7六へ進め、銀は7九→6八→6七の2手に分けて
+//  正しい移動形にした)
 List<_JosekiStep> _ishidaSteps() {
   final b0 = _initialBoard();
 
@@ -1178,15 +1197,16 @@ List<_JosekiStep> _ishidaSteps() {
   final b4 = _move(b3, 7, 7, 7, 2);
   // △8五歩: 後手8筋歩(row3,col1) → row4,col1
   final b5 = _move(b4, 3, 1, 4, 1);
+  // ▲7六飛: 七八飛(row7,col2) → 七六(row5,col2)（角が7七へ動く前に進めておく）
+  final b6 = _move(b5, 7, 2, 5, 2);
   // ▲7七角: 先手角(row7,col1) → row6,col2
-  final b6 = _move(b5, 7, 1, 6, 2);
+  final b7 = _move(b6, 7, 1, 6, 2);
   // ▲6六歩: 先手6筋歩(row6,col3) → row5,col3
-  final b7 = _move(b6, 6, 3, 5, 3);
-  // ▲6七銀: 先手左銀(row8,col2) → 六七(row6,col3) ... 左銀はrow8,col2
-  // ▲6七銀: row8,col2 → row6,col3
-  final b8 = _move(b7, 8, 2, 6, 3);
-  // ▲7六飛: 七八飛(row7,col2) → 七六(row5,col2)
-  final b9 = _move(b8, 7, 2, 5, 2);
+  final b8 = _move(b7, 6, 3, 5, 3);
+  // ▲6八銀: 先手左銀(row8,col2) → 六八(row7,col3)（斜め前へ1マス）
+  final b9 = _move(b8, 8, 2, 7, 3);
+  // ▲6七銀: 六八銀(row7,col3) → 六七(row6,col3)（前へ1マス）
+  final b10 = _move(b9, 7, 3, 6, 3);
 
   return [
     _JosekiStep(
@@ -1230,32 +1250,39 @@ List<_JosekiStep> _ishidaSteps() {
       toCell: (4, 1),
     ),
     _JosekiStep(
+      move: '▲7六飛',
+      comment: '飛車を7六まで前進！7五の歩と連携した強力な陣形を作ります。',
+      board: b6,
+      fromCell: (7, 2),
+      toCell: (5, 2),
+    ),
+    _JosekiStep(
       move: '▲7七角',
       comment: '角を上がって後手の8筋を止めます。石田流でも角は重要な守り駒。',
-      board: b6,
+      board: b7,
       fromCell: (7, 1),
       toCell: (6, 2),
     ),
     _JosekiStep(
       move: '▲6六歩',
-      comment: '角道を止めます。銀の繰り出しと飛車の活用を準備します。',
-      board: b7,
+      comment: '角道を止めます。銀の繰り出しを準備します。',
+      board: b8,
       fromCell: (6, 3),
       toCell: (5, 3),
     ),
     _JosekiStep(
-      move: '▲6七銀',
-      comment: '銀を中央に繰り出して飛車をサポート。石田流の攻撃陣が完成に近づきます。',
-      board: b8,
+      move: '▲6八銀',
+      comment: '銀を斜め前へ繰り出します。次に6七を目指します。',
+      board: b9,
       fromCell: (8, 2),
-      toCell: (6, 3),
+      toCell: (7, 3),
     ),
     _JosekiStep(
-      move: '▲7六飛',
-      comment: '飛車を7六まで前進！7五の歩と連携した強力な陣形「石田流本組」の完成です。',
-      board: b9,
-      fromCell: (7, 2),
-      toCell: (5, 2),
+      move: '▲6七銀',
+      comment: '銀を中央に進めて飛車をサポート。「石田流本組」の完成です。',
+      board: b10,
+      fromCell: (7, 3),
+      toCell: (6, 3),
     ),
     _JosekiStep(
       move: '以降の方針',
@@ -1264,7 +1291,7 @@ List<_JosekiStep> _ishidaSteps() {
           '▲7四歩の突き捨てから▲7三飛成を狙います。\n'
           '相手の対応次第で角や銀を絡めた多彩な攻めが可能。\n'
           '攻撃力の高い戦法ですが玉の囲いも忘れずに組みましょう。',
-      board: b9,
+      board: b10,
     ),
   ];
 }
@@ -1986,44 +2013,6 @@ class _OverviewCard extends StatelessWidget {
             ],
           ),
         ),
-        if (joseki.sourceTitle != null) ...[
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.surface,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.white12, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    const Icon(Icons.link, color: Colors.white54, size: 14),
-                    const SizedBox(width: 8),
-                    const Text(
-                      '出典',
-                      style: TextStyle(
-                        color: Colors.white54,
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  joseki.sourceTitle!,
-                  style: const TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
       ],
     );
   }
