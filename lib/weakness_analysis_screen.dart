@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme/app_theme.dart';
+import 'services/kifu_analytics_service.dart';
+import 'models/game_analysis.dart';
 
 enum WeaknessLevel {
   great,
@@ -114,6 +116,7 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
 
   List<SkillDimension> _dimensions = [];
   List<SkillDimension> _weakTop3 = [];
+  List<BlunderPattern> _topBlunderPatterns = [];
 
   late AnimationController _radarAnimController;
   late Animation<double> _radarAnim;
@@ -186,6 +189,16 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
         : josekiScores.reduce((a, b) => a + b) / josekiScores.length;
 
     _computeDimensions();
+
+    // 実際の対局分析（KifuAnalyticsService）から繰り返す悪手パターンを取得。
+    // 集計カウンタベースの7軸スコアだけでなく、具体的にどこでミスしているか
+    // という実データに基づく気づきを提示する。
+    try {
+      _topBlunderPatterns =
+          await KifuAnalyticsService().getRepeatedBlunders(topN: 3);
+    } catch (_) {
+      _topBlunderPatterns = [];
+    }
 
     setState(() => _isLoading = false);
 
@@ -358,6 +371,10 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
                   _buildDimensionCards(),
                   const SizedBox(height: 24),
                   _buildWeakTop3(),
+                  if (_topBlunderPatterns.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    _buildRecentBlunderInsights(),
+                  ],
                   const SizedBox(height: 24),
                   _buildImprovementSuggestions(),
                   const SizedBox(height: 32),
@@ -724,6 +741,93 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildRecentBlunderInsights() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFF9800).withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(Icons.query_stats, color: Color(0xFFFF9800), size: 20),
+              SizedBox(width: 8),
+              Text(
+                '実際の対局で繰り返しているミス',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            '対局分析データから、評価値が大きく下がった局面のパターンを抽出しています。',
+            style: TextStyle(color: Colors.white54, fontSize: 11, height: 1.4),
+          ),
+          const SizedBox(height: 14),
+          ..._topBlunderPatterns.map((p) {
+            final square = p.mistakes.isNotEmpty ? p.mistakes.last : '?';
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF9800).withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      '$square付近',
+                      style: const TextStyle(
+                        color: Color(0xFFFF9800),
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'この局面で${p.occurrenceCount}回、評価値を大きく落とす手を指しています',
+                      style: const TextStyle(color: Colors.white70, fontSize: 12.5, height: 1.4),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+          const SizedBox(height: 4),
+          GestureDetector(
+            onTap: widget.onGoToTsume,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Text(
+                  '詰将棋・手筋で読みを鍛える',
+                  style: TextStyle(
+                    color: Color(0xFFFF9800),
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Icon(Icons.arrow_forward_ios, color: Color(0xFFFF9800), size: 10),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 

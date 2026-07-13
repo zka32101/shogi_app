@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'stats_screen.dart';
 import 'tsume_screen.dart';
+import 'joseki_screen.dart';
+import 'tesuji_screen.dart';
+import 'proverbs_screen.dart';
 import 'weakness_analysis_screen.dart';
 import 'game_setup_screen.dart';
 import 'game_screen.dart' show GameMode;
@@ -219,13 +222,13 @@ class _ShodanRoadmapScreenState extends State<ShodanRoadmapScreen> {
     if (screen == null) return;
     switch (screen) {
       case 'joseki':
-        Navigator.pushNamed(context, '/joseki');
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const JosekiScreen()));
         break;
       case 'tesuji':
-        Navigator.pushNamed(context, '/tesuji');
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const TesujiScreen()));
         break;
       case 'proverbs':
-        Navigator.pushNamed(context, '/proverbs');
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const ProverbsScreen()));
         break;
       case 'tsume':
         Navigator.push(context, MaterialPageRoute(builder: (_) => const TsumeScreen()));
@@ -235,8 +238,10 @@ class _ShodanRoadmapScreenState extends State<ShodanRoadmapScreen> {
           builder: (_) => WeaknessAnalysisScreen(
             onGoToTsume: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => const TsumeScreen())),
-            onGoToJoseki: () => Navigator.pushNamed(context, '/joseki'),
-            onGoToTesuji: () => Navigator.pushNamed(context, '/tesuji'),
+            onGoToJoseki: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const JosekiScreen())),
+            onGoToTesuji: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const TesujiScreen())),
             onGoToAiGame: () => Navigator.push(context,
                 MaterialPageRoute(builder: (_) => GameSetupScreen(mode: GameMode.vsAI))),
           ),

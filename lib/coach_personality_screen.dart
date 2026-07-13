@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'services/ai_service.dart';
+import 'services/kifu_analytics_service.dart';
 
 /// AI棋風コーチ - AI Personality Coach Screen
 /// Premium feature that analyzes play style and provides personalized coaching
@@ -126,28 +128,73 @@ class _CoachPersonalityScreenState extends State<CoachPersonalityScreen>
     _savePersistence();
   }
 
+  // 棋風診断画面（playstyle_diagnosis_screen.dart）が集計している実際の指し手データ
+  // （攻め/引き/打ちの比率）から判定する。判定基準もその画面と揃え、
+  // アプリ内で棋風の判定結果が食い違わないようにしている。
   String _analyzePlayStyle() {
-    // Mock analysis: in production, analyze actual game history
-    // For now, return based on some heuristic
-    final rand = DateTime.now().microsecond % 4;
-    final personalities = ['熱血型', '冷静型', '戦術家', 'バランス型'];
-    return personalities[rand];
+    final attack = _prefs.getInt('playstyle_attack') ?? 0;
+    final retreat = _prefs.getInt('playstyle_retreat') ?? 0;
+    final drop = _prefs.getInt('playstyle_drop') ?? 0;
+    final total = _prefs.getInt('playstyle_total') ?? 0;
+    if (total == 0) return 'バランス型';
+
+    final attackRatio = attack / total;
+    final retreatRatio = retreat / total;
+    final dropRatio = drop / total;
+
+    if (attackRatio > 0.38) return '熱血型';
+    if (retreatRatio > 0.32) return '冷静型';
+    if (dropRatio > 0.22) return '戦術家';
+    return 'バランス型';
   }
 
   Future<void> _savePersistence() async {
     await _prefs.setString('coach_personality', _coachPersonality);
   }
 
-  void _simulateGameFeedback() {
+  Future<void> _simulateGameFeedback() async {
     final personalityData = _personalityDatabase[_coachPersonality];
     if (personalityData == null) return;
 
-    final feedbackIndex =
-        DateTime.now().microsecond % personalityData.feedbackMessages.length;
-    final feedback = personalityData.feedbackMessages[feedbackIndex];
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    // 直近の実際の対局分析（KifuAnalyticsService）を渡し、Claude による
+    // 本物のコーチフィードバックを取得する。対局データがない・API呼び出しに
+    // 失敗した場合はキャラクター別の定型文にフォールバックする。
+    String feedback;
+    try {
+      final analyses = await KifuAnalyticsService().getAllAnalyses();
+      if (analyses.isEmpty) {
+        feedback = _fallbackFeedback(personalityData);
+      } else {
+        final latest = analyses.first;
+        final gameResult = latest.playerWon
+            ? '勝ち（${latest.movesCount}手、悪手${latest.blunders.length}回）'
+            : '負け（${latest.movesCount}手、悪手${latest.blunders.length}回）';
+        feedback = await AIService.generateCoachFeedback(
+          gameResult,
+          _coachPersonality,
+        );
+      }
+    } catch (_) {
+      feedback = _fallbackFeedback(personalityData);
+    }
+
+    if (!mounted) return;
+    Navigator.pop(context); // ローディングダイアログを閉じる
 
     // レベルは実際の対局数からのみ決まる（このボタンでは上がらない）
     _showFeedbackPopup(feedback, personalityData.emoji);
+  }
+
+  String _fallbackFeedback(CoachPersonalityData personalityData) {
+    final feedbackIndex =
+        DateTime.now().microsecond % personalityData.feedbackMessages.length;
+    return personalityData.feedbackMessages[feedbackIndex];
   }
 
   void _showFeedbackPopup(String feedback, String emoji) {

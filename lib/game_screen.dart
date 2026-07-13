@@ -12,6 +12,8 @@ import 'package:share_plus/share_plus.dart';
 import 'piece.dart';
 import 'logic.dart';
 import 'services/ai_isolate.dart';
+import 'study_calendar_screen.dart';
+import 'cloud_sync_service.dart';
 import 'character_icons.dart';
 import 'exceptions/app_exception.dart';
 import 'ai_personality.dart';
@@ -28,6 +30,8 @@ import 'purchase_service.dart';
 import 'screens/premium_screen.dart';
 import 'weakness_analysis_screen.dart';
 import 'tsume_screen.dart';
+import 'joseki_screen.dart';
+import 'tesuji_screen.dart';
 import 'shodan_roadmap_screen.dart';
 import 'kifu_history_screen.dart';
 import 'kifu_replay_screen.dart';
@@ -1697,6 +1701,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (!_kifuSaved) {
       _kifuSaved = true;
       _saveKifu();
+      StudyCalendarScreen.recordActivity('taikyoku');
       // ゲーム終了ログを記録
       FirebaseLoggingService.logGameEnd(
         gameMode: vsAI ? 'vsAI' : 'network',
@@ -1951,10 +1956,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             builder: (_) => const TsumeScreen(),
                           ),
                         ),
-                        onGoToJoseki: () =>
-                            Navigator.pushNamed(context, '/joseki'),
-                        onGoToTesuji: () =>
-                            Navigator.pushNamed(context, '/tesuji'),
+                        onGoToJoseki: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const JosekiScreen(),
+                          ),
+                        ),
+                        onGoToTesuji: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const TesujiScreen(),
+                          ),
+                        ),
                         onGoToAiGame: () => Navigator.pop(context),
                         onGoToKifu: () => Navigator.push(
                           context,
@@ -3175,6 +3188,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         final newRating = (prevRating + delta).clamp(0, 9999);
 
         await prefs.setInt('rating_ai_current', newRating);
+        // rating_current はバッジ判定・棋力診断・マッチングなど多数の画面が
+        // 参照する統一レーティング値。AI対局・ネット対局どちらのモードで
+        // 上がったレーティングも失われないよう、両モードの高い方を採用する
+        // （直近プレイしたモードで単純上書きすると、片方のモードで築いた
+        // 実力が別モードの1敗で瞬時に下がって見えてしまうため）。
+        final netRating = prefs.getInt('rating_net_current') ?? 0;
+        await prefs.setInt('rating_current', newRating > netRating ? newRating : netRating);
+        // ローカルの進捗（レーティング・バッジ・対局数）をサーバーへも反映する
+        // （pushUserData()自体は定義済みだったがどこからも呼ばれておらず、
+        // 端末を変えるとローカルのみの進捗が失われる状態だった）。
+        CloudSyncService.pushUserData();
 
         // 昇段チェック
         final newRankStr = ratingToRank(newRating);

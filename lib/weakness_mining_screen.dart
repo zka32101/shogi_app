@@ -2,6 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'theme/app_theme.dart';
+import 'services/kifu_analytics_service.dart';
+import 'tsume_screen.dart';
+import 'joseki_screen.dart';
+
+class _OpeningStat {
+  int total = 0;
+  int losses = 0;
+}
 
 class WeaknessPattern {
   final String patternName;
@@ -94,39 +102,24 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
     }
   }
 
+  // (旧版は書き込み元の存在しない 'game_history_json' キーを読もうとしており、
+  //  常にモックの弱点パターンを表示していた。TsumeEngine監査で発覚・修正:
+  //  対局ごとに実際に保存されている KifuAnalyticsService のデータ
+  //  （戦型別の勝敗・繰り返す悪手パターン）から実データで分析するよう変更)
   Future<void> _analyzeGameHistory() async {
-    final gameHistoryJson = _prefs.getString('game_history_json');
-
-    if (gameHistoryJson == null || gameHistoryJson.isEmpty) {
-      // Create mock patterns if no history
-      _createMockWeaknessPatterns();
-      return;
-    }
-
     try {
-      final List<dynamic> gameHistory = jsonDecode(gameHistoryJson);
-      final patterns = <String, Map<String, int>>{};
+      final analyses = await KifuAnalyticsService().getAllAnalyses();
 
-      for (final game in gameHistory) {
-        if (game is Map<String, dynamic>) {
-          final openingType = game['opening'] as String? ?? '序盤';
-          final result = game['result'] as String? ?? 'loss';
-          final handicap = game['handicap'] as String? ?? '平手';
-
-          final key = '$openingType/$handicap';
-
-          if (!patterns.containsKey(key)) {
-            patterns[key] = {'losses': 0, 'total': 0};
-          }
-
-          patterns[key]!['total'] = patterns[key]!['total']! + 1;
-          if (result == 'loss') {
-            patterns[key]!['losses'] = patterns[key]!['losses']! + 1;
-          }
-        }
+      // 戦型（openingName）別の勝敗集計
+      final byOpening = <String, _OpeningStat>{};
+      for (final a in analyses) {
+        final name = a.openingName;
+        if (name == null || name.isEmpty) continue;
+        final stat = byOpening.putIfAbsent(name, () => _OpeningStat());
+        stat.total++;
+        if (!a.playerWon) stat.losses++;
       }
 
-      // Convert to WeaknessPattern list
       final recommendations = {
         '穴熊': '穴熊の防御を強化する。駒組み練習に進む',
         '角換わり': '角換わり定跡を学習する。詰将棋練習',
@@ -135,20 +128,37 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
         '早仕掛け': '早仕掛けへの対抗策を学習する',
       };
 
-      _weaknessPatterns = patterns.entries
+      final openingPatterns = byOpening.entries
+          .where((e) => e.value.total >= 2 && e.value.losses > 0)
           .map((e) => WeaknessPattern(
-                patternName: e.key,
-                losses: e.value['losses'] ?? 0,
-                totalGames: e.value['total'] ?? 1,
+                patternName: '${e.key}で負けやすい',
+                losses: e.value.losses,
+                totalGames: e.value.total,
                 recommendation: _findRecommendation(e.key, recommendations),
               ))
           .toList();
 
-      // Save to preferences
+      // 繰り返し発生している悪手パターン（実際の対局分析データから）
+      final blunderPatterns =
+          await KifuAnalyticsService().getRepeatedBlunders(topN: 5);
+      final blunderCards = blunderPatterns
+          .where((p) => p.occurrenceCount >= 2)
+          .map((p) {
+        final square = p.mistakes.isNotEmpty ? p.mistakes.last : '?';
+        return WeaknessPattern(
+          patternName: '$square 付近で悪手を繰り返す',
+          losses: p.occurrenceCount,
+          totalGames: p.occurrenceCount,
+          recommendation: '詰将棋・手筋トレーニングでこの局面パターンを重点的に練習する',
+        );
+      }).toList();
+
+      _weaknessPatterns = [...openingPatterns, ...blunderCards];
+
       await _saveWeaknessPatterns();
     } catch (e) {
-      print('Error analyzing game history: $e');
-      _createMockWeaknessPatterns();
+      // 分析に失敗した場合は空のまま（モックデータは表示しない）
+      _weaknessPatterns = [];
     }
   }
 
@@ -159,41 +169,6 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
       }
     }
     return '定跡学習と詰め合い練習を進める';
-  }
-
-  void _createMockWeaknessPatterns() {
-    _weaknessPatterns = [
-      WeaknessPattern(
-        patternName: '穴熊でよく負ける',
-        losses: 6,
-        totalGames: 10,
-        recommendation: '穴熊の防御を強化する。駒組み練習に進む',
-      ),
-      WeaknessPattern(
-        patternName: '4五桂で負ける',
-        losses: 5,
-        totalGames: 8,
-        recommendation: '4五桂への対抗策を学習する',
-      ),
-      WeaknessPattern(
-        patternName: '横歩取りが苦手',
-        losses: 4,
-        totalGames: 7,
-        recommendation: '横歩取り定跡を強化する',
-      ),
-      WeaknessPattern(
-        patternName: '角換わりで敗北',
-        losses: 3,
-        totalGames: 6,
-        recommendation: '角換わり定跡を学習する',
-      ),
-      WeaknessPattern(
-        patternName: '早仕掛けに弱い',
-        losses: 3,
-        totalGames: 5,
-        recommendation: '早仕掛けへの対抗策を学習する',
-      ),
-    ];
   }
 
   Future<void> _saveWeaknessPatterns() async {
@@ -516,7 +491,15 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
       ),
     );
 
-    // TODO: Navigate to training screen based on pattern
-    // Navigator.push(context, MaterialPageRoute(...))
+    // 戦型（開き）の負けパターンは定跡学習へ、悪手の繰り返しパターンは
+    // 詰将棋トレーニングへ誘導する（_analyzeGameHistory() が付与する
+    // patternName の2種類の形式に対応）。
+    final isOpeningWeakness = pattern.patternName.endsWith('で負けやすい');
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => isOpeningWeakness ? const JosekiScreen() : const TsumeScreen(),
+      ),
+    );
   }
 }

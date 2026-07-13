@@ -29,7 +29,7 @@ import 'ad_service.dart';
 import 'purchase_service.dart';
 import 'network_lobby_screen.dart';
 import 'network_game_service.dart';
-import 'ranking_screen.dart';
+import 'screens/ranking_screen.dart';
 import 'badge_screen.dart';
 import 'cloud_sync_service.dart';
 import 'ai_data_service.dart';
@@ -55,7 +55,7 @@ import 'castle_break_screen.dart';
 import 'pro_kifu_screen.dart';
 import 'study_calendar_screen.dart';
 import 'weakness_analysis_screen.dart';
-import 'monthly_tournament_screen.dart';
+import 'screens/tournament_screen.dart';
 import 'puzzle_generator_screen.dart';
 import 'l10n.dart';
 import 'weakness_mining_screen.dart';
@@ -67,12 +67,12 @@ import 'spaced_repetition_screen.dart';
 import 'coach_personality_screen.dart';
 import 'natural_lang_qa_screen.dart';
 import 'adaptive_difficulty_screen.dart';
-import 'camera_ocr_screen.dart';
 import 'playstyle_diagnosis_screen.dart';
 import 'ghost_service.dart';
 import 'screens/ghost_screen.dart';
 import 'services/fcm_service.dart';
 
+import 'screens/network_game_home.dart';
 import 'screens/customize_screen.dart';
 import 'screens/past_self_battle_screen.dart';
 import 'screens/statistics_screen.dart';
@@ -778,6 +778,17 @@ class _PlayTabState extends State<_PlayTab> {
               const Color(0xFF1A5276),
               () => _go(context, const NetworkLobbyScreen()),
             ),
+            const SizedBox(height: 8),
+            // クラブ対戦・トーナメント・シーズン制ランキング・観戦は
+            // NetworkService/MatchingService 側の別マッチングシステム
+            // （NetworkGameHomeから遷移）にまとまっている
+            _bigButton(
+              context,
+              'クラブ・大会・シーズン',
+              Icons.emoji_events,
+              const Color(0xFF6C3483),
+              () => _go(context, const NetworkGameHome()),
+            ),
             const SizedBox(height: 20),
 
             _sectionLabel('統計・ツール'),
@@ -1107,7 +1118,10 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('プロ棋譜', Icons.video_library, () => _go(context, const ProKifuScreen())),
       ]),
       _StudySection('実戦・対戦で練習', Icons.sports_kabaddi, const Color(0xFFFFA726), [
-        _StudyItem('月例トーナメント', Icons.emoji_events, () => _go(context, const MonthlyTournamentScreen())),
+        // 旧 MonthlyTournamentScreen は対戦表・結果が全てハードコードされた
+        // モックデータで実体がなかったため、NetworkGameHome側と同じ
+        // 実装済み・Firestore連携済みの TournamentListScreen に統合した。
+        _StudyItem('トーナメント', Icons.emoji_events, () => _go(context, const TournamentListScreen())),
         _StudyItem('友達対戦', Icons.people, () => _go(context, const FriendChallengeScreen())),
         _StudyItem('レース対戦', Icons.speed, () => _go(context, const AsyncTrainingDuelScreen())),
         _StudyItem('3分筋トレ', Icons.bolt, () => _go(context, const MicroTrainingScreen())),
@@ -1118,7 +1132,9 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen()), requiresPremium: true),
         _StudyItem('自然言語Q&A', Icons.chat, () => _go(context, const NaturalLangQAScreen()), requiresPremium: true),
         _StudyItem('難易度自動調整', Icons.tune, () => _go(context, AdaptiveDifficultyScreen(userId: 'user_default', isPremium: PurchaseService.isPremium)), requiresPremium: true),
-        _StudyItem('カメラOCR', Icons.camera_alt, () => _go(context, CameraOCRScreen(isPremiumUser: PurchaseService.isPremium)), requiresPremium: true),
+        // カメラOCR盤読取は実装が存在しない完全なモック（撮影せずランダムな駒配置を
+        // 表示するだけ）だったため、実装するまで課金メニューから外す。
+        // 画面自体（camera_ocr_screen.dart）は将来の実装に備えて残してある。
         _StudyItem('音声入出力', Icons.mic, () => _go(context, const VoiceIOScreen()), requiresPremium: true),
         _StudyItem('パーソナライズ学習', Icons.menu_book, () => _go(context, const PersonalizedLessonScreen()), requiresPremium: true),
       ]),

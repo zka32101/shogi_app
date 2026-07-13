@@ -5,6 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'services/friend_service.dart';
+import 'services/network_service.dart';
+import 'services/kifu_analytics_service.dart';
+import 'study_calendar_screen.dart';
 import 'theme/app_theme.dart';
 
 // ──────────────────────────────────────────────
@@ -12,27 +16,17 @@ import 'theme/app_theme.dart';
 // ──────────────────────────────────────────────
 
 class FriendWeakness {
+  final String friendId;
   final String friendName;
-  final String weaknessType; // '美濃', '矢倉', '穴熊', '手筋', '端攻め'
+  final String weaknessType; // '美濃', '矢倉', '手筋'
   final int score; // 対戦スコア（0 = 未挑戦）
 
   FriendWeakness({
+    required this.friendId,
     required this.friendName,
     required this.weaknessType,
     this.score = 0,
   });
-
-  Map<String, dynamic> toJson() => {
-    'friendName': friendName,
-    'weaknessType': weaknessType,
-    'score': score,
-  };
-
-  factory FriendWeakness.fromJson(Map<String, dynamic> json) => FriendWeakness(
-    friendName: json['friendName'] as String,
-    weaknessType: json['weaknessType'] as String,
-    score: json['score'] as int? ?? 0,
-  );
 }
 
 class ChallengeProblem {
@@ -254,17 +248,26 @@ List<ChallengeProblem> _buildProblems() {
   ];
 }
 
-// ──────────────────────────────────────────────
-// Mock Friends Data
-// ──────────────────────────────────────────────
-
-List<FriendWeakness> _mockFriends() => [
-  FriendWeakness(friendName: 'friend1', weaknessType: '美濃', score: 0),
-  FriendWeakness(friendName: 'friend2', weaknessType: '矢倉', score: 0),
-  FriendWeakness(friendName: 'friend3', weaknessType: '手筋', score: 0),
-  FriendWeakness(friendName: 'kota', weaknessType: '美濃', score: 0),
-  FriendWeakness(friendName: 'yuki', weaknessType: '矢倉', score: 0),
-];
+// 対局の実際の敗因（KifuAnalyticsService に保存された openingName）から、
+// この問題集にある3カテゴリ（美濃・矢倉・手筋）のうち練習すべきものを判定する。
+// 該当する戦型での負けが記録になければ「手筋」を汎用の練習テーマとする。
+Future<String> _deriveWeaknessType() async {
+  try {
+    final analyses = await KifuAnalyticsService().getAllAnalyses();
+    final counts = <String, int>{};
+    for (final a in analyses) {
+      final name = a.openingName;
+      if (a.playerWon || name == null || name.isEmpty) continue;
+      counts[name] = (counts[name] ?? 0) + 1;
+    }
+    if (counts.isNotEmpty) {
+      final top = counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+      if (top.contains('美濃')) return '美濃';
+      if (top.contains('矢倉')) return '矢倉';
+    }
+  } catch (_) {}
+  return '手筋';
+}
 
 // ──────────────────────────────────────────────
 // Main Screen
@@ -278,40 +281,78 @@ class FriendChallengeScreen extends StatefulWidget {
 }
 
 class _FriendChallengeScreenState extends State<FriendChallengeScreen> {
-  late List<FriendWeakness> _friends;
+  List<FriendWeakness> _friends = [];
   late List<ChallengeProblem> _problems;
   bool _loading = true;
+  bool _loggedIn = false;
+  String _weaknessType = '手筋';
 
   @override
   void initState() {
     super.initState();
-    _friends = _mockFriends();
     _problems = _buildProblems();
     _load();
   }
 
+  // 実際のフレンド（FriendService、Firestore）と自分の実際の弱点（対局分析）
+  // から一覧を構成する。挑戦スコアだけは端末ローカルに保存する
+  // （フレンド同士の対局同期までは行わない、あくまで一人用の反復練習）。
   Future<void> _load() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = prefs.getString('friend_challenges_json');
-    if (data != null) {
-      try {
-        final json = jsonDecode(data) as List;
-        _friends = json
-            .map((e) => FriendWeakness.fromJson(e as Map<String, dynamic>))
-            .toList();
-      } catch (_) {
-        _friends = _mockFriends();
+    final uid = NetworkService().currentUser?.uid;
+    if (uid == null) {
+      if (mounted) {
+        setState(() {
+          _loggedIn = false;
+          _loading = false;
+        });
       }
+      return;
     }
-    if (mounted) {
-      setState(() => _loading = false);
+
+    final weaknessType = await _deriveWeaknessType();
+    final prefs = await SharedPreferences.getInstance();
+    final scoresJson = prefs.getString('friend_challenge_scores_json');
+    final scores = <String, int>{};
+    if (scoresJson != null) {
+      try {
+        final decoded = jsonDecode(scoresJson) as Map<String, dynamic>;
+        decoded.forEach((k, v) => scores[k] = v as int);
+      } catch (_) {}
     }
+
+    List<FriendInfo> friendInfos = [];
+    try {
+      friendInfos = await FriendService().watchFriends(uid).first;
+    } catch (_) {}
+
+    if (!mounted) return;
+    setState(() {
+      _loggedIn = true;
+      _weaknessType = weaknessType;
+      _friends = friendInfos
+          .map((f) => FriendWeakness(
+                friendId: f.userId,
+                friendName: f.username,
+                weaknessType: weaknessType,
+                score: scores[f.userId] ?? 0,
+              ))
+          .toList();
+      _loading = false;
+    });
   }
 
-  Future<void> _saveFriends() async {
+  Future<void> _saveScore(String friendId, int score) async {
     final prefs = await SharedPreferences.getInstance();
-    final json = jsonEncode(_friends.map((f) => f.toJson()).toList());
-    await prefs.setString('friend_challenges_json', json);
+    final scoresJson = prefs.getString('friend_challenge_scores_json');
+    final scores = <String, int>{};
+    if (scoresJson != null) {
+      try {
+        final decoded = jsonDecode(scoresJson) as Map<String, dynamic>;
+        decoded.forEach((k, v) => scores[k] = v as int);
+      } catch (_) {}
+    }
+    scores[friendId] = score;
+    await prefs.setString('friend_challenge_scores_json', jsonEncode(scores));
   }
 
   void _onFriendTap(FriendWeakness friend) {
@@ -360,14 +401,17 @@ class _FriendChallengeScreenState extends State<FriendChallengeScreen> {
 
   void _finishChallenge(FriendWeakness friend, int wins) {
     // Update score
-    final idx = _friends.indexWhere((f) => f.friendName == friend.friendName);
+    final idx = _friends.indexWhere((f) => f.friendId == friend.friendId);
     if (idx >= 0) {
+      final newScore = friend.score + wins;
       _friends[idx] = FriendWeakness(
+        friendId: friend.friendId,
         friendName: friend.friendName,
         weaknessType: friend.weaknessType,
-        score: friend.score + wins,
+        score: newScore,
       );
-      _saveFriends();
+      _saveScore(friend.friendId, newScore);
+      StudyCalendarScreen.recordActivity('tesuji');
       setState(() {});
     }
 
@@ -398,21 +442,44 @@ class _FriendChallengeScreenState extends State<FriendChallengeScreen> {
           ? const Center(
               child: CircularProgressIndicator(color: Colors.amber),
             )
-          : _friends.isEmpty
+          : !_loggedIn
               ? const Center(
                   child: Text(
-                    '友達を追加してください',
+                    'ログインするとフレンドとの弱点トレーニングができます',
+                    textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.white54),
                   ),
                 )
-              : ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  itemCount: _friends.length,
-                  itemBuilder: (_, i) => _FriendCard(
-                    friend: _friends[i],
-                    onTap: () => _onFriendTap(_friends[i]),
-                  ),
-                ),
+              : _friends.isEmpty
+                  ? const Center(
+                      child: Text(
+                        'フレンドを追加してください\n（フレンド画面から検索・申請できます）',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white54),
+                      ),
+                    )
+                  : ListView(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      children: [
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.amber.withAlpha(20),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.amber.withAlpha(80)),
+                          ),
+                          child: Text(
+                            '今週の練習テーマ: $_weaknessType（あなたの最近の対局分析から算出）',
+                            style: const TextStyle(color: Colors.amber, fontSize: 12),
+                          ),
+                        ),
+                        ..._friends.map((f) => _FriendCard(
+                              friend: f,
+                              onTap: () => _onFriendTap(f),
+                            )),
+                      ],
+                    ),
     );
   }
 }
