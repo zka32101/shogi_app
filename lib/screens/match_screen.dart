@@ -25,6 +25,8 @@ import '../services/rating_service.dart';
 import '../badge_service.dart';
 import '../stats_screen.dart' show ratingToRank, ratingToColor;
 import '../rank_badge_widget.dart' show showRankUpDialog;
+import '../study_calendar_screen.dart';
+import '../cloud_sync_service.dart';
 
 class MatchScreen extends StatefulWidget {
   final String matchId;
@@ -79,6 +81,7 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _trackingSaved = false;
   bool _badgeChecked = false;
   bool _ratingApplied = false;
+  bool _studyRecorded = false;
 
   // キャラクターアイコン
   String? _myCharIconId;
@@ -179,6 +182,11 @@ class _MatchScreenState extends State<MatchScreen> {
         if (!_ratingApplied) {
           _ratingApplied = true;
           Future.microtask(() => _applyNetworkRatingUpdate(state!));
+        }
+        // 学習カレンダー（連続記録・実績バッジ）に対局実施を記録（1回のみ）
+        if (!_studyRecorded) {
+          _studyRecorded = true;
+          StudyCalendarScreen.recordActivity('taikyoku');
         }
       }
       return state;
@@ -1403,6 +1411,15 @@ class _MatchScreenState extends State<MatchScreen> {
 
       await prefs.setInt('rating_net_current', newRating);
       await prefs.setInt('rating_network_games', myGames + 1);
+      // rating_current はバッジ判定・棋力診断・マッチングなど多数の画面が
+      // 参照する統一レーティング値。AI対局・ネット対局どちらのモードで
+      // 上がったレーティングも失われないよう、両モードの高い方を採用する
+      // （直近プレイしたモードで単純上書きすると、片方のモードで築いた
+      // 実力が別モードの1敗で瞬時に下がって見えてしまうため）。
+      final aiRating = prefs.getInt('rating_ai_current') ?? 0;
+      await prefs.setInt('rating_current', newRating > aiRating ? newRating : aiRating);
+      // ローカルの進捗をサーバーへも反映する（pushUserData()未使用だった問題の修正）
+      CloudSyncService.pushUserData();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

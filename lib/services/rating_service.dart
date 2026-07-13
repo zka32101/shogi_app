@@ -58,22 +58,6 @@ class RatingService {
     return 1.0 / (1.0 + Math.pow(10, ratingDiff / 400.0));
   }
 
-  /// マッチの結果を反映してレーティングを更新
-  /// Firestore側で実装するのが理想的（Cloud Functions）
-  Future<void> updateRatings({
-    required String player1Id,
-    required String player2Id,
-    required int player1OldRating,
-    required int player2OldRating,
-    required bool player1Won,
-    required int player1Games,
-    required int player2Games,
-  }) async {
-    // NOTE: 実装は RatingService を使う側（NetworkService等）で
-    // Firestore の transaction を使って実装すべき
-    // ここでは計算ロジックのみ提供
-  }
-
   /// ユーザーのランキング順位を計算
   /// [userRating] ユーザーのレーティング
   /// [allRatings] 全ユーザーのレーティング

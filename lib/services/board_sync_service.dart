@@ -232,20 +232,6 @@ class BoardSyncService {
     });
   }
 
-  /// 試合終了をRTDBに書き込み（Firestoreトリガー経由でELO更新）
-  Future<void> finishGame({
-    required String matchId,
-    required String? winnerId,
-    required String result,
-  }) async {
-    await _gameRef(matchId).update({
-      'status':      'finished',
-      'result':      result,
-      'winner_id':   winnerId,
-      'finished_at': ServerValue.timestamp,
-    });
-  }
-
   // ──────────────── ストリーム ──────────────────────────────────
 
   /// 盤面状態をリアルタイムストリームで取得（RTDB版）

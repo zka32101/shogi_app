@@ -1,109 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert' as convert;
-import 'dart:async';
-
-// ──────────────────────────────────────────────
-// Model: AdaptiveProblem
-// ──────────────────────────────────────────────
-class AdaptiveProblem {
-  final String id;
-  final String title;
-  final String description;
-  final int difficultyLevel; // 1-10
-  final List<List<dynamic>> board; // Simplified board representation
-  final String correctAnswer;
-  final String explanation;
-
-  AdaptiveProblem({
-    required this.id,
-    required this.title,
-    required this.description,
-    required this.difficultyLevel,
-    required this.board,
-    required this.correctAnswer,
-    required this.explanation,
-  });
-}
-
-// ──────────────────────────────────────────────
-// Model: AdaptiveStats
-// ──────────────────────────────────────────────
-class AdaptiveStats {
-  double currentDifficultyLevel; // 1.0-10.0
-  int correctCount;
-  int totalSolved;
-  List<int> responseTimes; // milliseconds
-  List<int> difficultySequence; // Track difficulty progression
-  DateTime lastRecalculationTime;
-
-  AdaptiveStats({
-    required this.currentDifficultyLevel,
-    this.correctCount = 0,
-    this.totalSolved = 0,
-    this.responseTimes = const [],
-    this.difficultySequence = const [],
-    DateTime? lastRecalculationTime,
-  }) : lastRecalculationTime = lastRecalculationTime ?? DateTime.now();
-
-  double get correctRate => totalSolved > 0 ? (correctCount / totalSolved) * 100 : 0;
-
-  double get averageResponseTime {
-    if (responseTimes.isEmpty) return 0;
-    return responseTimes.reduce((a, b) => a + b) / responseTimes.length / 1000;
-  }
-
-  void reset() {
-    correctCount = 0;
-    totalSolved = 0;
-    responseTimes = [];
-    difficultySequence = [];
-    lastRecalculationTime = DateTime.now();
-  }
-
-  // Flow theory-based difficulty adjustment
-  // Ideal correct rate: 70-80%
-  // If >80%: difficulty too easy, increase
-  // If <60%: difficulty too hard, decrease
-  void recalculateDifficulty() {
-    final rate = correctRate;
-
-    if (rate > 80) {
-      // Too easy, increase difficulty
-      currentDifficultyLevel = (currentDifficultyLevel + 0.5).clamp(1.0, 10.0);
-    } else if (rate < 60) {
-      // Too hard, decrease difficulty
-      currentDifficultyLevel = (currentDifficultyLevel - 0.5).clamp(1.0, 10.0);
-    }
-    // Otherwise, within ideal range 60-80%, maintain current level
-
-    reset();
-    lastRecalculationTime = DateTime.now();
-  }
-
-  Map<String, dynamic> toJson() => {
-        'currentDifficultyLevel': currentDifficultyLevel,
-        'correctCount': correctCount,
-        'totalSolved': totalSolved,
-        'responseTimes': responseTimes,
-        'difficultySequence': difficultySequence,
-        'lastRecalculationTime': lastRecalculationTime.toIso8601String(),
-      };
-
-  factory AdaptiveStats.fromJson(Map<String, dynamic> json) => AdaptiveStats(
-        currentDifficultyLevel: json['currentDifficultyLevel'] ?? 5.0,
-        correctCount: json['correctCount'] ?? 0,
-        totalSolved: json['totalSolved'] ?? 0,
-        responseTimes: List<int>.from(json['responseTimes'] ?? []),
-        difficultySequence: List<int>.from(json['difficultySequence'] ?? []),
-        lastRecalculationTime: json['lastRecalculationTime'] != null
-            ? DateTime.parse(json['lastRecalculationTime'])
-            : null,
-      );
-}
+import 'game_screen.dart' show AILevelLabel;
+import 'models/game_analysis.dart';
+import 'services/adaptive_difficulty_service.dart';
+import 'services/kifu_analytics_service.dart';
 
 // ──────────────────────────────────────────────
 // Main Screen: AdaptiveDifficultyScreen
+//
+// services/adaptive_difficulty_service.dart が計算する「直近の調子を加味した
+// AIレベル調整」は、対局開始画面（game_setup_screen.dart）のバナーで既に
+// 無料表示されている。このプレミアム画面は同じ実データを、調整理由・
+// 直近の勝率/悪手率・直近対局の内訳とあわせて詳しく見られるダッシュボードにする
+// （旧版はダミー問題150問を使った完全に無関係な正誤当てクイズだった）。
 // ──────────────────────────────────────────────
 class AdaptiveDifficultyScreen extends StatefulWidget {
   final String userId;
@@ -120,160 +29,41 @@ class AdaptiveDifficultyScreen extends StatefulWidget {
       _AdaptiveDifficultyScreenState();
 }
 
-class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
-    with TickerProviderStateMixin {
-  late SharedPreferences _prefs;
-  late AdaptiveStats _stats;
-  late List<AdaptiveProblem> _problemPool;
-  List<AdaptiveProblem> _currentProblemSet = [];
-
-  int _currentProblemIndex = 0;
+class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen> {
   bool _isLoading = true;
-  bool _showingRecalculationAnimation = false;
-  late AnimationController _recalcAnimController;
-  late AnimationController _levelIndicatorController;
-
-  final Stopwatch _problemTimer = Stopwatch();
+  int _currentRating = 700;
+  AdaptiveLevelResult? _result;
+  List<GameAnalysis> _recentGames = [];
 
   @override
   void initState() {
     super.initState();
-    _recalcAnimController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
-      vsync: this,
-    );
-    _levelIndicatorController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-    _initialize();
+    _load();
   }
 
-  Future<void> _initialize() async {
-    _prefs = await SharedPreferences.getInstance();
-    _loadStats();
-    _buildProblemPool();
-    _selectNextProblemSet();
-    setState(() => _isLoading = false);
-  }
+  Future<void> _load() async {
+    setState(() => _isLoading = true);
 
-  void _loadStats() {
-    final json = _prefs.getString('adaptive_stats');
-    if (json != null) {
-      _stats = AdaptiveStats.fromJson(_jsonDecode(json));
-    } else {
-      _stats = AdaptiveStats(currentDifficultyLevel: 5.0);
-    }
-  }
+    final prefs = await SharedPreferences.getInstance();
+    final rating = prefs.getInt('rating_current') ?? 700;
+    final result = await AdaptiveDifficultyService.computeAdaptiveLevel(rating: rating);
 
-  Future<void> _saveStats() async {
-    await _prefs.setString('adaptive_stats', _jsonEncode(_stats.toJson()));
-  }
+    List<GameAnalysis> recent = [];
+    try {
+      recent = (await KifuAnalyticsService().getAllAnalyses()).take(5).toList();
+    } catch (_) {}
 
-  void _buildProblemPool() {
-    // Generate 100+ problems across difficulty 1-10
-    // In production, this would come from a database
-    _problemPool = _generateProblems();
-  }
-
-  List<AdaptiveProblem> _generateProblems() {
-    final problems = <AdaptiveProblem>[];
-    for (int d = 1; d <= 10; d++) {
-      for (int i = 0; i < 15; i++) {
-        // 15 problems per difficulty level
-        problems.add(AdaptiveProblem(
-          id: 'problem_${d}_$i',
-          title: '問題${d * 10 + i}',
-          description: 'レベル$d 難易度調整問題 #$i',
-          difficultyLevel: d,
-          board: List.generate(9, (_) => List.generate(9, (_) => null)),
-          correctAnswer: '7四歩',
-          explanation: 'この局面での最適な手は7四歩です。',
-        ));
-      }
-    }
-    return problems;
-  }
-
-  void _selectNextProblemSet() {
-    final targetLevel = _stats.currentDifficultyLevel.round();
-    final minLevel = (targetLevel - 1).clamp(1, 10);
-    final maxLevel = (targetLevel + 1).clamp(1, 10);
-
-    _currentProblemSet = _problemPool
-        .where((p) => p.difficultyLevel >= minLevel && p.difficultyLevel <= maxLevel)
-        .toList();
-
-    if (_currentProblemSet.isEmpty) {
-      _currentProblemSet = _problemPool
-          .where((p) => p.difficultyLevel == targetLevel)
-          .toList();
-    }
-
-    _currentProblemSet.shuffle();
-    _currentProblemSet = _currentProblemSet.take(5).toList();
-    _currentProblemIndex = 0;
-  }
-
-  void _startProblem() {
-    _problemTimer.reset();
-    _problemTimer.start();
-  }
-
-  void _recordProblemResult(bool isCorrect) {
-    _problemTimer.stop();
-    final responseTime = _problemTimer.elapsedMilliseconds;
-
-    _stats.totalSolved++;
-    if (isCorrect) {
-      _stats.correctCount++;
-    }
-    _stats.responseTimes.add(responseTime);
-
-    final currentProblem = _currentProblemSet[_currentProblemIndex];
-    _stats.difficultySequence.add(currentProblem.difficultyLevel);
-
-    if (_currentProblemIndex < _currentProblemSet.length - 1) {
-      _currentProblemIndex++;
-      _saveStats();
-      setState(() {});
-    } else {
-      // Completed 5 problems, trigger recalculation
-      _showRecalculation();
-    }
-  }
-
-  Future<void> _showRecalculation() async {
-    setState(() => _showingRecalculationAnimation = true);
-    await _recalcAnimController.forward();
-
-    _stats.recalculateDifficulty();
-    _saveStats();
-    _selectNextProblemSet();
-
-    await _recalcAnimController.reverse();
-    setState(() => _showingRecalculationAnimation = false);
-  }
-
-  AdaptiveProblem get _currentProblem => _currentProblemSet[_currentProblemIndex];
-
-  @override
-  void dispose() {
-    _recalcAnimController.dispose();
-    _levelIndicatorController.dispose();
-    _problemTimer.stop();
-    super.dispose();
+    if (!mounted) return;
+    setState(() {
+      _currentRating = rating;
+      _result = result;
+      _recentGames = recent;
+      _isLoading = false;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
-        appBar: AppBar(title: const Text('難易度自動調整 👑')),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
-
     if (!widget.isPremium) {
       return Scaffold(
         appBar: AppBar(title: const Text('難易度自動調整 👑')),
@@ -303,50 +93,51 @@ class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
       );
     }
 
-    if (_showingRecalculationAnimation) {
-      return _buildRecalculationScreen();
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('難易度自動調整 👑'),
         elevation: 0,
         backgroundColor: Colors.deepPurple[400],
         foregroundColor: Colors.white,
-      ),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Current difficulty level indicator
-          _buildDifficultyLevelCard(),
-          const SizedBox(height: 24),
-
-          // Flow state indicator
-          _buildFlowStateIndicator(),
-          const SizedBox(height: 24),
-
-          // Current problem
-          _buildProblemCard(),
-          const SizedBox(height: 24),
-
-          // Problem difficulty label
-          _buildDifficultyLabel(),
-          const SizedBox(height: 16),
-
-          // Action buttons
-          _buildActionButtons(),
-          const SizedBox(height: 24),
-
-          // Stats
-          _buildStatsCard(),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: '最新の状態に更新',
+            onPressed: _isLoading ? null : _load,
+          ),
         ],
       ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: _load,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildLevelCard(),
+                  const SizedBox(height: 16),
+                  _buildReasonCard(),
+                  const SizedBox(height: 16),
+                  _buildStatsRow(),
+                  const SizedBox(height: 16),
+                  if (_recentGames.isNotEmpty) _buildRecentGamesCard(),
+                  const SizedBox(height: 16),
+                  _buildInfoCard(),
+                ],
+              ),
+            ),
     );
   }
 
-  Widget _buildDifficultyLevelCard() {
-    final level = _stats.currentDifficultyLevel;
-    final fillPercentage = (level - 1) / 9;
+  Widget _buildLevelCard() {
+    final result = _result;
+    final level = result?.level;
+    final isAdjusted = result?.isAdjusted ?? false;
+    final adjustedUp = (result?.adjustmentSteps ?? 0) > 0;
+
+    final accentColor = isAdjusted
+        ? (adjustedUp ? Colors.redAccent : Colors.lightBlueAccent)
+        : Colors.deepPurple;
 
     return Card(
       elevation: 4,
@@ -356,10 +147,10 @@ class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'あなたにちょうどいい難しさ',
-              style: TextStyle(
-                fontSize: 14,
+            Text(
+              'あなたのレーティング $_currentRating に対する現在のAIレベル',
+              style: const TextStyle(
+                fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: Colors.grey,
               ),
@@ -367,77 +158,62 @@ class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
             const SizedBox(height: 12),
             Row(
               children: [
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: fillPercentage,
-                      minHeight: 24,
-                      backgroundColor: Colors.grey[300],
-                      valueColor: AlwaysStoppedAnimation(
-                        _getColorForLevel(level),
-                      ),
-                    ),
-                  ),
+                Icon(
+                  isAdjusted
+                      ? (adjustedUp ? Icons.trending_up : Icons.trending_down)
+                      : Icons.auto_awesome,
+                  color: accentColor,
+                  size: 32,
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  level.toStringAsFixed(1),
-                  style: const TextStyle(
-                    fontSize: 20,
+                  level?.rankLabel ?? '—',
+                  style: TextStyle(
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
-                    color: Colors.deepPurple,
+                    color: accentColor,
                   ),
                 ),
+                if (isAdjusted && result?.baseLevel != null) ...[
+                  const SizedBox(width: 8),
+                  Text(
+                    '（標準: ${result!.baseLevel.rankLabel}）',
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+                  ),
+                ],
               ],
             ),
-            const SizedBox(height: 8),
-            Text(
-              'レベル 1-10',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
+            if (level != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                level.rankDesc,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
-  Widget _buildFlowStateIndicator() {
-    final rate = _stats.correctRate;
-    final inFlow = rate >= 60 && rate <= 80;
-    final emoji = inFlow ? '✨' : '🎯';
-    final message = inFlow ? '流れを感じる…' : '調整中…';
-    final color = inFlow ? Colors.amber : Colors.blue;
-
+  Widget _buildReasonCard() {
+    final reason = _result?.reason ?? '対局データを読み込み中です。';
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        border: Border.all(color: color.withAlpha(102)),
-        borderRadius: BorderRadius.circular(8),
+        color: Colors.deepPurple[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.deepPurple[100]!),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(emoji, style: const TextStyle(fontSize: 24)),
-          const SizedBox(width: 12),
+          Icon(Icons.info_outline, color: Colors.deepPurple[300], size: 20),
+          const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: color,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '正答率 ${rate.toStringAsFixed(1)}%',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
+            child: Text(
+              reason,
+              style: const TextStyle(fontSize: 13, height: 1.5),
             ),
           ),
         ],
@@ -445,180 +221,33 @@ class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
     );
   }
 
-  Widget _buildProblemCard() {
-    return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _currentProblem.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  '${_currentProblemIndex + 1}/5',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(
-              _currentProblem.description,
-              style: const TextStyle(fontSize: 14),
-            ),
-            const SizedBox(height: 16),
-            // Simplified board visualization
-            Container(
-              width: double.infinity,
-              height: 200,
-              decoration: BoxDecoration(
-                color: Colors.brown[100],
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.brown),
-              ),
-              child: Center(
-                child: Text(
-                  '将棋盤\n${_currentProblem.difficultyLevel}',
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.brown,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildDifficultyLabel() {
-    final level = _currentProblem.difficultyLevel;
-    final color = _getColorForLevel(level.toDouble());
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withAlpha(25),
-        border: Border.all(color: color),
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: color,
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'レベル $level',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Row(
-      children: [
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _startProblem();
-              _recordProblemResult(true);
-            },
-            icon: const Icon(Icons.check_circle),
-            label: const Text('正解'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: () {
-              _startProblem();
-              _recordProblemResult(false);
-            },
-            icon: const Icon(Icons.cancel),
-            label: const Text('不正解'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsCard() {
+  Widget _buildStatsRow() {
+    final result = _result;
     return Card(
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            const Text(
-              '現在のセッション統計',
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.grey,
-              ),
+            _buildStatItem(
+              '直近の勝率',
+              result != null && result.sampleSize > 0
+                  ? '${result.recentWinRate.toStringAsFixed(0)}%'
+                  : '—',
             ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildStatItem(
-                  'データ: 正答率',
-                  '${_stats.correctRate.toStringAsFixed(1)}%',
-                  _stats.correctCount,
-                  _stats.totalSolved,
-                ),
-                Container(
-                  width: 1,
-                  height: 40,
-                  color: Colors.grey[300],
-                ),
-                _buildStatItem(
-                  'データ: 平均応答時間',
-                  '${_stats.averageResponseTime.toStringAsFixed(1)}秒',
-                  null,
-                  null,
-                ),
-              ],
+            Container(width: 1, height: 40, color: Colors.grey[300]),
+            _buildStatItem(
+              '平均悪手/局',
+              result != null && result.sampleSize > 0
+                  ? result.recentBlunderRate.toStringAsFixed(1)
+                  : '—',
+            ),
+            Container(width: 1, height: 40, color: Colors.grey[300]),
+            _buildStatItem(
+              '分析対局数',
+              '${result?.sampleSize ?? 0}局',
             ),
           ],
         ),
@@ -626,12 +255,7 @@ class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
     );
   }
 
-  Widget _buildStatItem(
-    String label,
-    String value,
-    int? correct,
-    int? total,
-  ) {
+  Widget _buildStatItem(String label, String value) {
     return Expanded(
       child: Column(
         children: [
@@ -644,90 +268,94 @@ class _AdaptiveDifficultyScreenState extends State<AdaptiveDifficultyScreen>
           Text(
             value,
             style: const TextStyle(
-              fontSize: 16,
+              fontSize: 18,
               fontWeight: FontWeight.bold,
               color: Colors.deepPurple,
             ),
           ),
-          if (correct != null && total != null)
-            Text(
-              '$correct/$total',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
         ],
       ),
     );
   }
 
-  Widget _buildRecalculationScreen() {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('難易度自動調整 👑'),
-        elevation: 0,
-        backgroundColor: Colors.deepPurple[400],
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: ScaleTransition(
-          scale: Tween<double>(begin: 0.8, end: 1.0)
-              .animate(_recalcAnimController),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.refresh,
-                size: 64,
-                color: Colors.deepPurple,
+  Widget _buildRecentGamesCard() {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              '直近の対局',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey,
               ),
-              const SizedBox(height: 24),
-              const Text(
-                '難易度を再計算中…',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+            ),
+            const SizedBox(height: 12),
+            ...List.generate(_recentGames.length, (i) {
+              final g = _recentGames[i];
+              return Padding(
+                padding: EdgeInsets.only(bottom: i == _recentGames.length - 1 ? 0 : 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      g.playerWon ? Icons.check_circle : Icons.cancel,
+                      color: g.playerWon ? Colors.green : Colors.red[300],
+                      size: 20,
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      g.playerWon ? '勝ち' : '負け',
+                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '${g.movesCount}手・悪手${g.blunders.length}回',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                  ],
                 ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'あなたのペースに合わせています',
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
-              const SizedBox(height: 32),
-              CircularProgressIndicator(
-                value: _recalcAnimController.value,
-                strokeWidth: 3,
-              ),
-            ],
-          ),
+              );
+            }),
+          ],
         ),
       ),
     );
   }
 
-  Color _getColorForLevel(double level) {
-    if (level <= 2) return Colors.green;
-    if (level <= 4) return Colors.lime;
-    if (level <= 6) return Colors.yellow[700]!;
-    if (level <= 8) return Colors.orange;
-    return Colors.red;
-  }
-}
-
-// ──────────────────────────────────────────────
-// JSON Helper Functions
-// ──────────────────────────────────────────────
-Map<String, dynamic> _jsonDecode(String json) {
-  try {
-    return convert.jsonDecode(json) as Map<String, dynamic>;
-  } catch (e) {
-    return {};
-  }
-}
-
-String _jsonEncode(Map<String, dynamic> data) {
-  try {
-    return convert.jsonEncode(data);
-  } catch (e) {
-    return '{}';
+  Widget _buildInfoCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue[200]!),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.info, color: Colors.blue[700]),
+              const SizedBox(width: 12),
+              const Text(
+                'プレミアム機能',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'レーティングだけでなく、直近5局の勝敗・悪手率も加味してAIの'
+            '強さを自動調整します。対局開始画面のAI対局設定にそのまま反映されます。',
+            style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.5),
+          ),
+        ],
+      ),
+    );
   }
 }

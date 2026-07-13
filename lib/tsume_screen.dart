@@ -13,6 +13,7 @@ import 'logic.dart';
 import 'mini_board_widget.dart';
 import 'tsume_engine.dart';
 import 'tsume_builtin_problems.dart' show TsumeProb, buildTsumeProblems;
+import 'study_calendar_screen.dart';
 
 // ===== 問題データ =====
 // 内蔵詰将棋問題（1手/3手/5手詰め）本体は tsume_builtin_problems.dart
@@ -787,6 +788,7 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
       _done = true;
     });
     _saveState();
+    StudyCalendarScreen.recordActivity('tsume');
   }
 
   void _onReset() {

@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/free_shogi_config.dart';
 import '../piece.dart';
 import '../mini_board_widget.dart';
+import '../services/free_shogi_service.dart';
 import '../theme/app_theme.dart';
 
 class FreeShogiFiSetupScreen extends StatefulWidget {
@@ -139,11 +140,30 @@ class _FreeShogiFiSetupScreenState extends State<FreeShogiFiSetupScreen> {
       return;
     }
 
-    // 後で実装: Firebase/SharedPrefsへの保存
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('テンプレートを保存しました')),
+    final entry = FreeShogiFiemplateEntry(
+      id: widget.initialTemplate?.id ??
+          DateTime.now().millisecondsSinceEpoch.toString(),
+      name: templateName,
+      description: widget.initialTemplate?.description ?? '',
+      p1Board: p1Board,
+      p2Board: p2Board,
+      p1Budget: widget.initialTemplate?.p1Budget ?? FreeShogiFiece.defaultBudget,
+      p2Budget: widget.initialTemplate?.p2Budget ?? FreeShogiFiece.defaultBudget,
     );
-    Navigator.pop(context);
+
+    try {
+      await FreeShogiFiemplateService().saveLocalTemplate(entry);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('テンプレートを保存しました')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存に失敗しました: $e')),
+      );
+    }
   }
 
   @override

@@ -5,6 +5,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mini_board_widget.dart';
 import 'piece.dart';
+import 'study_calendar_screen.dart';
 import 'theme/app_theme.dart';
 
 class MicroTrainingScreen extends StatefulWidget {
@@ -38,7 +39,6 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
     WidgetsBinding.instance.addObserver(this);
     _initializeTodayProblems();
     _startTimer();
-    _scheduleNotification();
   }
 
   void _initializeTodayProblems() {
@@ -119,6 +119,8 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
 
     // Save to SharedPreferences
     _saveMicroTrainingResult();
+    // 3手詰め相当の手筋ドリルのため、学習カレンダーには「tesuji」として記録する
+    StudyCalendarScreen.recordActivity('tesuji');
 
     setState(() {});
   }
@@ -166,12 +168,6 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
         duration: Duration(seconds: 2),
       ),
     );
-  }
-
-  void _scheduleNotification() {
-    // Mock notification scheduling
-    // In a real app, use flutter_local_notifications or firebase_messaging
-    debugPrint('📬 朝7時に毎日通知を送信予定です (Mock)');
   }
 
   String _formatTime(int seconds) {
@@ -599,13 +595,13 @@ class _MicroTrainingScreenState extends State<MicroTrainingScreen>
                   child: Column(
                     children: [
                       Icon(
-                        Icons.notifications_active,
+                        Icons.event_repeat,
                         color: Colors.blue[400],
                         size: 28,
                       ),
                       SizedBox(height: 12),
                       Text(
-                        '📬 朝7時に通知予定',
+                        '明日もチャレンジしよう',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16,

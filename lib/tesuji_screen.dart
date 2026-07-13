@@ -8,6 +8,7 @@ import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'tesuji_problems.dart';
 import 'strategy_map_screen.dart';
+import 'study_calendar_screen.dart';
 import 'theme/app_theme.dart';
 
 typedef _TesujiProb = TesujiProb;
@@ -126,6 +127,7 @@ class _TesujiScreenState extends State<TesujiScreen>
     if (solved) {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool('tesuji_cleared_$id', true);
+      StudyCalendarScreen.recordActivity('tesuji');
     }
     await _loadStats();
   }
