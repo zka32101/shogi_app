@@ -67,6 +67,101 @@ service cloud.firestore {
 
       // システムのみ（Cloud Functions経由で）書き込み可能
       allow write: if false;
+
+      // ── 遅延行為トラッキング（自己申告・cheat_detection_service.dart） ──
+      match /tracking/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated();
+      }
+
+      // ── 観戦（spectator_service.dart） ──
+      match /spectators/{userId} {
+        allow read: if isAuthenticated();
+        allow write: if isOwner(userId);
+      }
+
+      match /spectator_chat/{msgId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() &&
+            request.resource.data.user_id == request.auth.uid;
+      }
+    }
+
+    // ===== トーナメント（tournament_service.dart・クライアント主導のhonor system） =====
+    match /tournaments/{tournamentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ===== クラブ（club_service.dart） =====
+    match /clubs/{clubId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+
+      match /members/{memberId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // ===== フレンド（friend_service.dart） =====
+    match /friends/{friendDocId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    match /friend_requests/{requestId} {
+      allow read: if isAuthenticated();
+      // 作成は申請者本人のみ、承認・却下は相手側が更新するためupdateは緩める
+      allow create: if isAuthenticated() &&
+          request.resource.data.sender_id == request.auth.uid;
+      allow update: if isAuthenticated();
+    }
+
+    match /direct_challenges/{challengeId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // ===== デイリーチャレンジ（daily_challenge_service.dart） =====
+    // 定義データは全員閲覧可能。未生成の日はクライアントが自動生成するため書き込みも必要
+    match /daily_challenges/{challengeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    match /user_challenge_progress/{progressId} {
+      allow read: if isAuthenticated();
+      // 自分の進捗のみ書き込み可能（ドキュメントIDは "{uid}_{challengeId}"）
+      allow write: if isAuthenticated() &&
+          (resource == null || resource.data.user_id == request.auth.uid) &&
+          request.resource.data.user_id == request.auth.uid;
+    }
+
+    // ===== 非同期対戦・レース対戦（services/async_duel_service.dart） =====
+    match /async_duels/{duelId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // ===== 不正検出分析（cheat_detection_service.dart） =====
+    // 本人の分析結果のみ本人が書き込み・閲覧可能（他人には非公開）、管理者は閲覧可
+    match /cheat_analysis/{userId} {
+      allow read: if isOwner(userId) || request.auth.token.admin == true;
+      allow write: if isOwner(userId);
+    }
+
+    // ===== 通知キュー（notification_service.dart / fcm_service.dart） =====
+    match /notifications/{notifId} {
+      allow read, update, delete: if request.auth.token.admin == true;
+      allow create: if isAuthenticated();
+    }
+
+    match /fcm_queue/{docId} {
+      allow read, update, delete: if request.auth.token.admin == true;
+      allow create: if isAuthenticated();
+    }
+
+    // ===== 自由将棋テンプレート（free_shogi_service.dart・公開保存分） =====
+    match /users/{userId}/free_shogi_templates/{templateId} {
+      allow read, write: if isOwner(userId);
     }
 
     match /matching_queue/{queueId} {
