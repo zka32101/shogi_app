@@ -65,7 +65,6 @@ import 'async_training_duel_screen.dart';
 import 'voice_io_screen.dart';
 import 'spaced_repetition_screen.dart';
 import 'coach_personality_screen.dart';
-import 'natural_lang_qa_screen.dart';
 import 'adaptive_difficulty_screen.dart';
 import 'playstyle_diagnosis_screen.dart';
 import 'ghost_service.dart';
@@ -1130,7 +1129,6 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('週次AI振り返り', Icons.insights, () => _go(context, const WeeklyReviewScreen()), requiresPremium: true),
         _StudyItem('忘却曲線AI', Icons.calendar_today, () => _go(context, const SpacedRepetitionScreen()), requiresPremium: true),
         _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen()), requiresPremium: true),
-        _StudyItem('自然言語Q&A', Icons.chat, () => _go(context, const NaturalLangQAScreen()), requiresPremium: true),
         _StudyItem('難易度自動調整', Icons.tune, () => _go(context, AdaptiveDifficultyScreen(userId: 'user_default', isPremium: PurchaseService.isPremium)), requiresPremium: true),
         // カメラOCR盤読取は実装が存在しない完全なモック（撮影せずランダムな駒配置を
         // 表示するだけ）だったため、実装するまで課金メニューから外す。
