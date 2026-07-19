@@ -56,6 +56,9 @@ dependencies:
   # 音声入力（棋譜の読み上げ入力）
   speech_to_text: ^7.0.0
 
+  # 音声読み上げ（指し手・解説のTTS。モバイルの実音声出力に使用）
+  flutter_tts: ^4.2.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
