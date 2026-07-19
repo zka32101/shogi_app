@@ -383,26 +383,28 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
   }
 
   // Get problems due for review (nextReviewDate <= today)
+  // 保存済みSRSアイテムの problemId が現在の問題集に存在しない場合
+  // （バージョンアップで問題が削除・改番された等）は、プレースホルダを
+  // 表示すると後段の _reviewProblem() で該当アイテムが見つからずクラッシュする。
+  // そのため存在しない問題は結果から除外する。
   List<_SRSProb> _getDueProblems() {
     final now = DateTime.now();
+    final byId = {for (final p in _problems) p.id: p};
     return _srsItems
         .where((item) => item.nextReviewDate.isBefore(now) ||
             item.nextReviewDate.isAtSameMomentAs(now))
-        .map((item) => _problems.firstWhere(
-            (p) => p.id == item.problemId,
-            orElse: () => _SRSProb(
-              id: 'unknown',
-              title: '不明',
-              explanation: '',
-              board: _empty(),
-              answer: AMove(fr: 0, fc: 0, tr: 0, tc: 0),
-            )))
+        .map((item) => byId[item.problemId])
+        .whereType<_SRSProb>()
         .toList();
   }
 
   Future<void> _reviewProblem(_SRSProb prob, bool correct) async {
     // SM-2 algorithm
-    final item = _srsItems.firstWhere((i) => i.problemId == prob.id);
+    // _getDueProblems() が存在する問題のみを返すため通常は必ず一致するが、
+    // 念のため見つからない場合は何もしないよう orElse でガードする。
+    final matches = _srsItems.where((i) => i.problemId == prob.id);
+    if (matches.isEmpty) return;
+    final item = matches.first;
     final now = DateTime.now();
 
     if (correct) {

@@ -88,18 +88,23 @@ class AsyncDuel {
   }
 
   factory AsyncDuel.fromDoc(DocumentSnapshot doc) {
-    final d = doc.data() as Map<String, dynamic>;
+    // フィールド欠損・型不一致でも例外を投げないようにする。ストリーム内で
+    // 1件でも壊れたドキュメントがあると fromDoc が例外を投げ、一覧全体が
+    // エラー表示になってしまうため、各フィールドをnull安全に読む。
+    final d = (doc.data() as Map<String, dynamic>?) ?? const {};
     return AsyncDuel(
       id: doc.id,
-      player1Id: d['player1_id'] as String,
+      player1Id: d['player1_id'] as String? ?? '',
       player1Name: d['player1_name'] as String? ?? '?',
-      player2Id: d['player2_id'] as String,
+      player2Id: d['player2_id'] as String? ?? '',
       player2Name: d['player2_name'] as String? ?? '?',
       difficulty: d['difficulty'] as String? ?? '3手詰め',
-      problemIndices:
-          (d['problem_indices'] as List).map((e) => e as int).toList(),
-      createdAt: (d['created_at'] as Timestamp).toDate(),
-      deadlineAt: (d['deadline_at'] as Timestamp).toDate(),
+      problemIndices: (d['problem_indices'] as List?)
+              ?.whereType<int>()
+              .toList() ??
+          const [],
+      createdAt: (d['created_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      deadlineAt: (d['deadline_at'] as Timestamp?)?.toDate() ?? DateTime.now(),
       status: d['status'] as String? ?? 'active',
       winnerId: d['winner_id'] as String?,
       player1Progress:

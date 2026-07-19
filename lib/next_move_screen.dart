@@ -970,7 +970,8 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
   }
 
   Widget _buildResultScreen() {
-    final pct = (_score / _filteredProblems.length * 100).round();
+    final total = _filteredProblems.isEmpty ? 1 : _filteredProblems.length;
+    final pct = (_score / total * 100).round();
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(24.0),
@@ -1106,6 +1107,27 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
   }
 
   Widget _buildProblemScreen() {
+    // 選択した難易度に該当する問題が無い場合、_filteredProblems[_current] は
+    // RangeErrorでクラッシュするため、フィルタUIだけ残して空表示にする。
+    if (_filteredProblems.isEmpty || _current >= _filteredProblems.length) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDifficultyFilter(),
+            const SizedBox(height: 48),
+            const Center(
+              child: Text(
+                'この難易度の問題はありません',
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final prob = _filteredProblems[_current];
     final answered = _selectedIdx != null;
 

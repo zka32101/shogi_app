@@ -690,6 +690,24 @@ class _DuelSolveScreenState extends State<_DuelSolveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // 問題が空のデュエル（不正なFirestoreデータや、ビルドインの問題IDが
+    // 変わって problemIndices が解決できない場合）でクラッシュしないようガードする。
+    if (_problems.isEmpty || _currentQuestionIndex >= _problems.length) {
+      return Scaffold(
+        backgroundColor: AppTheme.bg,
+        appBar: AppBar(
+          backgroundColor: AppTheme.surface,
+          iconTheme: const IconThemeData(color: Colors.white),
+        ),
+        body: const Center(
+          child: Text(
+            'この対戦の問題を読み込めませんでした',
+            style: TextStyle(color: Colors.white54),
+          ),
+        ),
+      );
+    }
+
     final question = _problems[_currentQuestionIndex];
     final timeString = _formatDuration(_stopwatch.elapsed);
 

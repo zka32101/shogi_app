@@ -171,10 +171,12 @@ class _StoryOverlayState extends State<StoryOverlay>
   }
 
   Color _parseColor(String colorString) {
-    // "#RRGGBB" 形式をパース
+    // "#RRGGBB" 形式をパース。不正な文字列でも int.parse で例外を出さず
+    // tryParse で黒にフォールバックする。
     String hexColor = colorString.replaceAll('#', '');
     if (hexColor.length == 6) {
-      return Color(int.parse('FF$hexColor', radix: 16));
+      final value = int.tryParse('FF$hexColor', radix: 16);
+      if (value != null) return Color(value);
     }
     return Colors.black;
   }
