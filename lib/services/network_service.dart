@@ -49,17 +49,6 @@ class NetworkService {
     }
   }
 
-  Future<UserProfile?> signInWithGoogle() async {
-    try {
-      // Google サインイン（実装は GoogleSignIn パッケージが必要）
-      // TODO: GoogleSignIn 実装
-      return null;
-    } catch (e) {
-      print('Google sign in error: $e');
-      return null;
-    }
-  }
-
   Future<void> signOut() async {
     await _auth.signOut();
   }
