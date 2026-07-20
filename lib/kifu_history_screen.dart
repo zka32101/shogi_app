@@ -10,7 +10,15 @@ import 'piece.dart';
 import 'kifu_replay_screen.dart';
 import 'kif_utils.dart';
 import 'kansousen_screen.dart';
-import 'game_screen.dart' show initShogiBoard, PieceTheme;
+import 'game_screen.dart'
+    show
+        initShogiBoard,
+        PieceTheme,
+        GameScreen,
+        GameSettings,
+        GameMode,
+        autoAiLevelFromRating;
+import 'logic.dart' show GL;
 import 'services/kifu_backup_service.dart';
 import 'theme/app_theme.dart';
 
@@ -536,21 +544,67 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
   }
 
   // ── AI対局再開 ──────────────────────────────
-  void _resumeAIGame(Map<String, dynamic> r) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppTheme.bg,
-        title: const Text('棋譜再開', style: TextStyle(color: Colors.white)),
-        content: const Text('棋譜再開機能は近日実装予定です。',
-            style: TextStyle(color: Colors.white70)),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('OK')),
-        ],
-      ),
-    );
+  // 棋譜の指し手を初期局面から再生して最終局面（盤面・持ち駒・手番）を
+  // 復元し、その局面からAI対局を継続する。対局途中で終了した棋譜のみ対象
+  // （詰み・投了等で決着済みの棋譜は続きが指せないため再開できない）。
+  Future<void> _resumeAIGame(Map<String, dynamic> r) async {
+    final resultStr = r['result'] as String? ?? '未完了';
+    if (resultStr != '未完了') {
+      showDialog(
+        context: context,
+        builder: (_) => AlertDialog(
+          backgroundColor: AppTheme.bg,
+          title: const Text('棋譜再開', style: TextStyle(color: Colors.white)),
+          content: const Text(
+            'この対局はすでに終局しているため再開できません。',
+            style: TextStyle(color: Colors.white70),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK')),
+          ],
+        ),
+      );
+      return;
+    }
+
+    try {
+      final rawMoves =
+          (r['moves'] as List).whereType<Map<String, dynamic>>().toList();
+      final moves = rawMoves.map((j) => KifuMove.fromJson(j)).toList();
+
+      final board = initShogiBoard();
+      final p1Hand = <PieceType, int>{};
+      final p2Hand = <PieceType, int>{};
+      for (final m in moves) {
+        GL.applyKifuMove(board, p1Hand, p2Hand, m);
+      }
+      final nextIsP1 = moves.isEmpty ? true : !moves.last.p1;
+
+      final prefs = await SharedPreferences.getInstance();
+      final rating = prefs.getInt('rating_current') ?? 700;
+
+      if (!mounted) return;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => GameScreen(
+            settings: GameSettings(
+              mode: GameMode.vsAI,
+              aiLevel: autoAiLevelFromRating(rating),
+            ),
+            initialBoard: board,
+            initialP1Hand: p1Hand,
+            initialP2Hand: p2Hand,
+            initialP1Turn: nextIsP1,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('棋譜再開エラー: $e')));
+    }
   }
 
   // ── クラウドバックアップ ─────────────────
