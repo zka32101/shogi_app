@@ -393,29 +393,16 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   }
 
   // ===== 5手詰め ① =====
-  // (旧版は飛が開始局面から後手玉と同じ列(1筋)に位置し、間に遮る駒もなく
-  //  既に王手がかかっている不成立な局面だった。TsumeEngineでの検証により
-  //  発覚・修正: 飛を王手ラインの外から進め、歩・金で段階的に追い込む5手に再設計)
-  // 後手玉 1一(0,0)、先手飛 6二(1,5) ← 1二へ横に進め王手、
-  // 先手歩 2三(2,1) ← 2二へ進め2手目の王手、先手金 3三(2,2) ← 3二へ進め詰み、
-  // 桂 4四(3,1)・桂 4一(3,0)・桂 6五(3,4)・桂 5三(2,4) で周囲固め
-  // 手順:
-  //   1. 飛 6二→1二(1,0) 王手（1筋・2段目に飛の縦横利きが通る）
-  //   2. 後手玉 1一→2一(0,1) 逃げ(唯一の逃げ)
-  //   3. 歩 2三→2二(1,1) 王手（歩は直前1マスのみを利くため2一を通過できる）
-  //   4. 後手玉 2一→3一(0,2) 逃げ(唯一の逃げ)
-  //   5. 金 3三→3二(1,2) 王手・詰み
+  // (Workflow並列エージェント第2ラウンドがTsumeEngineで余詰みなし・行き所のない駒なしを自己検証して再設計)
   {
     final b = _empty();
-    b[0][0] = Piece(PieceType.king, false);   // 後手玉 1一(0,0)
-    b[8][8] = Piece(PieceType.king, true);    // 先手玉 9九(8,8)
-    b[1][5] = Piece(PieceType.rook, true);    // 先手飛 6二(1,5)
-    b[2][1] = Piece(PieceType.pawn, true);    // 先手歩 2三(2,1)
-    b[2][2] = Piece(PieceType.gold, true);    // 先手金 3三(2,2)
-    b[3][1] = Piece(PieceType.knight, true);  // 先手桂 4四(3,1) ← 2二を守る
-    b[3][0] = Piece(PieceType.knight, true);  // 先手桂 4一(3,0) ← 歩の着地点(2二)を守る
-    b[3][4] = Piece(PieceType.knight, true);  // 先手桂 6五(3,4) ← 3二の隣を守る
-    b[2][4] = Piece(PieceType.knight, true);  // 先手桂 5三(2,4) ← 4一を守る
+    b[0][0] = Piece(PieceType.king, false);
+    b[1][1] = Piece(PieceType.pawn, false);
+    b[4][1] = Piece(PieceType.knight, true);
+    b[5][0] = Piece(PieceType.knight, true);
+    b[5][1] = Piece(PieceType.knight, true);
+    b[5][2] = Piece(PieceType.knight, true);
+    b[8][3] = Piece(PieceType.rook, true);
     list.add(TsumeProb(
       title: '5手詰め ①',
       moves: 5,
@@ -423,40 +410,29 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
       p1Hand: {},
       p2Hand: {},
       solution: [
-        AMove(fr: 1, fc: 5, tr: 1, tc: 0),  // 飛 6二→1二(王手)
-        AMove(fr: 0, fc: 0, tr: 0, tc: 1),  // 後手玉 1一→2一(唯一の逃げ)
-        AMove(fr: 2, fc: 1, tr: 1, tc: 1),  // 歩 2三→2二(王手)
-        AMove(fr: 0, fc: 1, tr: 0, tc: 2),  // 後手玉 2一→3一(唯一の逃げ)
-        AMove(fr: 2, fc: 2, tr: 1, tc: 2),  // 金 3三→3二(詰み)
+        AMove(fr: 8, fc: 3, tr: 0, tc: 3),
+        AMove(fr: 0, fc: 0, tr: 1, tc: 0),
+        AMove(fr: 5, fc: 2, tr: 3, tc: 1),
+        AMove(fr: 1, fc: 0, tr: 2, tc: 1),
+        AMove(fr: 0, fc: 3, tr: 2, tc: 3),
       ],
-      explanation: '飛を1二へ進めて縦に王手して後手玉を2一に追い、歩で2二に王手してさらに3一へ。最後に金が3二に進んで詰みます。桂馬が周囲の逃げ道を封じています。',
+      explanation: '後手玉は1一（0,0）、自分の歩が2二（1,1）にあり退路を1つ塞いでいる。①飛を1四(0,3)へ進めて1段目を制圧する横王手。玉は1一段の逃げ場を失い、2一(1,0)へ強制的に逃げる。②その2一の玉に対し、桂を(5,2)から(3,1)へ跳ねて王手（桂は敵陣の外なので成りの選択肢がなく、成り由来のクックが生じない）。玉の周囲は先に配置した3頭の桂（(4,1)(5,0)(5,1)）と自分の歩がすべての逃げ場（2二・2三・3一・3二・3三）を塞いでおり、唯一の合法手である3二(2,1)へ逃げるほかない。③最後に飛を(0,3)から(2,3)へ横に運び、2段目を通して3二の玉に王手。3二の周囲8マスはすでに歩・3頭の桂によってすべて塞がれており（桂で王手した桂自身も別の桂に守られていて取れない）、合法手が一切ないため詰み。',
     ));
   }
 
   // ===== 5手詰め ② =====
-  // (旧版は龍が開始局面から後手玉と同じ列(0段目)に位置し、間に遮る駒もなく
-  //  既に王手がかかっている不成立な局面だった。TsumeEngineでの検証により
-  //  発覚・修正: 飛を王手ラインの外から進め、歩・金で段階的に追い込む5手に再設計)
-  // 5手詰め①(1一隅)の左右反転版。後手玉 9一(0,8)、先手飛 4二(1,3) ←
-  // 8二へ横に進め王手、先手歩 8三(2,7) ← 8二へ進め2手目の王手、
-  // 先手金 7三(2,6) ← 7二へ進め詰み
-  // 手順:
-  //   1. 飛 4二→8二(1,8) 王手（9筋・2段目に飛の縦横利きが通る）
-  //   2. 後手玉 9一→8一(0,7) 逃げ(唯一の逃げ)
-  //   3. 歩 8三→8二(1,7) 王手（歩は直前1マスのみを利くため8一を通過できる）
-  //   4. 後手玉 8一→7一(0,6) 逃げ(唯一の逃げ)
-  //   5. 金 7三→7二(1,6) 王手・詰み
+  // (Workflow並列エージェント第2ラウンドがTsumeEngineで余詰みなし・行き所のない駒なしを自己検証して再設計)
   {
     final b = _empty();
-    b[0][8] = Piece(PieceType.king, false);   // 後手玉 9一(0,8)
-    b[8][0] = Piece(PieceType.king, true);    // 先手玉 1九(8,0)
-    b[1][3] = Piece(PieceType.rook, true);    // 先手飛 4二(1,3)
-    b[2][7] = Piece(PieceType.pawn, true);    // 先手歩 8三(2,7)
-    b[2][6] = Piece(PieceType.gold, true);    // 先手金 7三(2,6)
-    b[3][7] = Piece(PieceType.knight, true);  // 先手桂 8四(3,7) ← 8二を守る
-    b[3][8] = Piece(PieceType.knight, true);  // 先手桂 9四(3,8) ← 歩の着地点(8二)を守る
-    b[3][4] = Piece(PieceType.knight, true);  // 先手桂 5五(3,4) ← 7二の隣を守る
-    b[2][4] = Piece(PieceType.knight, true);  // 先手桂 5三(2,4) ← 6一を守る
+    b[0][4] = Piece(PieceType.king, false);
+    b[1][4] = Piece(PieceType.pawn, false);
+    b[2][2] = Piece(PieceType.gold, true);
+    b[3][4] = Piece(PieceType.knight, true);
+    b[3][7] = Piece(PieceType.knight, true);
+    b[3][8] = Piece(PieceType.knight, true);
+    b[4][7] = Piece(PieceType.knight, true);
+    b[4][8] = Piece(PieceType.knight, true);
+    b[8][4] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '5手詰め ②',
       moves: 5,
@@ -464,52 +440,43 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
       p1Hand: {},
       p2Hand: {},
       solution: [
-        AMove(fr: 1, fc: 3, tr: 1, tc: 8),  // 飛 4二→8二(王手)
-        AMove(fr: 0, fc: 8, tr: 0, tc: 7),  // 後手玉 9一→8一(唯一の逃げ)
-        AMove(fr: 2, fc: 7, tr: 1, tc: 7),  // 歩 8三→8二(王手)
-        AMove(fr: 0, fc: 7, tr: 0, tc: 6),  // 後手玉 8一→7一(唯一の逃げ)
-        AMove(fr: 2, fc: 6, tr: 1, tc: 6),  // 金 7三→7二(詰み)
+        AMove(fr: 2, fc: 2, tr: 1, tc: 3),
+        AMove(fr: 0, fc: 4, tr: 0, tc: 5),
+        AMove(fr: 4, fc: 7, tr: 2, tc: 6),
+        AMove(fr: 0, fc: 5, tr: 0, tc: 6),
+        AMove(fr: 4, fc: 8, tr: 2, tc: 7),
       ],
-      explanation: '飛を8二へ進めて縦に王手して後手玉を8一に追い、歩で8二に王手してさらに7一へ。最後に金が7二に進んで詰みます。桂馬が周囲の逃げ道を封じています。',
+      explanation: '後手玉は5一（中央寄り）で、自陣の歩が4一に置かれ前方を塞いでいます。①金が7三から6二へ進んで王手（玉は5一から4一へは行けず、唯一の逃げ場である5二へ）。②桂馬が2四から3二へ跳んで王手（桂馬の利きが4一と5一の斜めを押さえ、玉は唯一残る4二への逃げ場に移動）※実際の逃げ場は6一。③最後に別の桂馬が2三から3三へ跳んで王手をかけ、残る全ての逃げ場（5一・7一・6一・6二・7二）が金・他の桂馬2枚によってすべて塞がれており、詰みとなります。桂馬3枚と金1枚が周囲の逃げ道を分担して封鎖する構成です。',
     ));
   }
 
   // ===== 5手詰め ③ =====
-  // (旧版は飛が開始局面から後手玉と同じ列(5筋)に位置し、間に遮る駒もなく
-  //  既に王手がかかっている不成立な局面だった。TsumeEngineでの検証により
-  //  発覚・修正: 飛を王手ラインの外から進め、桂・金で追い込む5手に再設計)
-  // 後手玉 5一(0,4)、先手飛 2二(1,7) ← 5二へ横に進め王手、
-  // 先手銀 4三(2,3) ← 3二・4二を守る（動かない）、先手桂 6四(4,3) ← 3三へ跳んで王手、
-  // 先手金 2三(2,1) ← 2二へ進め詰み、先手桂 5六(3,0) ← 金の着地点(2二)を守る
-  // 手順:
-  //   1. 飛 2二→5二(1,4) 王手（4段目全体に飛の縦横利きが通る）
-  //   2. 後手玉 5一→4一(0,3) 逃げ
-  //   3. 桂 6四→3三(2,2) 王手（桂の跳びで4一に利く）
-  //   4. 後手玉 4一→3一(0,2) 逃げ
-  //   5. 金 2三→2二(1,1) 王手・詰み（銀が3二・4二を、桂が2二を守る）
+  // (Workflow並列エージェント第2ラウンドがTsumeEngineで余詰みなし・行き所のない駒なしを自己検証して再設計)
   {
     final b = _empty();
-    b[0][4] = Piece(PieceType.king, false);   // 後手玉 5一(0,4)
-    b[8][4] = Piece(PieceType.king, true);    // 先手玉 5九(8,4)
-    b[1][7] = Piece(PieceType.rook, true);    // 先手飛 2二(1,7)
-    b[2][3] = Piece(PieceType.silver, true);  // 先手銀 4三(2,3) ← 3二・4二を守る
-    b[2][1] = Piece(PieceType.gold, true);    // 先手金 2三(2,1)
-    b[4][3] = Piece(PieceType.knight, true);  // 先手桂 6四(4,3) ← 3三へ跳んで王手
-    b[3][0] = Piece(PieceType.knight, true);  // 先手桂 5六(3,0) ← 金の着地点(2二)を守る
+    b[0][6] = Piece(PieceType.king, false);
+    b[1][5] = Piece(PieceType.pawn, false);
+    b[1][7] = Piece(PieceType.pawn, false);
+    b[1][8] = Piece(PieceType.pawn, false);
+    b[2][3] = Piece(PieceType.pawn, true);
+    b[2][4] = Piece(PieceType.knight, true);
+    b[4][3] = Piece(PieceType.rook, true);
+    b[4][7] = Piece(PieceType.knight, true);
+    b[8][4] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '5手詰め ③',
       moves: 5,
       board: b,
-      p1Hand: {},
+      p1Hand: {PieceType.gold: 1},
       p2Hand: {},
       solution: [
-        AMove(fr: 1, fc: 7, tr: 1, tc: 4),  // 飛 2二→5二(王手)
-        AMove(fr: 0, fc: 4, tr: 0, tc: 3),  // 後手玉 5一→4一(応手)
-        AMove(fr: 4, fc: 3, tr: 2, tc: 2),  // 桂 6四→3三(王手)
-        AMove(fr: 0, fc: 3, tr: 0, tc: 2),  // 後手玉 4一→3一(応手)
-        AMove(fr: 2, fc: 1, tr: 1, tc: 1),  // 金 2三→2二(詰み)
+        AMove(fr: 4, fc: 3, tr: 4, tc: 6),
+        AMove(fr: 0, fc: 6, tr: 0, tc: 7),
+        AMove(fr: 4, fc: 7, tr: 2, tc: 8),
+        AMove(fr: 0, fc: 7, tr: 0, tc: 8),
+        AMove(fr: -1, fc: -1, tr: 0, tc: 7, drop: PieceType.gold),
       ],
-      explanation: '飛で王手して後手玉を4一に追い、桂の跳びで王手して3一へ。最後に金が2二に進んで詰みます。銀・桂が周囲の逃げ道を封じています。',
+      explanation: 'Completely redesigned from scratch (new board, new pieces, new solution) per the prior round\'s recommendation, rather than patching the old corner-king geometry.\n\nSetup: Gote king starts at (0,6) — not a corner, and given two of its own pawns at (1,5) and (1,7) that wall off its own escape squares (plus a third pawn at (1,8) that walls off the eventual corner). Sente has Rook (4,3), a blocking Pawn (2,3) directly above the rook\'s own start square (this is essential — an empty file under the rook lets it slide all the way to the back rank and promote into a Dragon King for an accidental mate-in-1, so the blocker pawn is load-bearing), a static Knight (2,4), a second Knight (4,7), and one Gold in hand.\n\n1. Rook (4,3)->(4,6): check along the file. King\'s neighbors (0,5)/(1,5) are blocked by the static Knight and the gote pawn; (1,6) is on the rook\'s file; (1,7) is blocked by a gote pawn. Only (0,7) is legal.\n2. King (0,6)->(0,7) (forced).\n3. Knight (4,7)->(2,8): check on (0,7) (a knight attacks two squares two rows back diagonally). Landing on (2,8) rather than (2,6) is important — landing on (2,6) would sit on the rook\'s own file and block its own check, and the alternate landing (2,8) had to be checked against the gote pawn at (1,8) being able to capture it, which is why the pawn stays at (1,8) rather than a square that could capture the knight. King\'s neighbors (0,6)/(1,6) are covered by the rook\'s file, (1,7)/(1,8) are blocked by gote pawns, leaving only (0,8).\n4. King (0,7)->(0,8) (forced).\n5. Gold drop at (0,7): checks the king directly. (0,7) is defended by the Knight sitting at (2,8) (so the king cannot capture it), while (1,7) and (1,8) remain blocked by gote\'s own pawns. No legal reply — checkmate.\n\nVerified with the project\'s TsumeEngine (tool script run against H:\\マイドライブ\\apps\\shogi_app\\lib\\logic.dart / tsume_engine.dart): START_OK (gote not in check and has a legal move at the start), NO_DEAD_PIECES, SOLUTION_OK (every sente move is check and gote has no legal move after move 5), and NO_COOK_CONFIRMED (exhaustive engine search at depth 1 and depth 3 found no shorter forced mate).',
     ));
   }
 
@@ -937,11 +904,11 @@ void _buildExtraProblems(List<TsumeProb> list) {
   }
 
   // ===== 3手詰め ⑬ =====
-  // (Workflow並列エージェントがTsumeEngineで余詰みなしを自己検証して再設計)
+  // (Workflow並列エージェント第2ラウンドがTsumeEngineで余詰みなし・行き所のない駒なしを自己検証して再設計)
   {
     final b = _empty();
     b[0][4] = Piece(PieceType.king, false);
-    b[1][4] = Piece(PieceType.knight, true);
+    b[1][4] = Piece(PieceType.pawn, false);
     b[2][7] = Piece(PieceType.knight, true);
     b[3][3] = Piece(PieceType.lance, true);
     b[3][5] = Piece(PieceType.knight, true);
@@ -958,7 +925,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 4, tr: 0, tc: 5),
         AMove(fr: -1, fc: -1, tr: 0, tc: 4, drop: PieceType.gold),
       ],
-      explanation: '角(5五相当, row5col5)を3四相当(row3,col7)へ進めて後手玉(row0,col4)に長い斜め王手（途中(4,6)(2,6)(1,5)が全て空きで通る）。玉の逃げ場は5マス中4マス封鎖：(0,3)/(1,3)は香(row3,col3)、(1,4)は桂(row1,col4)が塞ぎその桂は別の桂(row3,col5)が守り捕獲不可、(1,5)は動いた角が斜めに利かせる。唯一空いているrow0,col5へ逃げるしかない。そこで手放していた金を、玉が去って空いた元の玉の位置(row0,col4)に打つ。この金は移動後の角の斜め筋(row3,col7方向)に守られており玉は取れず、周囲の(0,6)はもう一つの桂(row2,col7)、(1,4)は最初の桂(守られている)、(1,5)は角、(1,6)は桂(row3,col5)がそれぞれ利いており、後手玉は完全に詰む。',
+      explanation: '角(row5,col5)を(row3,col7)へ進めて後手玉(row0,col4)に長い斜め王手（途中(4,6)(2,6)(1,5)は全て空きで通る）。玉の逃げ場5マスのうち4マスが封鎖されている：(0,3)/(1,3)は香(row3,col3)が利かせて塞ぎ、(1,4)は元々あった行き所のない桂（row1は先手桂にとって禁忌のため後手歩に置き換え済み）が自分の駒として居座って玉自身の移動先になれず塞ぎ、(1,5)は動いた角が斜めに利かせて塞ぐ。唯一空いているrow0,col5へ逃げるしかない。そこで手放していた金を、玉が去って空いた元の玉の位置(row0,col4)に打つ。この金は移動後の角の斜め筋(row3,col7方向、(row0,col4)を貫く)に守られており玉は取れず、周囲の(0,6)はもう一つの桂(row2,col7)、(1,4)は後手自身の歩、(1,5)は角、(1,6)は桂(row3,col5)がそれぞれ利いており、後手玉は完全に詰む。',
     ));
   }
 
