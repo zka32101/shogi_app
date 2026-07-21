@@ -124,7 +124,7 @@ const _situations = [
       _Recommendation(label: '初段への道',        reason: '棋力に合わせた段階別ロードマップ',           icon: Icons.map,         screenKey: 'roadmap'),
       _Recommendation(label: '弱点分析',          reason: 'AI対局後に課題を可視化して集中強化',         icon: Icons.analytics,   screenKey: 'weakness'),
       _Recommendation(label: '定跡ドリル',        reason: '序盤で差をつける高精度な定跡を習得',         icon: Icons.repeat,      screenKey: 'joseki_drill'),
-      _Recommendation(label: '詰将棋9手+',        reason: '有段者は9手詰めを確実に読み切る力が必要',    icon: Icons.extension,   screenKey: 'tsume'),
+      _Recommendation(label: '詰将棋7手+',        reason: '有段者は7手詰めを確実に読み切る力が必要',    icon: Icons.extension,   screenKey: 'tsume'),
     ],
   ),
   _Situation(
