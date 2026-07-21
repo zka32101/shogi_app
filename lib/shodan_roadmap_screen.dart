@@ -94,7 +94,7 @@ const _stages = [
     minRating: 1050,
     advice: '初段の直前。中盤の構想力が鍵です。プロ棋士の定跡・格言を積極的に吸収しましょう。',
     skills: [
-      _Skill(label: '9手詰めを解く',       detail: '長手数の詰みを読み切る訓練',      icon: Icons.extension, screen: 'tsume'),
+      _Skill(label: '7手詰めを解く',       detail: '長手数の詰みを読み切る訓練',      icon: Icons.extension, screen: 'tsume'),
       _Skill(label: '中盤の構想',           detail: '駒の効率・手番の使い方を意識',    icon: Icons.psychology, screen: 'game'),
       _Skill(label: '将棋の格言を覚える',   detail: '「角は引いて使え」など実戦格言を', icon: Icons.menu_book, screen: 'proverbs'),
       _Skill(label: 'コーチモードで指す',   detail: 'AI指導で悪手の癖を矯正する',     icon: Icons.school, screen: 'coach'),

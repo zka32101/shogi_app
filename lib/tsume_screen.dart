@@ -1300,7 +1300,9 @@ class _TsumeScreenState extends State<TsumeScreen>
   static const _bg = AppTheme.bg;
   static const _card = AppTheme.surface;
 
-  // 0=全て, 1=1手, 3=3手, 5=5手, 7=7手, 9=9手
+  // 0=全て, 1=1手, 3=3手, 5=5手, 7=7手
+  // (9手詰めは健全な問題を安定して構成できなかったため、
+  //  カテゴリごと廃止した)
   int _filterMoves = 0;
   late TabController _tabController;
 
@@ -1324,7 +1326,7 @@ class _TsumeScreenState extends State<TsumeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() {
@@ -1334,7 +1336,6 @@ class _TsumeScreenState extends State<TsumeScreen>
           case 2: _filterMoves = 3; break;
           case 3: _filterMoves = 5; break;
           case 4: _filterMoves = 7; break;
-          case 5: _filterMoves = 9; break;
         }
       });
     });
@@ -1783,7 +1784,6 @@ class _TsumeScreenState extends State<TsumeScreen>
               _tabItem('3手詰め', _clearCountLabel(3)),
               _tabItem('5手詰め', _clearCountLabel(5)),
               _tabItem('7手詰め', _clearCountLabel(7)),
-              _tabItem('9手詰め', _clearCountLabel(9)),
             ],
           ),
         ),
