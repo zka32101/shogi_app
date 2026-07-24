@@ -4023,7 +4023,34 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final inCheck = result == null && GL.inCheck(board, p1Turn);
-    return Scaffold(
+    final gameInProgress = result == null && kifu.isNotEmpty;
+    return PopScope(
+      canPop: !gameInProgress,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || !gameInProgress) return;
+        final leave = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            backgroundColor: AppTheme.surface,
+            title: const Text('対局中です'),
+            content: const Text('画面を離れると対局内容は保存されません。よろしいですか？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('キャンセル'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('離れる', style: TextStyle(color: Colors.redAccent)),
+              ),
+            ],
+          ),
+        );
+        if (leave == true && mounted) {
+          Navigator.pop(context);
+        }
+      },
+      child: Scaffold(
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
@@ -4064,6 +4091,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         ],
       ),
       body: showKifu ? _kifuView() : _gameView(),
+      ),
     );
   }
 
@@ -4185,7 +4213,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             _reportPosition();
             break;
           case 'new_game':
-            newGame();
+            if (result == null && kifu.isNotEmpty) {
+              showDialog(
+                context: context,
+                builder: (_) => AlertDialog(
+                  backgroundColor: AppTheme.surface,
+                  title: const Text('新しく対局を始めますか？'),
+                  content: const Text('現在の対局内容は破棄されます（保存していない場合、棋譜は失われます）。'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('キャンセル'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        newGame();
+                      },
+                      child: const Text('新しく始める', style: TextStyle(color: Colors.redAccent)),
+                    ),
+                  ],
+                ),
+              );
+            } else {
+              newGame();
+            }
             break;
         }
       },
