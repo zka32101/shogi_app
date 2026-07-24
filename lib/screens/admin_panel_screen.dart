@@ -27,8 +27,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       backgroundColor: AppTheme.bg,
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
-        title: const Text('管理パネル', style: TextStyle(color: Colors.white)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        title: const Text('管理パネル', style: TextStyle(color: AppTheme.textHigh)),
+        iconTheme: const IconThemeData(color: AppTheme.textHigh),
       ),
       body: SafeArea(
         child: Column(
@@ -70,7 +70,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         decoration: BoxDecoration(
           border: Border(
             bottom: BorderSide(
-              color: isActive ? Colors.amber : Colors.transparent,
+              color: isActive ? AppTheme.accent : Colors.transparent,
               width: 2,
             ),
           ),
@@ -79,7 +79,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           label,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: isActive ? Colors.amber : Colors.white70,
+            color: isActive ? AppTheme.accent : AppTheme.textMid,
             fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
           ),
         ),
@@ -104,7 +104,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         if (reports.isEmpty) {
           return const Center(
             child: Text('待機中の報告はありません',
-                style: TextStyle(color: Colors.white70)),
+                style: TextStyle(color: AppTheme.textMid)),
           );
         }
 
@@ -118,7 +118,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               margin: const EdgeInsets.all(8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.grey.shade900,
+                color: AppTheme.surfaceHigh,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -130,7 +130,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       Text(
                         '報告ID: ${report.id.substring(0, 8)}',
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: AppTheme.textMid,
                           fontSize: 12,
                         ),
                       ),
@@ -161,11 +161,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   const SizedBox(height: 8),
                   Text(
                     '報告対象: ${data['reported_user_id'].substring(0, 8)}...',
-                    style: const TextStyle(color: Colors.white),
+                    style: const TextStyle(color: AppTheme.textHigh),
                   ),
                   Text(
                     '報告者: ${data['reporter_id'].substring(0, 8)}...',
-                    style: const TextStyle(color: Colors.white70, fontSize: 12),
+                    style: const TextStyle(color: AppTheme.textMid, fontSize: 12),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -177,7 +177,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         icon: const Icon(Icons.check),
                         label: const Text('承認'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green.shade700,
+                          backgroundColor: AppTheme.success,
                         ),
                       ),
                       ElevatedButton.icon(
@@ -185,7 +185,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         icon: const Icon(Icons.close),
                         label: const Text('却下'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red.shade700,
+                          backgroundColor: AppTheme.danger,
                         ),
                       ),
                     ],
@@ -215,7 +215,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         if (users.isEmpty) {
           return const Center(
             child: Text('BAN済みユーザーはいません',
-                style: TextStyle(color: Colors.white70)),
+                style: TextStyle(color: AppTheme.textMid)),
           );
         }
 
@@ -239,7 +239,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               margin: const EdgeInsets.all(8),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: Colors.red.shade900.withAlpha(80),
+                color: AppTheme.danger.withAlpha(40),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -257,7 +257,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppTheme.textHigh,
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
                               ),
@@ -265,7 +265,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                             Text(
                               'UID: ${user.id.substring(0, 8)}...',
                               style: const TextStyle(
-                                color: Colors.white70,
+                                color: AppTheme.textMid,
                                 fontSize: 12,
                               ),
                             ),
@@ -279,13 +279,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.red.shade700,
+                          color: AppTheme.danger,
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           reasonLabel,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: AppTheme.textHigh,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
@@ -298,7 +298,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     Text(
                       'BAN日時: ${bannedAt.toString().substring(0, 16)}',
                       style: const TextStyle(
-                        color: Colors.white70,
+                        color: AppTheme.textMid,
                         fontSize: 12,
                       ),
                     ),
@@ -308,7 +308,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     icon: const Icon(Icons.restore),
                     label: const Text('BAN解除'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue.shade700,
+                      backgroundColor: AppTheme.primary,
                     ),
                   ),
                 ],
@@ -404,10 +404,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.security, color: Colors.green, size: 48),
+                Icon(Icons.security, color: AppTheme.success, size: 48),
                 SizedBox(height: 12),
                 Text('フラグ付きユーザーはいません',
-                    style: TextStyle(color: Colors.white70)),
+                    style: TextStyle(color: AppTheme.textMid)),
               ],
             ),
           );
@@ -424,7 +424,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 label: const Text('全ユーザーを再分析'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.purple.shade700,
-                  foregroundColor: Colors.white,
+                  foregroundColor: AppTheme.textHigh,
                   minimumSize: const Size.fromHeight(40),
                 ),
               ),
@@ -442,7 +442,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   final username =
                       data['username'] as String? ?? 'Unknown';
                   final scoreColor = score >= 85
-                      ? Colors.red
+                      ? AppTheme.danger
                       : score >= 70
                           ? Colors.orange
                           : Colors.yellow;
@@ -452,7 +452,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         horizontal: 8, vertical: 4),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade900,
+                      color: AppTheme.surfaceHigh,
                       borderRadius: BorderRadius.circular(8),
                       border: Border(
                         left: BorderSide(color: scoreColor, width: 4),
@@ -471,7 +471,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppTheme.textHigh,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -505,14 +505,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                     padding: const EdgeInsets.symmetric(
                                         horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
-                                      color: Colors.red.shade900,
+                                      color: AppTheme.danger.withAlpha(150),
                                       borderRadius:
                                           BorderRadius.circular(3),
                                     ),
                                     child: Text(
                                       f,
                                       style: const TextStyle(
-                                        color: Colors.white70,
+                                        color: AppTheme.textMid,
                                         fontSize: 10,
                                       ),
                                     ),
@@ -529,8 +529,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                 icon: const Icon(Icons.block, size: 16),
                                 label: const Text('BAN'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.red.shade700,
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: AppTheme.danger,
+                                  foregroundColor: AppTheme.textHigh,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 8),
                                 ),
@@ -545,8 +545,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                     size: 16),
                                 label: const Text('誤検知'),
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green.shade700,
-                                  foregroundColor: Colors.white,
+                                  backgroundColor: AppTheme.success,
+                                  foregroundColor: AppTheme.textHigh,
                                   padding:
                                       const EdgeInsets.symmetric(vertical: 8),
                                 ),
@@ -636,7 +636,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           _StatCard(
             title: '総ユーザー数',
             icon: Icons.people,
-            color: Colors.blue,
+            color: AppTheme.primary,
             stream: _firestore
                 .collection('users')
                 .snapshots()
@@ -646,7 +646,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           _StatCard(
             title: 'BAN済みユーザー',
             icon: Icons.block,
-            color: Colors.red,
+            color: AppTheme.danger,
             stream: _firestore
                 .collection('users')
                 .where('is_banned', isEqualTo: true)
@@ -668,7 +668,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           _StatCard(
             title: '総対局数',
             icon: Icons.sports_esports,
-            color: Colors.green,
+            color: AppTheme.success,
             stream: _firestore
                 .collection('matches')
                 .where('status', isEqualTo: 'finished')
@@ -710,7 +710,7 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.grey.shade900,
+        color: AppTheme.surfaceHigh,
         borderRadius: BorderRadius.circular(10),
         border: Border(left: BorderSide(color: color, width: 4)),
       ),
@@ -720,7 +720,7 @@ class _StatCard extends StatelessWidget {
         Expanded(
           child: Text(
             title,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+            style: const TextStyle(color: AppTheme.textMid, fontSize: 14),
           ),
         ),
         StreamBuilder<String>(
