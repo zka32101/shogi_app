@@ -240,7 +240,7 @@ final List<_ProGame> _proGames = [
       '▲5三桂成', '△同金', '▲6四飛', '△6三歩', '▲6八飛', '△5四金',
       '▲6五桂', '△5三金', '▲7三桂成', '△同桂', '▲6四角', '△4二銀',
       '▲8二角成', '△5五桂', '▲7九飛', '△4七桂成', '▲同金', '△3六角',
-      '▲4六歩', '△5四角成', '▲4八金', '△5八桂', '▲3八金', '△7〇桂成',
+      '▲4六歩', '△5四角成', '▲4八金', '△5八桂', '▲3八金', '△4六桂成',
     ],
     comments: [
       _MoveComment(4, '▲6八飛 — 中飛車に振る大山の得意戦法'),
@@ -736,6 +736,30 @@ class _ProKifuDetailScreenState extends State<_ProKifuDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // 免責表示：本画面の棋譜・解説は学習用に作成した架空の対局例
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              margin: const EdgeInsets.only(bottom: 12),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.withOpacity(0.3), width: 1),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: Colors.red.shade300),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '※本画面の棋譜・解説は学習用に作成した架空の対局例であり、実際の棋士の対局を再現したものではありません。',
+                      style: TextStyle(color: Colors.red.shade200, fontSize: 11, height: 1.5),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
             // 対局情報ヘッダー
             _InfoHeader(game: game),
             const SizedBox(height: 16),

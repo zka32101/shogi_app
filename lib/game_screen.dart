@@ -746,7 +746,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _startTimer() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (!mounted || result != null || _aiThinking) return;
+      if (!mounted || result != null) return;
       setState(() {
         if (p1Turn) {
           if (_p1InByoyomi) {
@@ -977,7 +977,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Future<void> _checkDanPromotion(bool playerWon) async {
     if (!playerWon || !vsAI) return;
     final prefs = await SharedPreferences.getInstance();
-    final wins = (prefs.getInt('win_count_vs_ai') ?? 0);
+    final wins = (prefs.getInt('win_count_vs_ai') ?? 0) + 1;
+    await prefs.setInt('win_count_vs_ai', wins);
     // 10勝ごとに段位昇格イベント
     if (wins % 10 != 0) return;
     final dan = wins ~/ 10;
@@ -1644,9 +1645,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
 
     if (s.fischerIncrementSec > 0 && s.timeLimitSec != null && result == null) {
-      if (p1Turn) {
+      // 秒読み突入後はp1Time/p2Timeが使われなくなるため、
+      // 死に変数への加算を避け秒読み中の側には加算しない
+      if (p1Turn && !_p1InByoyomi) {
         p1Time = (p1Time + s.fischerIncrementSec).clamp(0, 3600);
-      } else {
+      } else if (!p1Turn && !_p2InByoyomi) {
         p2Time = (p2Time + s.fischerIncrementSec).clamp(0, 3600);
       }
     }
@@ -3081,6 +3084,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           'stats_total_ai',
           (prefs.getInt('stats_total_ai') ?? 0) + 1,
         );
+      } else {
+        await prefs.setInt(
+          'stats_total_pvp',
+          (prefs.getInt('stats_total_pvp') ?? 0) + 1,
+        );
       }
 
       // 勝敗判定（_resultWonBy: startsWith ベースで判定。理由は同メソッド参照）
@@ -3101,26 +3109,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             'stats_p1_wins',
             (prefs.getInt('stats_p1_wins') ?? 0) + 1,
           );
+          await prefs.setInt(
+            vsAI ? 'stats_p1_wins_ai' : 'stats_p1_wins_pvp',
+            (prefs.getInt(vsAI ? 'stats_p1_wins_ai' : 'stats_p1_wins_pvp') ??
+                    0) +
+                1,
+          );
         } else if (p2Won) {
           await prefs.setInt(
             'stats_p2_wins',
             (prefs.getInt('stats_p2_wins') ?? 0) + 1,
           );
+          await prefs.setInt(
+            vsAI ? 'stats_p2_wins_ai' : 'stats_p2_wins_pvp',
+            (prefs.getInt(vsAI ? 'stats_p2_wins_ai' : 'stats_p2_wins_pvp') ??
+                    0) +
+                1,
+          );
         }
       }
 
-      // バッジ判定用の集計キー（プレイヤー視点の通算勝利・AI対局勝利）
+      // バッジ判定用の集計キー（プレイヤー視点の通算勝利）
       if (playerWon == true) {
         await prefs.setInt(
           'stats_total_wins',
           (prefs.getInt('stats_total_wins') ?? 0) + 1,
         );
-        if (vsAI) {
-          await prefs.setInt(
-            'stats_p1_wins_ai',
-            (prefs.getInt('stats_p1_wins_ai') ?? 0) + 1,
-          );
-        }
       }
       if (s.variant != VariantType.normal) {
         await prefs.setBool('stats_variant_${s.variant.name}', true);
@@ -3176,8 +3190,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _detectDefeatMove();
       }
 
-      // レーティング更新（AI対局・レーティング戦のみ）
-      if (vsAI && s.aiRated && playerWon != null) {
+      // レーティング更新（AI対局・レーティング戦のみ。駒落ちは対象外）
+      if (vsAI && s.aiRated && s.handicap == Handicap.none && playerWon != null) {
         final prevRating = prefs.getInt('rating_ai_current') ?? 700;
         final prevRankStr = ratingToRank(prevRating);
 

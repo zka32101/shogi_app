@@ -652,18 +652,18 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
               Navigator.pop(context);
               setState(() => _cloudBusy = true);
               final count = await svc.restoreAll();
-              if (mounted) {
-                setState(() => _cloudBusy = false);
-                if (count >= 0) {
-                  await _load();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text(count > 0 ? '$count件の棋譜をリストアしました' : 'クラウドに棋譜がありません')),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('リストアに失敗しました（ネットワークを確認してください）')),
-                  );
-                }
+              if (!mounted) return;
+              setState(() => _cloudBusy = false);
+              if (count >= 0) {
+                await _load();
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(count > 0 ? '$count件の棋譜をリストアしました' : 'クラウドに棋譜がありません')),
+                );
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('リストアに失敗しました（ネットワークを確認してください）')),
+                );
               }
             },
           ),

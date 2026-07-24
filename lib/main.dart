@@ -217,6 +217,7 @@ class _ShogiAppState extends State<ShogiApp> {
     setState(() {
       _isDarkMode = isDark;
     });
+    SharedPreferences.getInstance().then((p) => p.setBool('theme_dark_mode', isDark));
   }
 
   ThemeData _buildTheme(bool isDark) {
@@ -364,7 +365,10 @@ class _HomeScreenState extends State<HomeScreen> {
             onTime: (v) => setState(() => _timeLimitSec = v),
             onByoyomi: (v) => setState(() => _byoyomiSec = v),
             onFischer: (v) => setState(() => _fischerIncrementSec = v),
-            onTheme: (v) => setState(() => _theme = v),
+            onTheme: (v) {
+              setState(() => _theme = v);
+              SharedPreferences.getInstance().then((p) => p.setInt('piece_theme_idx', v.index));
+            },
             onLabelStyle: (v) => setState(() => _labelStyle = v),
             onSpeech: (v) {
               setState(() => _speechEnabled = v);

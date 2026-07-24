@@ -10,6 +10,7 @@ import '../services/network_service.dart';
 import '../character_icons.dart';
 import '../purchase_service.dart';
 import '../theme/app_theme.dart';
+import '../services/character_bond_service.dart';
 
 class CustomizeScreen extends StatefulWidget {
   const CustomizeScreen({super.key});
@@ -51,10 +52,10 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
     final title = prefs.getString('display_title');
     final charIconId = prefs.getString('character_icon_id');
 
-    // 絆レベルを読み込み
+    // 絆レベルを読み込み（実際の勝利数ベースのCharacterBondServiceを使用）
     final bonds = <String, int>{};
     for (final char in allCharacterIcons) {
-      final level = prefs.getInt('character_bond_level_${char.id}') ?? 0;
+      final level = (await CharacterBondService.getBondLevel(char.id)).index;
       if (level > 0) bonds[char.id] = level;
     }
 
