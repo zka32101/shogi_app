@@ -39,19 +39,19 @@ class _ClubScreenState extends State<ClubScreen>
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
         title: const Text('クラブ', style: TextStyle(color: AppTheme.textHigh)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppTheme.textHigh),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: Colors.white),
+            icon: const Icon(Icons.add, color: AppTheme.textHigh),
             onPressed: () => _showCreateClubDialog(context),
             tooltip: 'クラブを作成',
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          indicatorColor: Colors.amber,
-          labelColor: Colors.amber,
-          unselectedLabelColor: Colors.white54,
+          indicatorColor: AppTheme.accent,
+          labelColor: AppTheme.accent,
+          unselectedLabelColor: AppTheme.textMid,
           tabs: const [
             Tab(text: '公開クラブ'),
             Tab(text: 'マイクラブ'),
@@ -90,9 +90,9 @@ class _ClubScreenState extends State<ClubScreen>
                 style: const TextStyle(color: AppTheme.textHigh),
                 decoration: const InputDecoration(
                   labelText: 'クラブ名 *',
-                  labelStyle: TextStyle(color: Colors.white54),
+                  labelStyle: TextStyle(color: AppTheme.textMid),
                   enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white38),
+                    borderSide: BorderSide(color: AppTheme.textLow),
                   ),
                 ),
               ),
@@ -103,9 +103,9 @@ class _ClubScreenState extends State<ClubScreen>
                 style: const TextStyle(color: AppTheme.textHigh),
                 decoration: const InputDecoration(
                   labelText: '説明',
-                  labelStyle: TextStyle(color: Colors.white54),
+                  labelStyle: TextStyle(color: AppTheme.textMid),
                   enabledBorder: UnderlineInputBorder(
-                    borderSide: BorderSide(color: Colors.white38),
+                    borderSide: BorderSide(color: AppTheme.textLow),
                   ),
                 ),
               ),
@@ -115,7 +115,7 @@ class _ClubScreenState extends State<ClubScreen>
                 const Spacer(),
                 Switch(
                   value: isPublic,
-                  activeColor: Colors.amber,
+                  activeColor: AppTheme.accent,
                   onChanged: (v) => setDlgState(() => isPublic = v),
                 ),
               ]),
@@ -142,7 +142,7 @@ class _ClubScreenState extends State<ClubScreen>
                   _tabController.animateTo(1);
                 }
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.amber),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
               child: const Text('作成', style: TextStyle(color: Colors.black)),
             ),
           ],
@@ -172,9 +172,9 @@ class _PublicClubsTab extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.group_off, color: Colors.white24, size: 64),
+                Icon(Icons.group_off, color: AppTheme.textLow, size: 64),
                 SizedBox(height: 12),
-                Text('公開クラブがありません', style: TextStyle(color: Colors.white54)),
+                Text('公開クラブがありません', style: TextStyle(color: AppTheme.textMid)),
               ],
             ),
           );
@@ -212,17 +212,17 @@ class _MyClubsTab extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.group_add, color: Colors.white24, size: 64),
+                const Icon(Icons.group_add, color: AppTheme.textLow, size: 64),
                 const SizedBox(height: 12),
                 const Text('クラブに参加していません',
-                    style: TextStyle(color: Colors.white54)),
+                    style: TextStyle(color: AppTheme.textMid)),
                 const SizedBox(height: 16),
                 ElevatedButton.icon(
                   onPressed: () {},
                   icon: const Icon(Icons.search),
                   label: const Text('クラブを探す'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber.shade700,
+                    backgroundColor: AppTheme.accent,
                   ),
                 ),
               ],
@@ -272,7 +272,7 @@ class _ClubTile extends StatelessWidget {
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isMine ? Colors.amber.withAlpha(80) : Colors.white12,
+            color: isMine ? AppTheme.accent.withAlpha(80) : AppTheme.textLow.withAlpha(30),
           ),
         ),
         child: Row(children: [
@@ -312,26 +312,26 @@ class _ClubTile extends StatelessWidget {
                     ),
                   ),
                   if (!club.isPublic)
-                    const Icon(Icons.lock, color: Colors.white38, size: 14),
+                    const Icon(Icons.lock, color: AppTheme.textLow, size: 14),
                 ]),
                 const SizedBox(height: 2),
                 if (club.description.isNotEmpty)
                   Text(
                     club.description,
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
+                    style: const TextStyle(color: AppTheme.textMid, fontSize: 11),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Icon(Icons.people, color: Colors.white38, size: 13),
+                  const Icon(Icons.people, color: AppTheme.textLow, size: 13),
                   const SizedBox(width: 3),
                   Text(
                     '${club.memberCount}人',
                     style: const TextStyle(color: AppTheme.textLow, fontSize: 11),
                   ),
                   const SizedBox(width: 10),
-                  const Icon(Icons.military_tech, color: Colors.white38, size: 13),
+                  const Icon(Icons.military_tech, color: AppTheme.textLow, size: 13),
                   const SizedBox(width: 3),
                   Text(
                     '平均${club.avgRating}',
@@ -341,7 +341,7 @@ class _ClubTile extends StatelessWidget {
               ],
             ),
           ),
-          const Icon(Icons.arrow_forward_ios, color: Colors.white24, size: 14),
+          const Icon(Icons.arrow_forward_ios, color: AppTheme.textLow, size: 14),
         ]),
       ),
     );
@@ -385,12 +385,12 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
         title: Text(widget.club.name, style: const TextStyle(color: AppTheme.textHigh)),
-        iconTheme: const IconThemeData(color: Colors.white),
+        iconTheme: const IconThemeData(color: AppTheme.textHigh),
         actions: [
           if (_isMember && !isOwner)
             TextButton(
               onPressed: _leaveClub,
-              child: const Text('退会', style: TextStyle(color: Colors.red)),
+              child: const Text('退会', style: TextStyle(color: AppTheme.danger)),
             ),
         ],
       ),
@@ -435,12 +435,12 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
                     const SizedBox(height: 2),
                     Text(
                       '${widget.club.memberCount}人 • 平均${widget.club.avgRating}',
-                      style: const TextStyle(color: Colors.white54, fontSize: 12),
+                      style: const TextStyle(color: AppTheme.textMid, fontSize: 12),
                     ),
                     if (widget.club.description.isNotEmpty)
                       Text(
                         widget.club.description,
-                        style: const TextStyle(color: Colors.white54, fontSize: 11),
+                        style: const TextStyle(color: AppTheme.textMid, fontSize: 11),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -451,7 +451,7 @@ class _ClubDetailScreenState extends State<ClubDetailScreen> {
                 ElevatedButton(
                   onPressed: _joining ? null : _joinClub,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.amber.shade700,
+                    backgroundColor: AppTheme.accent,
                     foregroundColor: Colors.black,
                   ),
                   child: _joining
@@ -623,7 +623,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
               decoration: InputDecoration(
                 hintText: '掲示板に投稿...',
                 hintStyle: const TextStyle(color: AppTheme.textLow),
-                counterStyle: const TextStyle(color: Colors.white24),
+                counterStyle: const TextStyle(color: AppTheme.textLow),
                 filled: true,
                 fillColor: AppTheme.surface,
                 border: OutlineInputBorder(
@@ -638,7 +638,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
           IconButton(
             icon: _posting
                 ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
-                : const Icon(Icons.send, color: Colors.amber),
+                : const Icon(Icons.send, color: AppTheme.accent),
             onPressed: _posting ? null : _post,
           ),
         ]),
@@ -655,7 +655,7 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.forum, color: Colors.white24, size: 48),
+                    Icon(Icons.forum, color: AppTheme.textLow, size: 48),
                     SizedBox(height: 12),
                     Text('まだ投稿がありません', style: TextStyle(color: AppTheme.textLow)),
                   ],
@@ -677,11 +677,11 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isMe
-                        ? Colors.indigo.shade900.withAlpha(120)
+                        ? AppTheme.catSocial.withAlpha(40)
                         : AppTheme.surface,
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: isMe ? Colors.indigo.withAlpha(80) : Colors.white12,
+                      color: isMe ? AppTheme.catSocial.withAlpha(80) : AppTheme.textLow.withAlpha(30),
                     ),
                   ),
                   child: Column(
@@ -691,13 +691,13 @@ class _GlobalBulletinTabState extends State<_GlobalBulletinTab> {
                         Text(
                           d['author_name'] as String? ?? '?',
                           style: TextStyle(
-                            color: isMe ? Colors.lightBlue.shade300 : AppTheme.textMid,
+                            color: isMe ? AppTheme.catSocial : AppTheme.textMid,
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const Spacer(),
-                        Text(time, style: const TextStyle(color: Colors.white24, fontSize: 10)),
+                        Text(time, style: const TextStyle(color: AppTheme.textLow, fontSize: 10)),
                       ]),
                       const SizedBox(height: 4),
                       Text(
@@ -782,13 +782,13 @@ class _MemberTile extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
                 decoration: BoxDecoration(
-                  color: Colors.amber.withAlpha(40),
+                  color: AppTheme.accent.withAlpha(40),
                   borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: Colors.amber.withAlpha(80)),
+                  border: Border.all(color: AppTheme.accent.withAlpha(80)),
                 ),
                 child: const Text(
                   'オーナー',
-                  style: TextStyle(color: Colors.amber, fontSize: 9),
+                  style: TextStyle(color: AppTheme.accent, fontSize: 9),
                 ),
               ),
           ]),
@@ -796,7 +796,7 @@ class _MemberTile extends StatelessWidget {
         Text(
           '${member.rating}',
           style: const TextStyle(
-            color: Colors.amber,
+            color: AppTheme.accent,
             fontSize: 15,
             fontWeight: FontWeight.bold,
           ),

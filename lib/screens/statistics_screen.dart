@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fl_chart/fl_chart.dart';
+import '../theme/app_theme.dart';
 
 class StatisticsScreen extends StatefulWidget {
   const StatisticsScreen({super.key});
@@ -47,14 +48,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F3460),
+      backgroundColor: AppTheme.bg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF16213E),
+        backgroundColor: AppTheme.surface,
         title: const Text(
           'ユーザー統計',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppTheme.textHigh),
         ),
-        iconTheme: const IconThemeData(color: Colors.cyan),
+        iconTheme: const IconThemeData(color: AppTheme.accent),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -64,7 +65,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: CircularProgressIndicator(color: Colors.cyan),
+              child: CircularProgressIndicator(color: AppTheme.accent),
             )
           : _errorMessage != null
               ? Center(
@@ -73,7 +74,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     children: [
                       Text(
                         _errorMessage!,
-                        style: const TextStyle(color: Colors.red),
+                        style: const TextStyle(color: AppTheme.danger),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
@@ -147,7 +148,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       padding: const EdgeInsets.all(16),
@@ -157,7 +158,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           const Text(
             'ユーザーレーティング分布',
             style: TextStyle(
-              color: Colors.cyan,
+              color: AppTheme.accent,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -172,7 +173,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 barTouchData: BarTouchData(
                   enabled: true,
                   touchTooltipData: BarTouchTooltipData(
-                    tooltipBgColor: Colors.cyan,
+                    tooltipBgColor: AppTheme.accent,
                     getTooltipItem: (group, groupIndex, rod, rodIndex) {
                       return BarTooltipItem(
                         '${categories[groupIndex]}: ${rod.toY.toInt()}人',
@@ -194,7 +195,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           return Text(
                             categories[index],
                             style: const TextStyle(
-                              color: Colors.grey,
+                              color: AppTheme.textLow,
                               fontSize: 10,
                             ),
                           );
@@ -239,7 +240,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -250,7 +251,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             child: const Text(
               '各級別ユーザー数',
               style: TextStyle(
-                color: Colors.cyan,
+                color: AppTheme.accent,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -261,7 +262,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             shrinkWrap: true,
             itemCount: categories.length,
             separatorBuilder: (_, __) => Divider(
-              color: Colors.grey.shade700,
+              color: AppTheme.textLow.withAlpha(60),
               height: 1,
             ),
             itemBuilder: (context, index) {
@@ -289,7 +290,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           Text(
                             label,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppTheme.textHigh,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
@@ -297,7 +298,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                           Text(
                             category,
                             style: TextStyle(
-                              color: Colors.grey.shade400,
+                              color: AppTheme.textMid,
                               fontSize: 12,
                             ),
                           ),
@@ -307,7 +308,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     Text(
                       '$count人',
                       style: const TextStyle(
-                        color: Colors.cyan,
+                        color: AppTheme.accent,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -351,19 +352,19 @@ class _SummaryCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFF16213E),
+        color: AppTheme.surface,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.cyan.shade300, width: 1),
+        border: Border.all(color: AppTheme.accent.withAlpha(120), width: 1),
       ),
       padding: const EdgeInsets.all(12),
       child: Column(
         children: [
-          Icon(icon, color: Colors.cyan, size: 24),
+          Icon(icon, color: AppTheme.accent, size: 24),
           const SizedBox(height: 8),
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: AppTheme.textHigh,
               fontSize: 18,
               fontWeight: FontWeight.bold,
             ),
@@ -372,7 +373,7 @@ class _SummaryCard extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.grey.shade400,
+              color: AppTheme.textMid,
               fontSize: 11,
             ),
             textAlign: TextAlign.center,
