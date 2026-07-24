@@ -769,9 +769,13 @@ class _MemberTile extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Row(children: [
-            Text(
-              member.username,
-              style: const TextStyle(color: AppTheme.textHigh, fontSize: 13),
+            Flexible(
+              child: Text(
+                member.username,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: AppTheme.textHigh, fontSize: 13),
+              ),
             ),
             const SizedBox(width: 6),
             if (isOwner)

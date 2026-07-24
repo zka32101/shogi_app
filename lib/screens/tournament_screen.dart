@@ -49,6 +49,7 @@ class TournamentListScreen extends StatelessWidget {
             children: [
               TextField(
                 controller: nameController,
+                maxLength: 24,
                 style: const TextStyle(color: AppTheme.textHigh),
                 decoration: const InputDecoration(
                   hintText: 'トーナメント名',
@@ -376,6 +377,8 @@ class TournamentDetailScreen extends StatelessWidget {
         children: [
           Text(
             t.name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
             style: const TextStyle(
               color: AppTheme.textHigh,
               fontSize: 20,
@@ -457,6 +460,8 @@ class TournamentDetailScreen extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(e.username,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(color: AppTheme.textHigh)),
                   ),
                   Text(

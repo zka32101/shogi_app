@@ -154,6 +154,8 @@ class _RankingScreenState extends State<RankingScreen>
                 ),
                 title: Text(
                   username,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: AppTheme.textHigh,
                     fontWeight: FontWeight.bold,

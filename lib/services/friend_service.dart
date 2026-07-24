@@ -213,6 +213,7 @@ class FriendService {
           .collection('friend_requests')
           .doc(requestId)
           .get();
+      if (!req.exists) return;
       final reqData = req.data() as Map<String, dynamic>;
       final senderName = reqData['sender_name'] as String? ?? '?';
       final senderRating = reqData['sender_rating'] as int? ?? 1500;

@@ -569,71 +569,81 @@ class _ChallengesTab extends StatelessWidget {
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                      await friendService.respondToChallenge(c.id, true);
-                      final me = FirebaseAuth.instance.currentUser;
-                      if (me == null) return;
+                      try {
+                        await friendService.respondToChallenge(c.id, true);
+                        final me = FirebaseAuth.instance.currentUser;
+                        if (me == null) return;
 
-                      final firestore = FirebaseFirestore.instance;
-                      final myProfile = await networkService.getUserProfile(me.uid);
-                      final matchRef = firestore.collection('matches').doc();
-                      final now = DateTime.now();
+                        final firestore = FirebaseFirestore.instance;
+                        final myProfile = await networkService.getUserProfile(me.uid);
+                        final matchRef = firestore.collection('matches').doc();
+                        final now = DateTime.now();
 
-                      await matchRef.set({
-                        'id': matchRef.id,
-                        'player1_id': c.senderId,
-                        'player1_name': c.senderName,
-                        'player1_rating': c.senderRating,
-                        'player2_id': me.uid,
-                        'player2_name': myProfile?.username ?? '自分',
-                        'player2_rating': myProfile?.rating ?? 1500,
-                        'board_state': '',
-                        'current_turn': 1,
-                        'moves': [],
-                        'player1_time': 600,
-                        'player2_time': 600,
-                        'status': 'playing',
-                        'winner': null,
-                        'result': null,
-                        'created_at': now,
-                        'started_at': now,
-                        'finished_at': null,
-                      });
+                        await matchRef.set({
+                          'id': matchRef.id,
+                          'player1_id': c.senderId,
+                          'player1_name': c.senderName,
+                          'player1_rating': c.senderRating,
+                          'player2_id': me.uid,
+                          'player2_name': myProfile?.username ?? '自分',
+                          'player2_rating': myProfile?.rating ?? 1500,
+                          'board_state': '',
+                          'current_turn': 1,
+                          'moves': [],
+                          'player1_time': 600,
+                          'player2_time': 600,
+                          'status': 'playing',
+                          'winner': null,
+                          'result': null,
+                          'created_at': now,
+                          'started_at': now,
+                          'finished_at': null,
+                        });
 
-                      await firestore.collection('direct_challenges').doc(c.id).update({
-                        'match_id': matchRef.id,
-                      });
+                        await firestore.collection('direct_challenges').doc(c.id).update({
+                          'match_id': matchRef.id,
+                        });
 
-                      // RTDB盤面を初期化（MatchScreen は isPlayer1==true 側でしか
-                      // 自動初期化しないが、フレンド対局では常に受諾者が isPlayer1:false
-                      // で入室するため、ここで明示的に作成しないと対局が開始できない）
-                      await BoardSyncService().initMatchBoard(
-                        matchRef.id,
-                        board: GL.initialBoard(),
-                        player1Id: c.senderId,
-                        player2Id: me.uid,
-                        timeLimitSec: 600,
-                      );
+                        // RTDB盤面を初期化（MatchScreen は isPlayer1==true 側でしか
+                        // 自動初期化しないが、フレンド対局では常に受諾者が isPlayer1:false
+                        // で入室するため、ここで明示的に作成しないと対局が開始できない）
+                        await BoardSyncService().initMatchBoard(
+                          matchRef.id,
+                          board: GL.initialBoard(),
+                          player1Id: c.senderId,
+                          player2Id: me.uid,
+                          timeLimitSec: 600,
+                        );
 
-                      // 招待した側（未入室）に対局開始を通知
-                      await FcmService().notifyMatchFound(
-                        recipientId: c.senderId,
-                        opponentName: myProfile?.username ?? '相手',
-                        opponentRating: myProfile?.rating ?? 1500,
-                        matchId: matchRef.id,
-                      );
+                        // 招待した側（未入室）に対局開始を通知
+                        await FcmService().notifyMatchFound(
+                          recipientId: c.senderId,
+                          opponentName: myProfile?.username ?? '相手',
+                          opponentRating: myProfile?.rating ?? 1500,
+                          matchId: matchRef.id,
+                        );
 
-                      if (!context.mounted) return;
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => MatchScreen(
-                            matchId: matchRef.id,
-                            isPlayer1: false,
-                            myPlayerId: me.uid,
-                            timeLimitSec: 600,
+                        if (!context.mounted) return;
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => MatchScreen(
+                              matchId: matchRef.id,
+                              isPlayer1: false,
+                              myPlayerId: me.uid,
+                              timeLimitSec: 600,
+                            ),
                           ),
-                        ),
-                      );
+                        );
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('対局の開始に失敗しました。もう一度お試しください'),
+                            ),
+                          );
+                        }
+                      }
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.success,

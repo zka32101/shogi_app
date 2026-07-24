@@ -68,7 +68,7 @@ List<CastleProb> buildCastleProblems() {
       description: '美濃囲いの急所、玉頭に狙いをつけよう。先手番、最善の一手は？',
       board: b,
       answer: const AMove(fr: 3, fc: 2, tr: 2, tc: 1),
-      explanation: '▲8三銀。美濃囲いの急所である玉頭に銀をぶつける王手。△同歩・△同玉のいずれでも玉の固さが崩れ、寄せの糸口になります。',
+      explanation: '▲8三銀。美濃囲いの急所である玉頭に銀をぶつける王手。△同玉・△同金のいずれで応じても玉の固さが崩れ、寄せの糸口になります。',
       sourceUrl: _src, sourceTitle: _srcName, difficulty: 1,
     ));
   }

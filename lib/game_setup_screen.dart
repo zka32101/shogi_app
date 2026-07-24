@@ -701,6 +701,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
       return;
     }
     setState(() => _theme = t);
+    SharedPreferences.getInstance().then((p) => p.setInt('piece_theme_idx', t.index));
   }
 
   // ── プレミアム購入ダイアログ ──────────────────────────────────────

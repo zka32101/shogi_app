@@ -1360,6 +1360,16 @@ class _MatchScreenState extends State<MatchScreen> {
         await prefs.setInt(
             'stats_net_wins', (prefs.getInt('stats_net_wins') ?? 0) + 1);
       }
+      if (state.winner != null) {
+        // 先手/後手どちらが勝ったか（自分視点ではなく席順視点で集計）
+        final p1Won = isWin == widget.isPlayer1;
+        await prefs.setInt(
+          p1Won ? 'stats_p1_wins_net' : 'stats_p2_wins_net',
+          (prefs.getInt(p1Won ? 'stats_p1_wins_net' : 'stats_p2_wins_net') ??
+                  0) +
+              1,
+        );
+      }
 
       final newBadges = await BadgeService.check(
         prefs,

@@ -196,9 +196,15 @@ class _ReportUserScreenState extends State<ReportUserScreen> {
                         _isBlocked ? Icons.person_add : Icons.block,
                         size: 18,
                       ),
-                label: Text(_isBlocked
-                    ? '${widget.reportedUsername} のブロックを解除'
-                    : '${widget.reportedUsername} をブロック'),
+                label: Flexible(
+                  child: Text(
+                    _isBlocked
+                        ? '${widget.reportedUsername} のブロックを解除'
+                        : '${widget.reportedUsername} をブロック',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 style: OutlinedButton.styleFrom(
                   foregroundColor:
                       _isBlocked ? Colors.grey : Colors.orange.shade300,
