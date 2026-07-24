@@ -1115,8 +1115,8 @@ class _StudyTab extends StatelessWidget {
       _StudySection('診断・分析', Icons.analytics, const Color(0xFFAB47BC), [
         _StudyItem('棋力診断', Icons.assessment, () => _go(context, const StrengthTestScreen())),
         _StudyItem('棋風診断', Icons.face, () => _go(context, const PlaystyleDiagnosisScreen()), requiresPremium: true),
-        _StudyItem('弱点分析', Icons.radar, () => _go(context, const WeaknessAnalysisScreen()), requiresPremium: true),
-        _StudyItem('弱点採掘', Icons.travel_explore, () => _go(context, const WeaknessMiningScreen()), requiresPremium: true),
+        _StudyItem('弱点分析（総合スコア）', Icons.radar, () => _go(context, const WeaknessAnalysisScreen()), requiresPremium: true),
+        _StudyItem('弱点採掘（改善アクション）', Icons.travel_explore, () => _go(context, const WeaknessMiningScreen()), requiresPremium: true),
         _StudyItem('学習カレンダー', Icons.calendar_month, () => _go(context, const StudyCalendarScreen())),
         _StudyItem('プロ棋譜', Icons.video_library, () => _go(context, const ProKifuScreen())),
       ]),

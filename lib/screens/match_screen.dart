@@ -902,8 +902,14 @@ class _MatchScreenState extends State<MatchScreen> {
             final opponentId = await _getOpponentId() ?? '';
             await _networkService.finishMatchWithRating(
                 widget.matchId, opponentId, 'resignation');
-          } catch (_) {}
-          if (mounted) Navigator.pop(context);
+            if (mounted) Navigator.pop(context);
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('投了処理に失敗しました: $e')),
+              );
+            }
+          }
         }
       },
       child: Scaffold(
