@@ -25,9 +25,7 @@ class PurchaseService {
   static bool get isAvailable => _isAvailable && !kIsWeb;
   static bool get hasPlan300 => _hasPlan300;
   static bool get hasPlan500 => _hasPlan500;
-  // プレミアム版ビルド: すべての機能を開放
-  static const bool _premiumBuild = true;
-  static bool get isPremium => _premiumBuild || _hasPlan300 || _hasPlan500;
+  static bool get isPremium => _hasPlan300 || _hasPlan500;
   static ProductDetails? get plan300Product => _plan300Product;
   static ProductDetails? get plan500Product => _plan500Product;
 
