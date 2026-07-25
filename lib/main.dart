@@ -1099,7 +1099,7 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('次の一手', Icons.lightbulb, () => _go(context, const NextMoveScreen())),
         _StudyItem('手筋トレーニング', Icons.psychology, () => _go(context, const TesujiScreen())),
         _StudyItem('囲い崩し道場', Icons.shield_outlined, () => _go(context, const CastleBreakScreen())),
-        _StudyItem('自動生成パズル', Icons.auto_fix_high, () => _go(context, const PuzzleGeneratorScreen())),
+        _StudyItem('自動生成パズル', Icons.auto_fix_high, () => _go(context, const PuzzleGeneratorScreen()), requiresPremium: true),
       ]),
       _StudySection('定跡・囲い・基礎', Icons.menu_book, const Color(0xFF5C6BC0), [
         _StudyItem('定跡ガイド', Icons.route, () => _go(context, const JosekiScreen())),

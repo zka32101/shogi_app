@@ -50,6 +50,18 @@ class MatchingService {
     bool rankTierOnly = false,
   }) async {
     try {
+      // 同一ユーザーの既存の待機中エントリを無効化（二重申込による多重マッチ防止）
+      try {
+        final existing = await _firestore
+            .collection('matching_queue')
+            .where('user_id', isEqualTo: userId)
+            .where('status', isEqualTo: 'waiting')
+            .get();
+        for (final doc in existing.docs) {
+          await doc.reference.update({'status': 'cancelled'});
+        }
+      } catch (_) {}
+
       // ユーザーの所属クラブを取得
       List<String> clubIds = [];
       try {
