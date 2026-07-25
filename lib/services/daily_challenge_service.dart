@@ -275,10 +275,12 @@ class DailyChallengeService {
 
     final todayTemplates = templates[weekday % 7];
     final batch = _firestore.batch();
-    for (final t in todayTemplates) {
-      final ref = _firestore.collection('daily_challenges').doc();
+    for (var i = 0; i < todayTemplates.length; i++) {
+      // 日付+インデックスの決定的なIDにすることで、複数端末が同時に
+      // 生成しても重複ドキュメントが作られない（同じIDへの上書きになる）
+      final ref = _firestore.collection('daily_challenges').doc('${dateStr}_$i');
       batch.set(ref, {
-        ...t,
+        ...todayTemplates[i],
         'date': Timestamp.fromDate(
             DateTime(today.year, today.month, today.day)),
         'date_str': dateStr,

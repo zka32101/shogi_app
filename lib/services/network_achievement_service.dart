@@ -352,8 +352,9 @@ class NetworkAchievementService {
         .collection('users')
         .doc(userId)
         .snapshots()
-        .map((doc) =>
-            (doc['achievements'] as List?)?.cast<String>() ?? []);
+        .map((doc) => !doc.exists
+            ? <String>[]
+            : (doc.data()?['achievements'] as List?)?.cast<String>() ?? []);
   }
 
   // ── 内部ヘルパー ──────────────────────────────────────────────

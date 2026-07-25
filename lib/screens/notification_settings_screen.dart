@@ -52,18 +52,26 @@ class _NotificationSettingsScreenState
   Future<void> _save() async {
     final uid = _networkService.currentUser?.uid;
     if (uid == null) return;
-    await _fcmService.updateNotificationSettings(
-      userId: uid,
-      matchFound: _matchFound,
-      opponentMoved: _opponentMoved,
-      tournament: _tournament,
-      friends: _friends,
-      dailyChallenge: _dailyChallenge,
-    );
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('通知設定を保存しました')),
+    try {
+      await _fcmService.updateNotificationSettings(
+        userId: uid,
+        matchFound: _matchFound,
+        opponentMoved: _opponentMoved,
+        tournament: _tournament,
+        friends: _friends,
+        dailyChallenge: _dailyChallenge,
       );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('通知設定を保存しました')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('保存に失敗しました（ネットワークを確認してください）')),
+        );
+      }
     }
   }
 
