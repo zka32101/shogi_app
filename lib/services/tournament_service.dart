@@ -114,6 +114,7 @@ class Tournament {
   final String status; // open, started, finished
   final DateTime createdAt;
   final int? championRating; // 優勝者レーティング変動ボーナス
+  final String? championId;
 
   Tournament({
     required this.id,
@@ -125,6 +126,7 @@ class Tournament {
     required this.status,
     required this.createdAt,
     this.championRating,
+    this.championId,
   });
 
   bool get isFull => entries.length >= maxPlayers;
@@ -152,6 +154,7 @@ class Tournament {
           ? (d['created_at'] as Timestamp).toDate()
           : DateTime.now(),
       championRating: d['champion_rating'] as int?,
+      championId: d['champion_id'] as String?,
     );
   }
 }

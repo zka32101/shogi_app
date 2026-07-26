@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../services/tournament_service.dart';
 import '../services/network_service.dart';
 import '../services/rating_service.dart';
+import '../services/network_achievement_service.dart';
 import '../theme/app_theme.dart';
 
 // ── 一覧画面 ─────────────────────────────────────────────────
@@ -301,6 +302,13 @@ class TournamentDetailScreen extends StatelessWidget {
     final isEntered = t.entries.any((e) => e.userId == myId);
     final isCreator = t.creatorId == myId;
 
+    // 優勝実績の付与はusers/{uid}への書き込みが本人のみ許可されているため、
+    // 対局結果を確定させた側(勝者・敗者どちらの端末でもありうる)ではなく、
+    // 優勝者自身のセッションで判定・付与する必要がある
+    if (t.status == 'finished' && t.championId != null && t.championId == myId) {
+      NetworkAchievementService().checkTournamentWin(myId!);
+    }
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -401,6 +409,29 @@ class TournamentDetailScreen extends StatelessWidget {
                           : '終了'),
             ],
           ),
+          if (t.status == 'finished' && t.championId != null) ...[
+            const SizedBox(height: 12),
+            Builder(builder: (context) {
+              final championName = t.entries
+                  .firstWhere(
+                    (e) => e.userId == t.championId,
+                    orElse: () => TournamentEntry(
+                        userId: t.championId!, username: '?', rating: 0),
+                  )
+                  .username;
+              return Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.emoji_events, color: AppTheme.accent, size: 18),
+                  const SizedBox(width: 6),
+                  Text('優勝: $championName',
+                      style: const TextStyle(
+                          color: AppTheme.accent,
+                          fontWeight: FontWeight.bold)),
+                ],
+              );
+            }),
+          ],
         ],
       ),
     );

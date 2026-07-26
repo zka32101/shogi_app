@@ -122,6 +122,9 @@ Future<void> _initializeBackgroundServices() async {
     await FcmService().initialize();
     // 通知タップ時の画面遷移コールバックも Firebase 初期化後に登録
     FcmService().onNotificationTap = _handleNotificationTap;
+    // アプリが完全終了状態から通知タップで起動された場合（cold start）の
+    // 遷移も処理する（onMessageOpenedAppだけではこのケースを捕捉できない）
+    FcmService().checkInitialMessage();
   } catch (_) {
     // Firebase 未設定の場合はスキップ（ネットワーク対局機能は無効）
   }

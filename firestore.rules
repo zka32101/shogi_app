@@ -99,7 +99,9 @@ service cloud.firestore {
       allow write: if isAuthenticated();
 
       match /members/{memberId} {
-        allow read, write: if isAuthenticated();
+        // メンバードキュメントIDは本人のuidのため、本人のみ参加登録・脱退できる
+        allow read: if isAuthenticated();
+        allow write: if isAuthenticated() && memberId == request.auth.uid;
       }
     }
 
