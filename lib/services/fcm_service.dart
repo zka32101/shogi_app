@@ -6,6 +6,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // ── バックグラウンドハンドラ（トップレベル必須） ──────────────────
 @pragma('vm:entry-point')
@@ -93,15 +94,28 @@ class FcmService {
     }
   }
 
+  static const _lastTokenPrefKey = 'fcm_last_saved_token';
+
   Future<void> _saveTokenToFirestore(String token) async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
 
     try {
-      await _firestore.collection('users').doc(uid).update({
+      final prefs = await SharedPreferences.getInstance();
+      final prevToken = prefs.getString(_lastTokenPrefKey);
+      final docRef = _firestore.collection('users').doc(uid);
+      // ローテーションで無効になった旧トークン（この端末が以前使っていた
+      // もの）を、fcm_tokens配列に無期限で残さないよう先に取り除く
+      if (prevToken != null && prevToken != token) {
+        await docRef.update({
+          'fcm_tokens': FieldValue.arrayRemove([prevToken]),
+        });
+      }
+      await docRef.update({
         'fcm_tokens': FieldValue.arrayUnion([token]),
         'fcm_token_updated_at': FieldValue.serverTimestamp(),
       });
+      await prefs.setString(_lastTokenPrefKey, token);
     } catch (e) {
       debugPrint('FCM save token error: $e');
     }
@@ -119,6 +133,8 @@ class FcmService {
         });
       }
       await _fcm.deleteToken();
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_lastTokenPrefKey);
     } catch (e) {
       debugPrint('FCM remove token error: $e');
     }
@@ -316,6 +332,19 @@ class FcmService {
   }
 
   Function(Map<String, dynamic>)? onNotificationTap;
+
+  /// アプリが完全終了状態から通知タップで起動された場合（cold start）の
+  /// ハンドリング。onMessageOpenedAppはバックグラウンド→フォアグラウンドの
+  /// 遷移しか捕捉できないため、これを別途呼ぶ必要がある。
+  /// onNotificationTapコールバックが登録された後に呼び出すこと。
+  Future<void> checkInitialMessage() async {
+    try {
+      final message = await _fcm.getInitialMessage();
+      if (message != null) _handleNotificationTap(message);
+    } catch (e) {
+      debugPrint('FCM initial message error: $e');
+    }
+  }
 
   // ── 通知設定 ──────────────────────────────────────────────────
 

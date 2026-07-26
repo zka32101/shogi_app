@@ -1704,7 +1704,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // 棋譜保存（詰み・時間切れ・その他の終局を一括カバー）
     if (!_kifuSaved) {
       _kifuSaved = true;
-      _saveKifu();
+      _saveKifu(recordStats: true);
       StudyCalendarScreen.recordActivity('taikyoku');
       // ゲーム終了ログを記録
       FirebaseLoggingService.logGameEnd(
@@ -2645,7 +2645,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   // ===== 棋譜を保存（JSON 複数対応）=====
-  Future<void> _saveKifu() async {
+  // recordStats: 対局統計・修練値・ストリークを加算するか。
+  // 1局につき1回（対局終了時の自動保存）のみtrueにすること。オーバーフロー
+  // メニューからの手動保存で何度も呼ばれても統計が水増しされないよう分離している。
+  Future<void> _saveKifu({bool recordStats = false}) async {
     try {
       final prefs = await SharedPreferences.getInstance();
       // 既存リストを読み込み
@@ -2676,12 +2679,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       // 確保できるよう、以前の20件から拡大している
       if (list.length > 100) list.removeLast();
       await prefs.setString('kifu_records', jsonEncode(list));
-      // 対局統計を更新
-      await _updateStats();
-      // ゴーストデータをバックグラウンドでアップロード（fire-and-forget）
-      GhostService.updateMyGhost();
-      // ストリーク更新（週次・月次）
-      await _updateStreaks();
+      if (recordStats) {
+        // 対局統計を更新
+        await _updateStats();
+        // ゴーストデータをバックグラウンドでアップロード（fire-and-forget）
+        GhostService.updateMyGhost();
+        // ストリーク更新（週次・月次）
+        await _updateStreaks();
+      }
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
