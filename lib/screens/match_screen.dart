@@ -173,15 +173,18 @@ class _MatchScreenState extends State<MatchScreen> {
             }
           });
         }
-        // ネット対局バッジ判定（1回のみ）
-        if (!_badgeChecked) {
+        // レーティング反映→バッジ判定の順で実行（1回のみ）。
+        // レーティング閾値バッジがこの対局の結果を反映する前の古い値で
+        // 判定されないよう、必ずレーティング更新の完了を待ってから判定する。
+        if (!_badgeChecked || !_ratingApplied) {
+          final needRating = !_ratingApplied;
+          final needBadge = !_badgeChecked;
           _badgeChecked = true;
-          Future.microtask(() => _checkNetBadges(state!));
-        }
-        // レーティング反映（1回のみ、レーティング戦かつ相手のレーティングが分かる場合のみ）
-        if (!_ratingApplied) {
           _ratingApplied = true;
-          Future.microtask(() => _applyNetworkRatingUpdate(state!));
+          Future.microtask(() async {
+            if (needRating) await _applyNetworkRatingUpdate(state!);
+            if (needBadge) await _checkNetBadges(state!);
+          });
         }
         // 学習カレンダー（連続記録・実績バッジ）に対局実施を記録（1回のみ）
         if (!_studyRecorded) {

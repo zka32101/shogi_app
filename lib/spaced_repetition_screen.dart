@@ -432,7 +432,7 @@ class _SpacedRepetitionScreenState extends State<SpacedRepetitionScreen> {
     item.nextReviewDate = now.add(Duration(days: item.interval));
 
     await _saveSRSItems();
-    setState(() {});
+    if (mounted) setState(() {});
   }
 
   @override

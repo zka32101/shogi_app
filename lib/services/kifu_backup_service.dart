@@ -46,8 +46,12 @@ class KifuBackupService {
       // 各棋譜をサブコレクションに保存（日付IDをキーに）
       for (final record in records) {
         final date = (record['date'] as String? ?? '').replaceAll(RegExp(r'[/:. ]'), '_');
-        final mode = (record['mode'] as String? ?? 'game').substring(0, 4);
-        final docId = '${date}_$mode'.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
+        final modeRaw = (record['mode'] as String?) ?? 'game';
+        final mode = modeRaw.isEmpty
+            ? 'game'
+            : modeRaw.substring(0, modeRaw.length < 4 ? modeRaw.length : 4);
+        final moveCount = record['moveCount'] as int? ?? 0;
+        final docId = '${date}_${mode}_$moveCount'.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '');
         final docRef = userBackupRef.collection('records').doc(docId.isEmpty ? null : docId);
         batch.set(docRef, {
           ...record,

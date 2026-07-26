@@ -73,23 +73,21 @@ class SpectatorService {
   /// 観戦を開始（観戦者数を +1）
   Future<void> joinSpectate(String matchId, String userId) async {
     try {
+      final matchRef = _firestore.collection('matches').doc(matchId);
+      final spectatorRef = matchRef.collection('spectators').doc(userId);
       await _firestore.runTransaction((tx) async {
-        final ref =
-            _firestore.collection('matches').doc(matchId);
-        final doc = await tx.get(ref);
+        final doc = await tx.get(matchRef);
         if (!doc.exists) return;
 
-        final count = doc['spectator_count'] as int? ?? 0;
-        tx.update(ref, {'spectator_count': count + 1});
-      });
+        // 同一ユーザーの多重入室（画面再入場・initState複数回呼び出し等）で
+        // 観戦者数が重複加算されないよう、既に観戦者リストにいれば加算しない
+        final spectatorDoc = await tx.get(spectatorRef);
+        if (spectatorDoc.exists) return;
 
-      // 観戦者リストに追加
-      await _firestore
-          .collection('matches')
-          .doc(matchId)
-          .collection('spectators')
-          .doc(userId)
-          .set({'joined_at': DateTime.now(), 'user_id': userId});
+        final count = doc['spectator_count'] as int? ?? 0;
+        tx.update(matchRef, {'spectator_count': count + 1});
+        tx.set(spectatorRef, {'joined_at': DateTime.now(), 'user_id': userId});
+      });
     } catch (e) {
       print('Join spectate error: $e');
     }

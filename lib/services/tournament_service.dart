@@ -251,30 +251,43 @@ class TournamentService {
       final t = Tournament.fromDoc(doc);
       if (t.status != 'open' || t.entries.length < 2) return;
 
-      // シード順（レーティング降順）でシャッフル
-      final entries = List<TournamentEntry?>.from(t.entries);
-      entries.sort((a, b) => (b?.rating ?? 0).compareTo(a?.rating ?? 0));
+      // シード順（レーティング降順）
+      final entries = List<TournamentEntry>.from(t.entries)
+        ..sort((a, b) => b.rating.compareTo(a.rating));
 
-      // 参加者を 2の累乗に合わせて BYE を追加
+      // 参加者を 2の累乗に合わせるため、上位シードにBYE(不戦勝)を付与する。
+      // BYE同士を対戦させてしまう（=参加者0人の試合が完了扱いになる）バグを
+      // 避けるため、BYEは必ず実在の参加者に割り当てる。
       final size = _nextPow2(entries.length);
-      while (entries.length < size) entries.add(null); // BYE
+      final numByes = size - entries.length;
+      final byePlayers = entries.sublist(0, numByes);
+      final playingEntries = entries.sublist(numByes);
 
       // 1回戦ブラケット生成
       final matches = <TournamentMatch>[];
-      for (int i = 0; i < size ~/ 2; i++) {
-        final p1 = entries[i * 2];
-        final p2 = entries[i * 2 + 1];
-        final isBye = p2 == null;
-
+      var pos = 0;
+      for (final p in byePlayers) {
         matches.add(TournamentMatch(
-          id: '${tournamentId}_r1_p$i',
+          id: '${tournamentId}_r1_p$pos',
           round: 1,
-          position: i,
-          player1: p1,
-          player2: p2,
-          winnerId: isBye ? p1?.userId : null,
-          status: isBye ? 'bye' : 'pending',
+          position: pos,
+          player1: p,
+          player2: null,
+          winnerId: p.userId,
+          status: 'bye',
         ));
+        pos++;
+      }
+      for (int i = 0; i < playingEntries.length ~/ 2; i++) {
+        matches.add(TournamentMatch(
+          id: '${tournamentId}_r1_p$pos',
+          round: 1,
+          position: pos,
+          player1: playingEntries[i * 2],
+          player2: playingEntries[i * 2 + 1],
+          status: 'pending',
+        ));
+        pos++;
       }
 
       await _firestore
@@ -300,8 +313,8 @@ class TournamentService {
     String reporterId,
     String claimedWinnerId,
   ) async {
-    String? newChampionId; // トランザクション外で実績判定するために保持
     try {
+      int? finishedRound;
       final resultStatus = await _firestore.runTransaction<String>((tx) async {
         final ref =
             _firestore.collection('tournaments').doc(tournamentId);
@@ -341,7 +354,9 @@ class TournamentService {
               : 'recorded';
         }
 
-        // 両者の申告が一致 → 確定
+        // 両者の申告が一致 → このマッチのみ確定（次ラウンドへの進出処理・
+        // トーナメント全体の終了判定はラウンド生成と絡むため、トランザクション
+        // 外の advanceRound()/決勝判定に委ねる）
         final winnerId = newP1Report;
         final updatedMatches = t.matches.map((m) {
           if (m.id != matchId) return m.toJson();
@@ -354,51 +369,42 @@ class TournamentService {
           };
         }).toList();
 
-        // 次ラウンドのマッチに勝者を配置
-        final nextRound = match.round + 1;
-        final nextPos = match.position ~/ 2;
-        final nextMatchIdx = updatedMatches.indexWhere(
-          (m) => (m as Map)['round'] == nextRound && (m)['position'] == nextPos,
-        );
-
-        final winner = match.player1?.userId == winnerId
-            ? match.player1
-            : match.player2;
-
-        if (nextMatchIdx >= 0 && winner != null) {
-          final nextMatch = updatedMatches[nextMatchIdx] as Map;
-          final isOddPosition = match.position % 2 == 0;
-          if (isOddPosition) {
-            updatedMatches[nextMatchIdx] = {
-              ...nextMatch,
-              'player1': winner.toJson(),
-            };
-          } else {
-            updatedMatches[nextMatchIdx] = {
-              ...nextMatch,
-              'player2': winner.toJson(),
-            };
-          }
-        }
-
-        // 全試合完了か確認
-        final allDone = updatedMatches.every((m) =>
-            (m as Map)['status'] == 'finished' ||
-            (m)['status'] == 'bye');
-
-        tx.update(ref, {
-          'matches': updatedMatches,
-          if (allDone) 'status': 'finished',
-          if (allDone) 'champion_id': winnerId,
-          if (allDone) 'finished_at': DateTime.now(),
-        });
-
-        if (allDone) newChampionId = winnerId;
+        tx.update(ref, {'matches': updatedMatches});
+        finishedRound = match.round;
         return 'confirmed';
       });
 
-      if (newChampionId != null) {
-        await NetworkAchievementService().checkTournamentWin(newChampionId!);
+      // 確定した試合の属するラウンドが全て完了していれば、決勝なら
+      // トーナメントを終了、そうでなければ次ラウンドを生成する。
+      if (resultStatus == 'confirmed' && finishedRound != null) {
+        final freshDoc =
+            await _firestore.collection('tournaments').doc(tournamentId).get();
+        if (freshDoc.exists) {
+          final t = Tournament.fromDoc(freshDoc);
+          final roundMatches =
+              t.matches.where((m) => m.round == finishedRound).toList();
+          final roundDone = roundMatches.every((m) => m.isFinished);
+          if (roundDone) {
+            if (roundMatches.length == 1) {
+              // 決勝が終了 → チャンピオン確定
+              final champion = roundMatches.first.winner;
+              if (champion != null && t.status != 'finished') {
+                await _firestore
+                    .collection('tournaments')
+                    .doc(tournamentId)
+                    .update({
+                  'status': 'finished',
+                  'champion_id': champion.userId,
+                  'finished_at': DateTime.now(),
+                });
+                await NetworkAchievementService()
+                    .checkTournamentWin(champion.userId);
+              }
+            } else {
+              await advanceRound(tournamentId);
+            }
+          }
+        }
       }
       return resultStatus;
     } catch (e) {
@@ -420,6 +426,10 @@ class TournamentService {
       final t = Tournament.fromDoc(doc);
       final currentRound = t.currentRound;
 
+      // 次ラウンドが既に生成済みなら何もしない（複数端末からの同時呼び出しに
+      // よる重複生成を防ぐ）
+      if (t.matches.any((m) => m.round == currentRound + 1)) return;
+
       // 現ラウンドの勝者を収集
       final currentRoundMatches = t.matches
           .where((m) => m.round == currentRound && m.isFinished)
@@ -430,10 +440,13 @@ class TournamentService {
           t.matches.where((m) => m.round == currentRound).every((m) => m.isFinished);
       if (!allCurrentDone) return;
 
-      final winners = currentRoundMatches.map((m) => m.winner).toList();
+      final winners = currentRoundMatches
+          .map((m) => m.winner)
+          .whereType<TournamentEntry>()
+          .toList();
 
-      if (winners.length == 1) {
-        // 決勝も終了 → トーナメント完了
+      if (winners.length < 2) {
+        // 決勝も終了、または勝者が確定していない
         return;
       }
 
