@@ -27,6 +27,7 @@ import 'ghost_service.dart';
 import 'widgets/koma_painter.dart';
 import 'widgets/board_painter.dart';
 import 'purchase_service.dart';
+import 'services/character_bond_service.dart';
 import 'screens/premium_screen.dart';
 import 'weakness_analysis_screen.dart';
 import 'tsume_screen.dart';
@@ -3135,6 +3136,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           'stats_total_wins',
           (prefs.getInt('stats_total_wins') ?? 0) + 1,
         );
+        // キャラクター絆レベル（選択中のアバターでのAI対局勝利数）
+        if (_charIconId != null) {
+          await CharacterBondService.addWin(_charIconId!);
+        }
       }
       if (s.variant != VariantType.normal) {
         await prefs.setBool('stats_variant_${s.variant.name}', true);

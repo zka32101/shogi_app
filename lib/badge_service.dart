@@ -446,8 +446,9 @@ class BadgeService {
 
     // ── 詰将棋 ───────────────────────────────────────────────
     // tsume_screen が tsume_clear_0..N を保存する想定
+    // (内蔵37問+外部詰将棋データ最大257問程度まで対応できる範囲でチェック)
     int tsumeCleared = 0;
-    for (int i = 0; i < 100; i++) {
+    for (int i = 0; i < 300; i++) {
       if (prefs.getBool('tsume_clear_$i') == true) tsumeCleared++;
     }
     if (tsumeCleared >= 5)   await tryUnlock(BadgeId.tsume5);

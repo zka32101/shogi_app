@@ -114,6 +114,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
       final prefs = await SharedPreferences.getInstance();
       final raw = prefs.getString('kifu_records') ?? '[]';
       final list = (jsonDecode(raw) as List).whereType<Map<String, dynamic>>().toList();
+      if (!mounted) return;
       setState(() { _records = list; _loading = false; });
       final beforeLen = _records.length;
       _autoCleanRecords();
@@ -122,7 +123,7 @@ class _KifuHistoryScreenState extends State<KifuHistoryScreen> {
         await prefs2.setString('kifu_records', jsonEncode(_records));
       }
     } catch (_) {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 

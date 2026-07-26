@@ -38,14 +38,15 @@ class _StoryOverlayState extends State<StoryOverlay>
       duration: Duration(milliseconds: 600),
       vsync: this,
     );
+    // displayDurationがnull（手動スキップまで表示）の場合も、dispose()で
+    // 無条件に破棄できるよう常に生成しておく（未使用のまま破棄されるだけ）
+    _delayController = AnimationController(
+      duration: widget.storyEvent.displayDuration ?? Duration.zero,
+      vsync: this,
+    );
 
     // 表示時間後に自動クローズ
     if (widget.storyEvent.displayDuration != null) {
-      _delayController = AnimationController(
-        duration: widget.storyEvent.displayDuration!,
-        vsync: this,
-      );
-
       _fadeController.forward().then((_) {
         _delayController.forward().then((_) {
           _fadeController.reverse().then((_) {

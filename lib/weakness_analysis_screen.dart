@@ -200,10 +200,12 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
       _topBlunderPatterns = [];
     }
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     _barsAnimController.forward();
     await Future.delayed(const Duration(milliseconds: 200));
+    if (!mounted) return;
     _radarAnimController.forward();
   }
 
