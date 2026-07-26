@@ -82,6 +82,7 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _badgeChecked = false;
   bool _ratingApplied = false;
   bool _studyRecorded = false;
+  bool _cheatAnalysisTriggered = false;
 
   // キャラクターアイコン
   String? _myCharIconId;
@@ -190,6 +191,24 @@ class _MatchScreenState extends State<MatchScreen> {
         if (!_studyRecorded) {
           _studyRecorded = true;
           StudyCalendarScreen.recordActivity('taikyoku');
+        }
+        // 対局後のチート分析（1回のみ）。従来はmatching_service.dartの
+        // 未使用メソッド内でしか呼ばれておらず、実際の対局終了経路からは
+        // 一度も発火していなかった
+        if (!_cheatAnalysisTriggered) {
+          _cheatAnalysisTriggered = true;
+          Future.microtask(() async {
+            final myId = widget.myPlayerId.isNotEmpty
+                ? widget.myPlayerId
+                : (_networkService.currentUser?.uid ?? '');
+            final opId = await _getOpponentId();
+            if (myId.isNotEmpty) {
+              await CheatDetectionService().analyzePlayer(myId);
+            }
+            if (opId != null) {
+              await CheatDetectionService().analyzePlayer(opId);
+            }
+          });
         }
       }
       return state;

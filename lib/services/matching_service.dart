@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/matching_queue.dart';
 import '../models/user_profile.dart';
 import '../stats_screen.dart' show rankTable, ratingToRank;
-import 'cheat_detection_service.dart';
 import 'fcm_service.dart';
 
 class MatchingService {
@@ -18,7 +17,6 @@ class MatchingService {
   MatchingService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final CheatDetectionService _cheatService = CheatDetectionService();
   final FcmService _fcmService = FcmService();
 
   // マッチングタイムアウト（秒）
@@ -314,44 +312,6 @@ class MatchingService {
     });
   }
 
-  // ── ゲーム終了 ────────────────────────────
-
-  /// マッチを終了 + 対局後チート分析を非同期実行
-  Future<void> finishMatch(
-    String matchId,
-    String? winnerId,
-    String result, // 'checkmate', 'resignation', 'timeout', 'draw'
-  ) async {
-    try {
-      final matchDoc =
-          await _firestore.collection('matches').doc(matchId).get();
-
-      await _firestore.collection('matches').doc(matchId).update({
-        'status': 'finished',
-        'winner': winnerId,
-        'result': result,
-        'finished_at': DateTime.now(),
-      });
-
-      print('Match finished: $matchId, winner: $winnerId, result: $result');
-
-      // 対局後に両プレイヤーのチート分析を非同期実行
-      if (matchDoc.exists) {
-        final data = matchDoc.data()!;
-        final p1Id = data['player1_id'] as String?;
-        final p2Id = data['player2_id'] as String?;
-
-        if (p1Id != null) {
-          Future.microtask(() => _cheatService.analyzePlayer(p1Id));
-        }
-        if (p2Id != null) {
-          Future.microtask(() => _cheatService.analyzePlayer(p2Id));
-        }
-      }
-    } catch (e) {
-      print('Finish match error: $e');
-    }
-  }
 
   /// マッチをキャンセル（接続エラー等）
   Future<void> cancelMatch(String matchId) async {

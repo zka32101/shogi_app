@@ -241,9 +241,17 @@ class _PostMatchChatWidgetState extends State<PostMatchChatWidget> {
     'カス', 'かす', 'チート', '不正', 'ソフト指し',
   ];
 
+  // 空白・記号を除去して比較することで、単語の間にスペースや記号を挟む
+  // 単純な回避（例:「し ね」「し.ね」）を防ぐ
+  static final _separatorPattern =
+      RegExp(r'[\s.,、･・。，．\-ー_]+', unicode: true);
+
   String? _filterMessage(String text) {
+    final normalized = text.replaceAll(_separatorPattern, '');
     for (final word in _bannedWords) {
-      if (text.contains(word)) return null; // null = 送信禁止
+      if (text.contains(word) || normalized.contains(word)) {
+        return null; // null = 送信禁止
+      }
     }
     return text;
   }
