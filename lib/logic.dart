@@ -456,9 +456,15 @@ class RepetitionChecker {
         buf.write(p == null ? '.' : '${p.isPlayer1 ? "P" : "p"}${p.type.index}');
       }
     }
-    for (final e in p1Hand.entries) buf.write('H${e.key.index}=${e.value}');
+    // Map の挿入順（駒を取る/打つ順序）に依存すると同一局面が別ハッシュに
+    // なってしまうため、駒種でソートしてから連結する
+    final p1Entries = p1Hand.entries.toList()
+      ..sort((a, b) => a.key.index.compareTo(b.key.index));
+    final p2Entries = p2Hand.entries.toList()
+      ..sort((a, b) => a.key.index.compareTo(b.key.index));
+    for (final e in p1Entries) buf.write('H${e.key.index}=${e.value}');
     buf.write('|');
-    for (final e in p2Hand.entries) buf.write('h${e.key.index}=${e.value}');
+    for (final e in p2Entries) buf.write('h${e.key.index}=${e.value}');
     return buf.toString();
   }
 }

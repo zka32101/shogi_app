@@ -128,16 +128,6 @@ class NetworkService {
     }
   }
 
-  Future<void> finishMatch(String matchId, String winnerId) async {
-    try {
-      await _firestore.collection('matches').doc(matchId).update({
-        'winner': winnerId,
-      });
-    } catch (e) {
-      print('Finish match error: $e');
-    }
-  }
-
   /// マッチを終了し、ステータスを更新
   /// ELO計算はCloud Functions (onMatchFinished) が自動実行
   /// [matchId]: マッチID
