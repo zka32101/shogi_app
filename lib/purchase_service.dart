@@ -89,10 +89,24 @@ class PurchaseService {
   }
 
   /// 購入復元
+  /// restorePurchases()はリクエストを送るだけで、実際の反映は非同期の
+  /// purchaseStream経由（_onPurchaseUpdate）のため、呼び出し元が即座に
+  /// hasPlan300/500を読んでも反映前の古い値のままになる。復元対象がある
+  /// 場合はストリームからイベントが届くまで待ってから返す。
   static Future<void> restore() async {
     if (!_isAvailable) return;
     try {
+      final completer = Completer<void>();
+      final sub = _iap.purchaseStream.listen((_) {
+        if (!completer.isCompleted) completer.complete();
+      });
       await _iap.restorePurchases();
+      // 復元対象が無ければイベントが来ないため、タイムアウトで抜ける
+      await completer.future.timeout(const Duration(seconds: 3), onTimeout: () {});
+      // _onPurchaseUpdate側の非同期処理(SharedPreferences書き込み等)が
+      // 追いつくよう少し待つ
+      await Future.delayed(const Duration(milliseconds: 300));
+      await sub.cancel();
     } catch (_) {}
   }
 

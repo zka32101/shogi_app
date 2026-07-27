@@ -133,20 +133,28 @@ class SeasonService {
   Future<void> initSeasonRating() async {
     final uid = _networkService.currentUser?.uid;
     if (uid == null) return;
-    final doc = await _firestore.collection('users').doc(uid).get();
-    if (!doc.exists) return;
-    final data = doc.data()!;
     final currentSeasonId = getCurrentSeason().id;
-    final needsReset =
-        data['season_rating'] == null || data['season_id'] != currentSeasonId;
-    if (needsReset) {
-      final baseRating = data['rating'] as int? ?? 1500;
-      await _firestore.collection('users').doc(uid).update({
-        'season_rating': baseRating,
-        'season_wins': 0,
-        'season_losses': 0,
-        'season_id': currentSeasonId,
+    final ref = _firestore.collection('users').doc(uid);
+    try {
+      // トランザクション化: 対局終了直後にCloud Functions
+      // (onMatchFinished)がseason_wins/lossesを加算するのと同時に
+      // このリセットが走ると、非トランザクションのupdate()では
+      // どちらか一方の書き込みが失われうるため
+      await _firestore.runTransaction((tx) async {
+        final doc = await tx.get(ref);
+        if (!doc.exists) return;
+        final data = doc.data()!;
+        final needsReset = data['season_rating'] == null ||
+            data['season_id'] != currentSeasonId;
+        if (!needsReset) return;
+        final baseRating = data['rating'] as int? ?? 1500;
+        tx.update(ref, {
+          'season_rating': baseRating,
+          'season_wins': 0,
+          'season_losses': 0,
+          'season_id': currentSeasonId,
+        });
       });
-    }
+    } catch (_) {}
   }
 }
