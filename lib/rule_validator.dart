@@ -96,6 +96,39 @@ List<RuleViolation> validateBoard(List<List<Piece?>> board) {
     }
   }
 
+  // 二歩チェック（同じ筋に同じ手番の歩が2枚以上）
+  for (int col = 0; col < 9; col++) {
+    int p1Pawns = 0, p2Pawns = 0;
+    int p1Row = -1, p2Row = -1;
+    for (int row = 0; row < 9; row++) {
+      final piece = board[row][col];
+      if (piece == null || piece.type != PieceType.pawn) continue;
+      if (piece.isPlayer1) {
+        p1Pawns++;
+        p1Row = row;
+      } else {
+        p2Pawns++;
+        p2Row = row;
+      }
+    }
+    if (p1Pawns >= 2) {
+      violations.add(RuleViolation(
+        type: 'nifu',
+        description: '先手の歩が${9 - col}筋に2枚以上あります（二歩）',
+        row: p1Row,
+        col: col,
+      ));
+    }
+    if (p2Pawns >= 2) {
+      violations.add(RuleViolation(
+        type: 'nifu',
+        description: '後手の歩が${9 - col}筋に2枚以上あります（二歩）',
+        row: p2Row,
+        col: col,
+      ));
+    }
+  }
+
   return violations;
 }
 

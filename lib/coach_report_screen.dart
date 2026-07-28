@@ -126,7 +126,7 @@ class _CoachReportScreenState extends State<CoachReportScreen> {
 
     snaps.add(_Snap(
       GL.copy(board), Map.from(p1Hand), Map.from(p2Hand), p1Turn,
-      AI.eval(board, p1Hand, p2Hand),
+      AI.eval(board, p1Hand, p2Hand, ignorePersonality: true),
     ));
 
     for (final move in widget.kifu) {
@@ -134,7 +134,7 @@ class _CoachReportScreenState extends State<CoachReportScreen> {
       p1Turn = !p1Turn;
       snaps.add(_Snap(
         GL.copy(board), Map.from(p1Hand), Map.from(p2Hand), p1Turn,
-        AI.eval(board, p1Hand, p2Hand),
+        AI.eval(board, p1Hand, p2Hand, ignorePersonality: true),
       ));
     }
     // ── 手の品質 ──
