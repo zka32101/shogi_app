@@ -4894,9 +4894,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               children: [
                 Text(
                   '広告',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 11,
+                  style: AppTheme.caption.copyWith(
+                    color: AppTheme.textLow,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -4904,30 +4903,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade700,
-                    borderRadius: BorderRadius.circular(4),
+                    color: AppTheme.surfaceHigh,
+                    borderRadius: BorderRadius.circular(AppTheme.rChip),
                   ),
                   padding: const EdgeInsets.all(8),
                   child: Column(
                     children: [
-                      const Text(
+                      Text(
                         'スポンサー広告',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                        style: AppTheme.body.copyWith(color: AppTheme.textMid, fontSize: 12),
                       ),
                       const SizedBox(height: 8),
                       ElevatedButton(
                         onPressed: _goToPremium,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.amber.shade700,
+                          backgroundColor: AppTheme.accent,
                           minimumSize: const Size(double.infinity, 36),
-                        ),
-                        child: const Text(
-                          'プレミアムで広告を非表示',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppTheme.rBtn),
                           ),
+                        ),
+                        child: Text(
+                          'プレミアムで広告を非表示',
+                          style: AppTheme.label.copyWith(color: AppTheme.bg),
                         ),
                       ),
                     ],

@@ -514,31 +514,29 @@ class _PlayTabState extends State<_PlayTab> {
           children: [
             const SizedBox(height: 8),
             // タイトル
-            const Text(
+            Text(
               '効棋',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
+              style: AppTheme.display.copyWith(
+                color: AppTheme.textHigh,
                 fontSize: 40,
-                fontWeight: FontWeight.bold,
                 letterSpacing: 6,
               ),
             ),
-            const Text(
+            Text(
               'KOUKI  ·  Learn the Kiki',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white38,
-                fontSize: 11,
+              style: AppTheme.overline.copyWith(
+                color: AppTheme.textMid,
                 letterSpacing: 3,
               ),
             ),
             const SizedBox(height: 4),
-            const Text(
+            Text(
               '好機を見つける将棋の効きを学ぶ',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white24,
+              style: AppTheme.caption.copyWith(
+                color: AppTheme.textLow,
                 fontSize: 10,
                 letterSpacing: 2,
               ),
@@ -984,7 +982,7 @@ class _StudyTab extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(AppTheme.rCard),
                   border: Border.all(color: AppTheme.success.withAlpha(120), width: 2),
                 ),
                 child: Row(
@@ -1049,7 +1047,7 @@ class _StudyTab extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(AppTheme.rCard),
           border: Border.all(color: AppTheme.accent.withAlpha(120), width: 2),
         ),
         child: Row(
@@ -1132,7 +1130,7 @@ class _StudyTab extends StatelessWidget {
         _StudyItem('レース対戦', Icons.speed, () => _go(context, const AsyncTrainingDuelScreen())),
         _StudyItem('3分筋トレ', Icons.bolt, () => _go(context, const MicroTrainingScreen())),
       ]),
-      _StudySection('AIコーチ・ツール 👑', Icons.auto_awesome, const Color(0xFF7E57C2), [
+      _StudySection('AIコーチ・ツール', Icons.auto_awesome, const Color(0xFF7E57C2), [
         _StudyItem('週次AI振り返り', Icons.insights, () => _go(context, const WeeklyReviewScreen()), requiresPremium: true),
         _StudyItem('忘却曲線AI', Icons.calendar_today, () => _go(context, const SpacedRepetitionScreen()), requiresPremium: true),
         _StudyItem('AI棋風コーチ', Icons.person, () => _go(context, const CoachPersonalityScreen()), requiresPremium: true),
@@ -1761,9 +1759,8 @@ class _AttackMapToggleRowState extends State<_AttackMapToggleRow> {
 
 Widget _sectionLabel(String text) => Text(
   text,
-  style: const TextStyle(
-    color: Colors.white70,
-    fontSize: 13,
+  style: AppTheme.overline.copyWith(
+    color: AppTheme.textMid,
     letterSpacing: 2,
     fontWeight: FontWeight.w500,
   ),

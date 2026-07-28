@@ -36,6 +36,33 @@ class AppTheme {
   static const rBtn  = 10.0;
   static const rChip = 8.0;
 
+  // ── タイポグラフィスケール ────────────────────────────────
+  // 画面ごとにフォントサイズをその場で決め打ちせず、ここから選ぶ。
+  // 色は指定しないため、利用側でcolor:のみ上書きして使う。
+  static const _fontFamily = null; // システムデフォルトを使用
+  static const display = TextStyle(
+    fontFamily: _fontFamily, fontSize: 28, fontWeight: FontWeight.bold, height: 1.2,
+  );
+  static const title = TextStyle(
+    fontFamily: _fontFamily, fontSize: 20, fontWeight: FontWeight.bold, height: 1.25,
+  );
+  static const heading = TextStyle(
+    fontFamily: _fontFamily, fontSize: 16, fontWeight: FontWeight.w600, height: 1.3,
+  );
+  static const body = TextStyle(
+    fontFamily: _fontFamily, fontSize: 14, fontWeight: FontWeight.normal, height: 1.4,
+  );
+  static const label = TextStyle(
+    fontFamily: _fontFamily, fontSize: 13, fontWeight: FontWeight.w600, height: 1.3,
+  );
+  static const caption = TextStyle(
+    fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.normal, height: 1.3,
+  );
+  static const overline = TextStyle(
+    fontFamily: _fontFamily, fontSize: 11, fontWeight: FontWeight.w600,
+    letterSpacing: 1.2, height: 1.2,
+  );
+
   // ── 影 ────────────────────────────────────────────────────
   static List<BoxShadow> glow(Color c, {double blur = 12, double spread = 1}) =>
       [BoxShadow(color: c.withAlpha(70), blurRadius: blur, spreadRadius: spread)];
