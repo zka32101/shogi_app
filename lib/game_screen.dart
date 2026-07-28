@@ -485,6 +485,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _showConfetti = false;
   final List<_ConfettiParticle> _particles = [];
 
+  // 駒を取った瞬間の小さな弾けエフェクト
+  AnimationController? _captureBurstAnim;
+  bool _showCaptureBurst = false;
+  int? _captureBurstRow;
+  int? _captureBurstCol;
+  final List<_ConfettiParticle> _captureParticles = [];
+
   // 連勝カウンター
   int _winStreak = 0;
   int _lossStreak = 0;
@@ -551,6 +558,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _confettiAnim = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
+    );
+
+    // 駒を取った瞬間の弾けエフェクト（短時間）
+    _captureBurstAnim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 420),
     );
 
     // 囲い完成バナー（フェードイン＋ホールド＋フェードアウト 計3秒）
@@ -626,6 +639,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _anim.dispose();
     _checkFlashAnim?.dispose();
     _confettiAnim?.dispose();
+    _captureBurstAnim?.dispose();
     _timerBlinkAnim?.dispose();
     _timer?.cancel();
     _aiElapsedTimer?.cancel();
@@ -904,6 +918,32 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     setState(() => _showConfetti = true);
     _confettiAnim?.forward(from: 0).then((_) {
       if (mounted) setState(() => _showConfetti = false);
+    });
+  }
+
+  // ===== 駒を取った瞬間の弾けエフェクト =====
+  void _triggerCaptureBurst(int row, int col) {
+    if (!mounted) return;
+    _captureParticles.clear();
+    const colors = [Colors.white, Color(0xFFF0E9DC), Color(0xFFC8A45A)];
+    for (int i = 0; i < 10; i++) {
+      _captureParticles.add(
+        _ConfettiParticle(
+          x: 0.5,
+          color: colors[i % colors.length],
+          size: 3.0 + (i % 3) * 1.5,
+          speed: 0.5 + (i % 4) * 0.12,
+          angle: (i * 36) * 3.14159 / 180, // 放射状に均等配置
+        ),
+      );
+    }
+    setState(() {
+      _captureBurstRow = row;
+      _captureBurstCol = col;
+      _showCaptureBurst = true;
+    });
+    _captureBurstAnim?.forward(from: 0).then((_) {
+      if (mounted) setState(() => _showCaptureBurst = false);
     });
   }
 
@@ -1774,14 +1814,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         contentPadding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
         title: Column(
           children: [
-            Text(
-              result!,
-              style: TextStyle(
-                color: playerWon ? Colors.amber : Colors.redAccent,
-                fontSize: 26,
-                fontWeight: FontWeight.bold,
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.0, end: 1.0),
+              duration: const Duration(milliseconds: 450),
+              curve: Curves.elasticOut,
+              builder: (_, v, child) => Opacity(
+                opacity: v.clamp(0.0, 1.0),
+                child: Transform.scale(scale: 0.7 + 0.3 * v, child: child),
               ),
-              textAlign: TextAlign.center,
+              child: Text(
+                result!,
+                style: TextStyle(
+                  color: playerWon ? Colors.amber : Colors.redAccent,
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
             const SizedBox(height: 4),
             Text(
@@ -2347,6 +2396,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final cap = board[mv.tr][mv.tc];
       if (cap != null) {
         SoundService.playCapture();
+        _triggerCaptureBurst(mv.tr, mv.tc);
         final h = aiP1 ? p1Hand : p2Hand;
         final bt = cap.baseType;
         h[bt] = (h[bt] ?? 0) + 1;
@@ -2413,6 +2463,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         result = p1Turn ? '後手の勝ち！（先手投了）' : '先手の勝ち！（後手投了）';
         _timer?.cancel();
       });
+      // 投了確定の視覚的な締め（灰色トーンの散り演出。詰み等と違って
+      // 勝利側がいないため、常に「負け」トーンで表示する）
+      _triggerConfetti(false);
       if (vsAI) _updateWinStreak(false);
       if (mounted) Future.microtask(() => _showGameEndDialog());
     }
@@ -3852,6 +3905,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // 効果音（setState 前に呼ぶ）
     if (cap != null) {
       SoundService.playCapture();
+      _triggerCaptureBurst(row, col);
     } else {
       SoundService.playMove();
     }
@@ -4515,16 +4569,25 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final colors = _winStreak >= 5
         ? [Colors.amber.shade700, Colors.orange.shade600]
         : [Colors.green.shade800, Colors.teal.shade700];
-    return Container(
-      height: 28,
-      decoration: BoxDecoration(gradient: LinearGradient(colors: colors)),
-      child: Center(
-        child: Text(
-          '🔥 $_winStreak連勝中！',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+    return TweenAnimationBuilder<double>(
+      // keyでなくvalueKeyでウィジェットを作り直すことで、連勝数が更新される
+      // たびにポップインアニメーションを再生する
+      key: ValueKey(_winStreak),
+      tween: Tween(begin: 0.6, end: 1.0),
+      duration: const Duration(milliseconds: 350),
+      curve: Curves.elasticOut,
+      builder: (_, scale, child) => Transform.scale(scale: scale, child: child),
+      child: Container(
+        height: 28,
+        decoration: BoxDecoration(gradient: LinearGradient(colors: colors)),
+        child: Center(
+          child: Text(
+            '🔥 $_winStreak連勝中！',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ),
       ),
@@ -5739,6 +5802,37 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             );
                           },
                         ),
+                        // 駒を取った瞬間の弾けエフェクト
+                        if (_showCaptureBurst &&
+                            _captureBurstRow != null &&
+                            _captureBurstCol != null)
+                          AnimatedBuilder(
+                            animation: _captureBurstAnim!,
+                            builder: (_, __) {
+                              final br = (flipBoard
+                                      ? 8 - _captureBurstRow!
+                                      : _captureBurstRow!)
+                                  .toDouble();
+                              final bc = (flipBoard
+                                      ? 8 - _captureBurstCol!
+                                      : _captureBurstCol!)
+                                  .toDouble();
+                              return Positioned(
+                                left: bc * cellW,
+                                top: br * cellH,
+                                width: cellW,
+                                height: cellH,
+                                child: IgnorePointer(
+                                  child: CustomPaint(
+                                    painter: _CaptureBurstPainter(
+                                      particles: _captureParticles,
+                                      progress: _captureBurstAnim!.value,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         // 囲いガイド矢印
                         if (s.castleGuideEnabled && result == null && kifu.length <= s.castleGuideMaxPly)
                           IgnorePointer(
@@ -6094,6 +6188,33 @@ class _ConfettiPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ConfettiPainter old) => old.progress != progress;
+}
+
+// ── 駒を取った瞬間の弾けエフェクト（マス中央から放射状に飛散）─────
+class _CaptureBurstPainter extends CustomPainter {
+  final List<_ConfettiParticle> particles;
+  final double progress; // 0.0 〜 1.0
+
+  _CaptureBurstPainter({required this.particles, required this.progress});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final maxRadius = size.width * 0.6;
+    final paint = Paint()..style = PaintingStyle.fill;
+    final eased = Curves.easeOut.transform(progress);
+    for (final p in particles) {
+      final r = maxRadius * eased * p.speed;
+      final dx = center.dx + cos(p.angle) * r;
+      final dy = center.dy + sin(p.angle) * r;
+      final opacity = (1.0 - progress).clamp(0.0, 1.0);
+      paint.color = p.color.withAlpha((opacity * 230).toInt());
+      canvas.drawCircle(Offset(dx, dy), p.size * (1.0 - progress * 0.4), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CaptureBurstPainter old) => old.progress != progress;
 }
 
 // ── 連敗ケアカード ─────────────────────────────────────────────────────────

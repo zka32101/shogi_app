@@ -84,26 +84,38 @@ class DefeatExperienceWidget extends StatelessWidget {
     final mainText = isLoss ? '惜しい、あと一歩' : 'いい勝負だった';
     final subText = '$moveCount手の対局';
 
-    return Column(
-      children: [
-        Text(
-          mainText,
-          style: const TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-          textAlign: TextAlign.center,
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeOutCubic,
+      builder: (_, v, child) => Opacity(
+        opacity: v,
+        child: Transform.translate(
+          offset: Offset(0, 12 * (1 - v)),
+          child: child,
         ),
-        const SizedBox(height: 8),
-        Text(
-          subText,
-          style: const TextStyle(
-            fontSize: 14,
-            color: Colors.white70,
+      ),
+      child: Column(
+        children: [
+          Text(
+            mainText,
+            style: const TextStyle(
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+            textAlign: TextAlign.center,
           ),
-        ),
-      ],
+          const SizedBox(height: 8),
+          Text(
+            subText,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.white70,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
