@@ -723,12 +723,15 @@ class AI {
   }
 
   // ===== 強化版盤面評価（先手視点、正=先手有利） =====
+  // ignorePersonality: 有利度バー・感想戦分析など「客観的な形勢」を示したい
+  // 場面ではtrueにする。AI探索自体は棋風バイアスを使うためfalseのまま呼ぶ。
   static int eval(
     List<List<Piece?>> b,
     Map<PieceType, int> p1h,
-    Map<PieceType, int> p2h,
-  ) {
-    final pers = _personality;
+    Map<PieceType, int> p2h, {
+    bool ignorePersonality = false,
+  }) {
+    final pers = ignorePersonality ? null : _personality;
     final aiIsP1 = _personalityAiIsP1;
     int score = 0;
 

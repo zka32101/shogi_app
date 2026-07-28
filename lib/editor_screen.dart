@@ -143,10 +143,22 @@ class _EditorScreenState extends State<EditorScreen> {
     });
   }
 
+  // 将棋の駒数上限（1セットあたり）。飛角は各1枚、金銀桂香は各2枚、歩は9枚。
+  static const _maxPieceCount = {
+    PieceType.pawn: 9,
+    PieceType.lance: 2,
+    PieceType.knight: 2,
+    PieceType.silver: 2,
+    PieceType.gold: 2,
+    PieceType.bishop: 1,
+    PieceType.rook: 1,
+  };
+
   void _adjustHand(PieceType type, bool isP1, int delta) {
     setState(() {
       final h = isP1 ? p1Hand : p2Hand;
-      final newVal = ((h[type] ?? 0) + delta).clamp(0, 18);
+      final max = _maxPieceCount[type] ?? 18;
+      final newVal = ((h[type] ?? 0) + delta).clamp(0, max);
       newVal == 0 ? h.remove(type) : (h[type] = newVal);
     });
   }
@@ -176,7 +188,7 @@ class _EditorScreenState extends State<EditorScreen> {
     if (violations.isNotEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('行き所のない駒があります: ${violations.first.description}'),
+          content: Text('反則配置があります: ${violations.first.description}'),
           backgroundColor: Colors.red,
         ),
       );

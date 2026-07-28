@@ -693,7 +693,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       result = null;
       _repChecker.reset(); // 待った後は千日手カウントをリセット
       _clearSel();
-      _evalScore = AI.eval(board, p1Hand, p2Hand);
+      _evalScore = AI.eval(board, p1Hand, p2Hand, ignorePersonality: true);
       _updateAtkMap();
     });
 
@@ -1551,7 +1551,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _endTurn() {
     try {
       final prevEval = _evalScore;
-      _evalScore = AI.eval(board, p1Hand, p2Hand);
+      _evalScore = AI.eval(board, p1Hand, p2Hand, ignorePersonality: true);
       _evalHistory.add(_evalScore);
       if (kifu.length >= 15 && kifu.length % 5 == 0 && _openingLabel.isEmpty) {
         _openingLabel = _detectOpening();

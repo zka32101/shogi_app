@@ -286,7 +286,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
       p1Hand: Map.from(p1Hand),
       p2Hand: Map.from(p2Hand),
       p1Turn: p1Turn,
-      eval: AI.eval(board, p1Hand, p2Hand),
+      eval: AI.eval(board, p1Hand, p2Hand, ignorePersonality: true),
     ));
 
     for (final move in widget.moves) {
@@ -297,7 +297,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
         p1Hand: Map.from(p1Hand),
         p2Hand: Map.from(p2Hand),
         p1Turn: p1Turn,
-        eval: AI.eval(board, p1Hand, p2Hand),
+        eval: AI.eval(board, p1Hand, p2Hand, ignorePersonality: true),
       ));
     }
     _snapshots = snaps;
@@ -791,7 +791,7 @@ class _KansousenScreenState extends State<KansousenScreen> {
     final applied = AI.apply(
       snapBefore.board, snapBefore.p1Hand, snapBefore.p2Hand, best, move.p1,
     );
-    final bestEval = AI.eval(applied.b, applied.p1h, applied.p2h);
+    final bestEval = AI.eval(applied.b, applied.p1h, applied.p2h, ignorePersonality: true);
     final sign = move.p1 ? (bestEval > 0 ? '+' : '') : (bestEval < 0 ? '' : '+');
     final bestScore = move.p1 ? bestEval : -bestEval;
     final from = best.drop != null
