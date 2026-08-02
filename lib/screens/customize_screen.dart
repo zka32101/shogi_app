@@ -198,10 +198,20 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
                 border: Border.all(color: Colors.white24, width: 2),
                 boxShadow: [BoxShadow(color: color.withAlpha(80), blurRadius: 12)],
               ),
-              child: Center(
-                child: charIcon != null
-                    ? Text(charIcon.emoji, style: const TextStyle(fontSize: 32))
-                    : const Text(
+              child: charIcon != null
+                  ? ClipOval(
+                      child: Image.asset(
+                        charIcon.imagePath,
+                        width: 72,
+                        height: 72,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Center(
+                          child: Text(charIcon.emoji, style: const TextStyle(fontSize: 32)),
+                        ),
+                      ),
+                    )
+                  : const Center(
+                      child: Text(
                         'A',
                         style: TextStyle(
                           color: AppTheme.textHigh,
@@ -209,7 +219,7 @@ class _CustomizeScreenState extends State<CustomizeScreen> {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-              ),
+                    ),
             ),
           ],
         ),

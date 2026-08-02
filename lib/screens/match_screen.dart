@@ -1195,8 +1195,16 @@ class _MatchScreenState extends State<MatchScreen> {
                     ? [BoxShadow(color: AppTheme.primary.withAlpha(60), blurRadius: 8)]
                     : null,
               ),
-              child: Center(
-                child: Text(charIcon.emoji, style: const TextStyle(fontSize: 24)),
+              child: ClipOval(
+                child: Image.asset(
+                  charIcon.imagePath,
+                  width: 46,
+                  height: 46,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) => Center(
+                    child: Text(charIcon.emoji, style: const TextStyle(fontSize: 24)),
+                  ),
+                ),
               ),
             )
           else
