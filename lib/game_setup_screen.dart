@@ -1018,7 +1018,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
           };
           return _opponentCharTile(
             icon.id,
-            '${icon.emoji} ${icon.name}',
+            icon.name,
             _personalityDesc(icon.id),
             unlocked,
           );
@@ -1086,7 +1086,16 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
                 color: icon.bgColor,
                 shape: BoxShape.circle,
               ),
-              child: Center(child: Text(icon.emoji, style: const TextStyle(fontSize: 16))),
+              child: ClipOval(
+                child: Image.asset(
+                  icon.imagePath,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      Center(child: Text(icon.emoji, style: const TextStyle(fontSize: 16))),
+                ),
+              ),
             )
           else
             Container(

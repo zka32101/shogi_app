@@ -28,6 +28,10 @@ class CharacterIcon {
     required this.description,
     this.maxBondLevel = 10,
   });
+
+  // AI生成キャラアイコン画像（tools/shogi_app_image_gen で生成、assets/character_icons/）。
+  // 読み込みに失敗した場合はCharIconWidget側で絵文字表示にフォールバックする。
+  String get imagePath => 'assets/character_icons/$id.png';
 }
 
 // ===== キャラクター一覧 =====
@@ -180,10 +184,18 @@ class CharIconWidget extends StatelessWidget {
               width: 1.5,
             ),
           ),
-          child: Center(
-            child: Text(
-              icon!.emoji,
-              style: TextStyle(fontSize: size * 0.48),
+          child: ClipOval(
+            child: Image.asset(
+              icon!.imagePath,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Center(
+                child: Text(
+                  icon!.emoji,
+                  style: TextStyle(fontSize: size * 0.48),
+                ),
+              ),
             ),
           ),
         ),
