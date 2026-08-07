@@ -1,0 +1,6 @@
+# ios/fastlane/Appfile
+# CIから環境変数で渡す。ローカルでfastlaneを直接使う場合は各自シェルでexportするか、
+# ios/fastlane/.env（gitignore対象）を作成して上書きすること。
+
+app_identifier(ENV["IOS_BUNDLE_ID"] || "com.petitworksapps.kouki")
+team_id(ENV["APPLE_TEAM_ID"]) if ENV["APPLE_TEAM_ID"]
