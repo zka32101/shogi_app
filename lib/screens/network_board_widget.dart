@@ -694,6 +694,9 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
           : (toRow >= 6 || from.$1 >= 6);
       if (inZone && !piece.mustPromote(toRow)) {
         promote = await _showPromoteDialog(piece) ?? false;
+        // ダイアログ表示中に相手の投了・時間切れ等で対局が終了し、この
+        // ウィジェットがdisposeされている可能性があるため確認する
+        if (!mounted) return;
       } else if (piece.mustPromote(toRow)) {
         promote = true;
       }

@@ -211,6 +211,7 @@ class _ShogiAppState extends State<ShogiApp> {
 
   Future<void> _loadThemePreference() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
     setState(() {
       _isDarkMode = prefs.getBool('theme_dark_mode') ?? true;
     });

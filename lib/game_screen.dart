@@ -433,6 +433,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _aiThinking = false;
   int _aiElapsedSec = 0;
   Timer? _aiElapsedTimer;
+  // 新規対局・待った等で盤面が差し替えられた際に、進行中の_runAI()の計算結果
+  // （旧局面向けの手）が新しい盤面に誤って適用されるのを防ぐための世代カウンタ。
+  // 盤面を丸ごと差し替える箇所でインクリメントし、_runAI()は自分が開始した
+  // 時点の世代と現在の世代が一致する場合のみ結果を適用する
+  int _aiGeneration = 0;
 
   final _boardRepaintKey = GlobalKey();
   bool showAttackMap = false;
@@ -673,6 +678,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         targetIdx >= _p1TurnSnaps.length) return;
 
     setState(() {
+      // 進行中のAI思考があれば無効化する（newGame()と同じ世代ガード機構）。
+      // 巻き戻し後の盤面に、巻き戻し前の局面向けに計算されたAIの手が
+      // 適用されてしまうのを防ぐ
+      _aiGeneration++;
+      _aiElapsedTimer?.cancel();
+      _aiThinking = false;
       board = GL.copy(_boardSnaps[targetIdx]);
       p1Hand = Map.from(_p1HandSnaps[targetIdx]);
       p2Hand = Map.from(_p2HandSnaps[targetIdx]);
@@ -1794,6 +1805,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         () => _checkDanPromotion(true),
       );
 
+    // 上のanalyzeAndSaveGame()のawait中に画面がdisposeされている可能性があるため、
+    // showDialog直前に再度mountedを確認する（他のawait後の分岐は既にmountedを確認済み）
+    if (!mounted) return;
+
     // 一定時間メニューを選ばなければ、感想戦画面へ自動的に移動する
     _postGameAutoNavTimer?.cancel();
     _postGameAutoNavTimer = Timer(const Duration(seconds: 25), () {
@@ -2284,17 +2299,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // ===== AI 実行 =====
   Future<void> _runAI() async {
     if (result != null || !mounted) return;
+    // この呼び出しが属する世代を記録。newGame()/_takata()等で盤面が差し替わると
+    // _aiGenerationがインクリメントされ、以降このFutureが完了しても結果は捨てられる
+    final myGen = _aiGeneration;
     setState(() {
       _aiThinking = true;
       _aiElapsedSec = 0;
     });
     _aiElapsedTimer?.cancel();
     _aiElapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted && _aiThinking) setState(() => _aiElapsedSec++);
+      if (mounted && _aiThinking && myGen == _aiGeneration) setState(() => _aiElapsedSec++);
     });
     try {
       await Future.delayed(Duration(milliseconds: 100 + Random().nextInt(200)));
-      if (!mounted || result != null) return;
+      if (!mounted || result != null || myGen != _aiGeneration) return;
 
       // ── オープニングブック参照（序盤20手以内・中級以上・50%確率で使用）──
       AMove? mv;
@@ -2337,6 +2355,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         }
       }
 
+      // ここまでの探索中に newGame()/待った 等で盤面が差し替えられていたら、
+      // 計算済みの手は旧局面向けのものなので破棄する（_aiThinking/タイマーは
+      // 既に新しい世代の呼び出し側がリセット済みのため、ここでは一切触れない）
+      if (!mounted || myGen != _aiGeneration) return;
+
       if (mv == null) {
         _aiElapsedTimer?.cancel();
         if (mounted) setState(() => _aiThinking = false);
@@ -2356,6 +2379,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         });
       }
     } catch (e) {
+      if (!mounted || myGen != _aiGeneration) return;
       _aiElapsedTimer?.cancel();
       // エラーログを記録
       FirebaseLoggingService.logError(
@@ -4162,6 +4186,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // ボタン過多でAppBarから溢れないよう、使用頻度の低い操作をここにまとめる
   Widget _buildOverflowMenu() {
     void newGame() => setState(() {
+      // 進行中のAI思考(Isolate)を無効化。完了しても結果は_runAI側の世代チェックで
+      // 破棄される。タイマー・思考中フラグはここで確定的にリセットする
+      _aiGeneration++;
+      _aiElapsedTimer?.cancel();
+      _aiThinking = false;
+      _repChecker.reset(); // 前局の千日手カウントを引き継がないようにする
       board = _initBoard(s.handicap);
       p1Hand = {};
       p2Hand = {};
