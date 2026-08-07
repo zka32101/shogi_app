@@ -418,66 +418,69 @@ class TournamentService {
 
   // ── 次ラウンド生成 ─────────────────────────────────────────
 
+  // 「次ラウンド生成済みか確認 → matches配列を丸ごと上書き」がトランザクション化
+  // されておらず、同一ラウンドの複数試合がほぼ同時に確定すると複数クライアントから
+  // 並行実行され得た（read-then-writeのlost update: 片方の書き込みがもう片方の
+  // 変更を消してしまう）。runTransactionで読み取りから書き込みまでを一体化する
   Future<void> advanceRound(String tournamentId) async {
     try {
-      final doc = await _firestore
-          .collection('tournaments')
-          .doc(tournamentId)
-          .get();
-      if (!doc.exists) return;
+      final docRef = _firestore.collection('tournaments').doc(tournamentId);
 
-      final t = Tournament.fromDoc(doc);
-      final currentRound = t.currentRound;
+      await _firestore.runTransaction((tx) async {
+        final doc = await tx.get(docRef);
+        if (!doc.exists) return;
 
-      // 次ラウンドが既に生成済みなら何もしない（複数端末からの同時呼び出しに
-      // よる重複生成を防ぐ）
-      if (t.matches.any((m) => m.round == currentRound + 1)) return;
+        final t = Tournament.fromDoc(doc);
+        final currentRound = t.currentRound;
 
-      // 現ラウンドの勝者を収集
-      final currentRoundMatches = t.matches
-          .where((m) => m.round == currentRound && m.isFinished)
-          .toList();
+        // 次ラウンドが既に生成済みなら何もしない（複数端末からの同時呼び出しに
+        // よる重複生成を防ぐ）
+        if (t.matches.any((m) => m.round == currentRound + 1)) return;
 
-      // 全ての現ラウンドマッチが終了しているか確認
-      final allCurrentDone =
-          t.matches.where((m) => m.round == currentRound).every((m) => m.isFinished);
-      if (!allCurrentDone) return;
+        // 現ラウンドの勝者を収集
+        final currentRoundMatches = t.matches
+            .where((m) => m.round == currentRound && m.isFinished)
+            .toList();
 
-      final winners = currentRoundMatches
-          .map((m) => m.winner)
-          .whereType<TournamentEntry>()
-          .toList();
+        // 全ての現ラウンドマッチが終了しているか確認
+        final allCurrentDone = t.matches
+            .where((m) => m.round == currentRound)
+            .every((m) => m.isFinished);
+        if (!allCurrentDone) return;
 
-      if (winners.length < 2) {
-        // 決勝も終了、または勝者が確定していない
-        return;
-      }
+        final winners = currentRoundMatches
+            .map((m) => m.winner)
+            .whereType<TournamentEntry>()
+            .toList();
 
-      // 次ラウンドのマッチを生成
-      final nextRound = currentRound + 1;
-      final newMatches = <TournamentMatch>[];
-      for (int i = 0; i < winners.length ~/ 2; i++) {
-        final p1 = winners[i * 2];
-        final p2 = winners[i * 2 + 1];
-        newMatches.add(TournamentMatch(
-          id: '${tournamentId}_r${nextRound}_p$i',
-          round: nextRound,
-          position: i,
-          player1: p1,
-          player2: p2,
-          status: 'pending',
-        ));
-      }
+        if (winners.length < 2) {
+          // 決勝も終了、または勝者が確定していない
+          return;
+        }
 
-      final allMatches = [
-        ...t.matches.map((m) => m.toJson()),
-        ...newMatches.map((m) => m.toJson()),
-      ];
+        // 次ラウンドのマッチを生成
+        final nextRound = currentRound + 1;
+        final newMatches = <TournamentMatch>[];
+        for (int i = 0; i < winners.length ~/ 2; i++) {
+          final p1 = winners[i * 2];
+          final p2 = winners[i * 2 + 1];
+          newMatches.add(TournamentMatch(
+            id: '${tournamentId}_r${nextRound}_p$i',
+            round: nextRound,
+            position: i,
+            player1: p1,
+            player2: p2,
+            status: 'pending',
+          ));
+        }
 
-      await _firestore
-          .collection('tournaments')
-          .doc(tournamentId)
-          .update({'matches': allMatches});
+        final allMatches = [
+          ...t.matches.map((m) => m.toJson()),
+          ...newMatches.map((m) => m.toJson()),
+        ];
+
+        tx.update(docRef, {'matches': allMatches});
+      });
     } catch (e) {
       print('Advance round error: $e');
     }
