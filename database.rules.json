@@ -11,7 +11,7 @@
     "games": {
       "$matchId": {
         ".read": "auth != null",
-        ".write": "auth != null"
+        ".write": "auth != null && ((data.exists() && (data.child('player1_id').val() === auth.uid || data.child('player2_id').val() === auth.uid)) || (!data.exists() && (newData.child('player1_id').val() === auth.uid || newData.child('player2_id').val() === auth.uid)))"
       }
     }
   }
