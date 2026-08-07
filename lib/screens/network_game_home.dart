@@ -44,6 +44,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
   bool _resumeIsP1 = true;
   String _resumePlayerId = '';
   int _resumeTimeLimitSec = 600;
+  int? _resumeOpponentRating;
 
   @override
   void initState() {
@@ -78,6 +79,10 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
           _resumeIsP1 = prefs.getBool('net_active_match_is_p1') ?? true;
           _resumePlayerId = prefs.getString('net_active_match_player_id') ?? '';
           _resumeTimeLimitSec = prefs.getInt('net_active_match_time_limit') ?? 600;
+          // 保存されていない(=クラッシュ前のバージョン等)場合はnullのままでよい。
+          // nullだとMatchScreen側でレーティング反映がスキップされるだけで、
+          // 対局の続行自体には影響しない
+          _resumeOpponentRating = prefs.getInt('net_active_match_opponent_rating');
         });
       }
     } catch (_) {}
@@ -88,6 +93,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     await prefs.remove('net_active_match_is_p1');
     await prefs.remove('net_active_match_player_id');
     await prefs.remove('net_active_match_time_limit');
+    await prefs.remove('net_active_match_opponent_rating');
   }
 
   void _resumeGame(BuildContext context) {
@@ -99,6 +105,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
           isPlayer1: _resumeIsP1,
           myPlayerId: _resumePlayerId,
           timeLimitSec: _resumeTimeLimitSec,
+          opponentRating: _resumeOpponentRating,
         ),
       ),
     ).then((_) {
@@ -595,13 +602,29 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
                 if (snapshot.hasData && snapshot.data != null) {
                   final queue = snapshot.data;
                   if (queue.isMatched && queue.matchId != null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                      // マッチング成立時、待機していた側(player2)にもisPlayer1:trueを
+                      // 固定で渡してしまうと先後・手番・レーティング反映が反転するため、
+                      // matches/{id}のplayer1_idと自分のuidを突き合わせて判定する
+                      // （lib/main.dart _openMatch() と同じロジック）
+                      final myUid = _networkService.currentUser?.uid;
+                      final match = await _networkService.getMatch(queue.matchId!);
+                      if (!mounted || match == null || myUid == null) return;
+                      final isPlayer1 = match.player1Id == myUid;
+                      // 相手のレーティングを取得（match_screen.dart側の端末ローカル
+                      // レーティング反映(_applyNetworkRatingUpdate)に必要。渡さないと
+                      // 常にnull扱いとなりレーティング反映がスキップされてしまう）
+                      final opponentUid = isPlayer1 ? match.player2Id : match.player1Id;
+                      final opponentProfile = await _networkService.getUserProfile(opponentUid);
+                      if (!mounted) return;
                       Navigator.pop(context);
                       Navigator.push(context, MaterialPageRoute(
                         builder: (_) => MatchScreen(
                           matchId: queue.matchId,
-                          isPlayer1: true,
+                          isPlayer1: isPlayer1,
+                          myPlayerId: myUid,
                           timeLimitSec: _timeLimitSec,
+                          opponentRating: opponentProfile?.rating,
                         ),
                       ));
                     });
@@ -668,15 +691,31 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
 
                   // マッチング成功
                   if (queue.isMatched && queue.matchId != null) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) async {
+                      // マッチング成立時、待機していた側(player2)にもisPlayer1:trueを
+                      // 固定で渡してしまうと先後・手番・レーティング反映が反転するため、
+                      // matches/{id}のplayer1_idと自分のuidを突き合わせて判定する
+                      // （lib/main.dart _openMatch() と同じロジック）
+                      final myUid = _networkService.currentUser?.uid;
+                      final match = await _networkService.getMatch(queue.matchId!);
+                      if (!mounted || match == null || myUid == null) return;
+                      final isPlayer1 = match.player1Id == myUid;
+                      // 相手のレーティングを取得（match_screen.dart側の端末ローカル
+                      // レーティング反映(_applyNetworkRatingUpdate)に必要。渡さないと
+                      // 常にnull扱いとなりレーティング反映がスキップされてしまう）
+                      final opponentUid = isPlayer1 ? match.player2Id : match.player1Id;
+                      final opponentProfile = await _networkService.getUserProfile(opponentUid);
+                      if (!mounted) return;
                       Navigator.pop(context); // ダイアログを閉じる
                       Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (_) => MatchScreen(
                             matchId: queue.matchId,
-                            isPlayer1: true,
+                            isPlayer1: isPlayer1,
+                            myPlayerId: myUid,
                             timeLimitSec: _timeLimitSec,
+                            opponentRating: opponentProfile?.rating,
                           ),
                         ),
                       );

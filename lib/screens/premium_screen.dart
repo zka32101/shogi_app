@@ -24,6 +24,9 @@ class _PremiumScreenState extends State<PremiumScreen> {
   }
 
   Future<void> _checkStatus() async {
+    // _restore() の await 完了後に呼ばれることがあり、その間に画面が
+    // dispose されている可能性があるため、setStateの前にmountedを確認する
+    if (!mounted) return;
     setState(() => _loading = true);
     if (mounted) setState(() {
       _hasPlan300 = PurchaseService.hasPlan300;
@@ -67,7 +70,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
   Future<void> _restore() async {
     setState(() => _loading = true);
     await PurchaseService.restore();
-    _checkStatus();
+    if (!mounted) return;
+    await _checkStatus();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('購入履歴を復元しました')),

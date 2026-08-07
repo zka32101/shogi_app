@@ -22,8 +22,13 @@ async function getEngine() {
 // ── ELO計算 ─────────────────────────────────────────────────────
 function calcElo(winnerRating, loserRating, kFactor = 32) {
   const expected = 1 / (1 + Math.pow(10, (loserRating - winnerRating) / 400));
-  const winnerDelta = Math.round(kFactor * (1 - expected));
-  const loserDelta  = Math.round(kFactor * (0 - (1 - expected)));
+  // winnerDelta/loserDeltaをそれぞれ独立にMath.roundすると、JSのMath.roundは
+  // 負数の.5境界で非対称（例: Math.round(-0.5) === -0、常に+∞方向に丸める）ため、
+  // 端数がちょうど.5になるケースで符号反転にならずゼロサムが崩れる。
+  // 1回だけ丸めてから符号反転させることで常に winnerDelta === -loserDelta を保証する
+  const delta = Math.round(kFactor * (1 - expected));
+  const winnerDelta = delta;
+  const loserDelta  = -delta;
   return { winnerDelta, loserDelta };
 }
 
@@ -54,11 +59,18 @@ function achievementsForStats({ matches, wins, rating, streak, checkmateWins, re
   return ids;
 }
 
-// season_service.dart の getCurrentSeason().id と同じ形式（"YYYY-MM"）
+// season_service.dart の getCurrentSeason().id と同じ形式（"YYYY-MM"）。
+// クライアント側は端末のローカル時刻（本アプリの対象ユーザーは日本国内前提のためJST想定）
+// でシーズンIDを算出している。Cloud FunctionsのランタイムはUTCで動作するため、ここを
+// 素の new Date() のまま年月を取ると、月替わり直後の約9時間（JST 0:00〜9:00）で
+// クライアントとサーバーのseason_idがズレ、その間の対局のシーズン成績（season_rating/
+// season_wins/season_losses）が反映されなくなっていた。固定+9時間オフセットで
+// JST基準に統一する（ランタイムのTZ設定に依存しないようUTCメソッドで年月を取り出す）
 function currentSeasonId() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const JST_OFFSET_MS = 9 * 60 * 60 * 1000;
+  const jstNow = new Date(Date.now() + JST_OFFSET_MS);
+  const y = jstNow.getUTCFullYear();
+  const m = String(jstNow.getUTCMonth() + 1).padStart(2, '0');
   return `${y}-${m}`;
 }
 

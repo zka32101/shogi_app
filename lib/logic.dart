@@ -1189,8 +1189,11 @@ class AI {
     if (ttEntry != null && ttEntry.depth >= depth) {
       final s = ttEntry.score;
       if (ttEntry.flag == _TTFlag.exact) return s;
-      if (ttEntry.flag == _TTFlag.alpha) alpha = max(alpha, s);
-      if (ttEntry.flag == _TTFlag.beta)  beta  = min(beta,  s);
+      // 格納時（下記 _TTFlag 判定部）: alphaフラグ = val<=origAlpha で確定した「上限値」、
+      // betaフラグ = val>=beta で確定した「下限値」。上限値はbetaを、下限値は
+      // alphaを絞り込むのが正しい（以前はここが逆になっていた）
+      if (ttEntry.flag == _TTFlag.alpha) beta  = min(beta,  s);
+      if (ttEntry.flag == _TTFlag.beta)  alpha = max(alpha, s);
       if (alpha >= beta) return s;
     }
 

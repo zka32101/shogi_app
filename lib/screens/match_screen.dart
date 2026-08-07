@@ -341,6 +341,7 @@ class _MatchScreenState extends State<MatchScreen> {
   static const _kMatchIsP1 = 'net_active_match_is_p1';
   static const _kMatchPlayerId = 'net_active_match_player_id';
   static const _kMatchTimeLimit = 'net_active_match_time_limit';
+  static const _kMatchOpponentRating = 'net_active_match_opponent_rating';
 
   Future<void> _saveActiveMatch() async {
     try {
@@ -349,6 +350,14 @@ class _MatchScreenState extends State<MatchScreen> {
       await prefs.setBool(_kMatchIsP1, widget.isPlayer1);
       await prefs.setString(_kMatchPlayerId, widget.myPlayerId);
       await prefs.setInt(_kMatchTimeLimit, widget.timeLimitSec);
+      // 保存し忘れると、クラッシュ復帰後に相手レーティングが不明のまま
+      // (opponentRating: null)となり、_applyNetworkRatingUpdate()が
+      // レーティング反映を丸ごとスキップしてしまう
+      if (widget.opponentRating != null) {
+        await prefs.setInt(_kMatchOpponentRating, widget.opponentRating!);
+      } else {
+        await prefs.remove(_kMatchOpponentRating);
+      }
     } catch (_) {}
   }
 
@@ -359,6 +368,7 @@ class _MatchScreenState extends State<MatchScreen> {
       await prefs.remove(_kMatchIsP1);
       await prefs.remove(_kMatchPlayerId);
       await prefs.remove(_kMatchTimeLimit);
+      await prefs.remove(_kMatchOpponentRating);
     } catch (_) {}
   }
 
