@@ -347,6 +347,12 @@ class CheatDetectionService {
   // ── 管理機能 ──────────────────────────────────────
 
   /// 分析結果を Firestore に保存
+  ///
+  /// 注意: firestore.rules 上 cheat_analysis への書き込みは admin カスタムクレーム
+  /// を持つ管理者のみに制限されている（本人による自スコアの改ざん・消去を防止する
+  /// ため）。したがって現状クライアントから直接呼び出した場合は権限エラーとなり
+  /// 保存されない。本来は Cloud Functions（Admin SDK）側で同等のロジックを実行し、
+  /// サーバー側から書き込む構成に移行するのが望ましい（要フォローアップ）。
   Future<void> _saveAnalysisResult(
       String userId, double score, List<String> flags) async {
     try {
@@ -366,6 +372,10 @@ class CheatDetectionService {
   }
 
   /// 要注目ユーザーにフラグを立てる
+  ///
+  /// 注意: users/{userId} の cheat_score 等は保護フィールドのため、admin クレーム
+  /// を持つ管理者以外からの書き込みは firestore.rules で拒否される（要フォロー
+  /// アップ: Cloud Functions 化）
   Future<void> _flagUserForReview(
       String userId, double score, List<String> flags) async {
     try {

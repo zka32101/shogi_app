@@ -167,24 +167,32 @@ class NetworkService {
       // ① 報告者がスパム状態かチェック
       final isReporterSpam = await _isReporterSpamming(reporterUid);
       if (isReporterSpam) {
-        print('Reporter is spamming. Banning reporter.');
+        print('Reporter is spamming. Rejecting report.');
 
-        final reporterProfile = await getUserProfile(reporterUid);
-        await _firestore.collection('users').doc(reporterUid).update({
-          'is_banned': true,
-          'banned_at': DateTime.now(),
-          'ban_reason': 'spam_reporting',
-        });
+        // BAN確定はセキュリティルール上 Cloud Functions / 管理者のみが行える
+        // （is_banned 等はクライアントの isOwner 書き込みから保護されているため、
+        // 通常ユーザーの実行ではここは失敗しうる）。実際のBAN処理が失敗しても
+        // スパム報告者からの当該報告は受け付けない、という判定自体は維持する
+        try {
+          final reporterProfile = await getUserProfile(reporterUid);
+          await _firestore.collection('users').doc(reporterUid).update({
+            'is_banned': true,
+            'banned_at': DateTime.now(),
+            'ban_reason': 'spam_reporting',
+          });
 
-        // 📧 報告者に BAN 通知を送信
-        final reporterEmail = await _notificationService.getUserEmail(reporterUid);
-        if (reporterEmail != null) {
-          await _notificationService.sendBanNotification(
-            reporterUid,
-            reporterEmail,
-            reporterProfile?.username ?? 'User',
-            'spam_reporting',
-          );
+          // 📧 報告者に BAN 通知を送信
+          final reporterEmail = await _notificationService.getUserEmail(reporterUid);
+          if (reporterEmail != null) {
+            await _notificationService.sendBanNotification(
+              reporterUid,
+              reporterEmail,
+              reporterProfile?.username ?? 'User',
+              'spam_reporting',
+            );
+          }
+        } catch (e) {
+          print('Ban spam reporter error (expected without admin rights): $e');
         }
         return false; // 報告を受け付けない
       }
@@ -211,23 +219,31 @@ class NetworkService {
           .get();
 
       // 報告数が10以上で自動停止
+      // BAN確定はセキュリティルール上 Cloud Functions / 管理者のみが行える
+      // （is_banned は自分以外のユーザーに対しては通常ユーザーから書き込み不可のため、
+      // ここは失敗しうる）。この処理が失敗しても報告自体は既に保存済みなので、
+      // 呼び出し元には成功として返す
       if (reportsSnapshot.docs.length >= 10) {
-        final reportedProfile = await getUserProfile(reportedUid);
-        await _firestore.collection('users').doc(reportedUid).update({
-          'is_banned': true,
-          'banned_at': DateTime.now(),
-          'ban_reason': 'too_many_reports',
-        });
+        try {
+          final reportedProfile = await getUserProfile(reportedUid);
+          await _firestore.collection('users').doc(reportedUid).update({
+            'is_banned': true,
+            'banned_at': DateTime.now(),
+            'ban_reason': 'too_many_reports',
+          });
 
-        // 📧 報告対象者に BAN 通知を送信
-        final reportedEmail = await _notificationService.getUserEmail(reportedUid);
-        if (reportedEmail != null) {
-          await _notificationService.sendBanNotification(
-            reportedUid,
-            reportedEmail,
-            reportedProfile?.username ?? 'User',
-            'too_many_reports',
-          );
+          // 📧 報告対象者に BAN 通知を送信
+          final reportedEmail = await _notificationService.getUserEmail(reportedUid);
+          if (reportedEmail != null) {
+            await _notificationService.sendBanNotification(
+              reportedUid,
+              reportedEmail,
+              reportedProfile?.username ?? 'User',
+              'too_many_reports',
+            );
+          }
+        } catch (e) {
+          print('Auto-ban after report threshold error (expected without admin rights): $e');
         }
       }
 
