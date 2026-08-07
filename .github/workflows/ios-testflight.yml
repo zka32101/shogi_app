@@ -1,0 +1,81 @@
+name: iOS TestFlight配信
+
+# バージョンタグ push（Android向けdeploy.ymlと同じ契機）または手動実行で起動する。
+# 署名関連の秘密情報はすべてGitHub Secretsから取得する（詳細は ios/TESTFLIGHT_SETUP.md 参照）。
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  build-and-upload:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    env:
+      # Apple Developer Portal に登録した実際のBundle ID。
+      # 変更した場合はここと ios/Runner.xcodeproj の PRODUCT_BUNDLE_IDENTIFIER を揃えること。
+      IOS_BUNDLE_ID: com.petitworksapps.kouki
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.x'
+          channel: stable
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Install CocoaPods dependencies
+        working-directory: ios
+        run: pod install
+
+      - name: Setup Ruby (fastlane用)
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+
+      - name: Install fastlane
+        run: gem install fastlane --no-document
+
+      # 配布用証明書(.p12)を一時キーチェーンにインポートする。
+      # ジョブ終了時にキーチェーンは自動的に破棄される（ランナー自体が使い捨てのため）。
+      - name: Import distribution certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DIST_SIGNING_CERT_P12_BASE64 }}
+          p12-password: ${{ secrets.IOS_DIST_SIGNING_CERT_PASSWORD }}
+          keychain-password: ${{ secrets.IOS_CI_KEYCHAIN_PASSWORD }}
+
+      # App Store配布用プロビジョニングプロファイルをインストールし、
+      # プロファイル名を後続のfastlaneステップに渡す（手入力での名前一致ミスを防ぐため自動抽出）。
+      - name: Install provisioning profile
+        env:
+          IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+
+          PROFILE_PATH="$RUNNER_TEMP/profile.mobileprovision"
+          echo -n "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode -o "$PROFILE_PATH"
+
+          mkdir -p ~/Library/MobileDevice/"Provisioning Profiles"
+          cp "$PROFILE_PATH" ~/Library/MobileDevice/"Provisioning Profiles"/ci.mobileprovision
+
+          PROFILE_PLIST="$RUNNER_TEMP/profile.plist"
+          security cms -D -i "$PROFILE_PATH" > "$PROFILE_PLIST"
+          PROFILE_NAME=$(/usr/libexec/PlistBuddy -c "Print :Name" "$PROFILE_PLIST")
+          echo "IOS_PROVISIONING_PROFILE_NAME=$PROFILE_NAME" >> "$GITHUB_ENV"
+
+          rm -f "$PROFILE_PATH" "$PROFILE_PLIST"
+
+      - name: Build & upload to TestFlight
+        working-directory: ios
+        env:
+          APP_STORE_CONNECT_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_API_KEY_ID }}
+          APP_STORE_CONNECT_API_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_API_ISSUER_ID }}
+          APP_STORE_CONNECT_API_KEY_CONTENT: ${{ secrets.APP_STORE_CONNECT_API_KEY_CONTENT }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: fastlane beta

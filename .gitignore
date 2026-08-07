@@ -78,6 +78,16 @@ credentials.json
 
 # Secrets
 *secret*
+
+# fastlane / iOS 署名関連の成果物・秘匿ファイル（ios/TESTFLIGHT_SETUP.md 参照）
+ios/fastlane/report.xml
+ios/fastlane/Preview.html
+ios/fastlane/screenshots/
+ios/fastlane/test_output/
+ios/fastlane/.env
+ios/fastlane/.env.*
+*.mobileprovision
+*.ipa
 *token*
 
 # App Store & Play Store
