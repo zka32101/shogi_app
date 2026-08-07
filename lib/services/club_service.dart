@@ -168,6 +168,8 @@ class ClubService {
   }
 
   // クラブに参加
+  // 既にメンバーかどうかをトランザクション内で確認してから増分する（二重タップや
+  // ネットワーク再送でmember_countだけが実メンバー数と乖離するのを防ぐ）
   Future<bool> joinClub(String clubId) async {
     final uid = _uid;
     if (uid == null) return false;
@@ -177,31 +179,29 @@ class ClubService {
       final username = userDoc.data()?['username'] as String? ?? 'Unknown';
       final rating = userDoc.data()?['rating'] as int? ?? 1500;
 
-      final batch = _db.batch();
-
-      // クラブのメンバー数と平均レートを更新
       final clubRef = _db.collection('clubs').doc(clubId);
-      batch.update(clubRef, {
-        'member_count': FieldValue.increment(1),
-        'member_ids': FieldValue.arrayUnion([uid]),
-      });
-
-      // メンバーサブコレクション
       final memberRef = clubRef.collection('members').doc(uid);
-      batch.set(memberRef, {
-        'username': username,
-        'rating': rating,
-        'role': 'member',
-        'joined_at': FieldValue.serverTimestamp(),
-      });
-
-      // ユーザーのクラブ参照を更新
       final userRef = _db.collection('users').doc(uid);
-      batch.update(userRef, {
-        'club_ids': FieldValue.arrayUnion([clubId]),
+
+      await _db.runTransaction((tx) async {
+        final memberSnap = await tx.get(memberRef);
+        if (memberSnap.exists) return; // 既にメンバー: 二重加算しない
+
+        tx.update(clubRef, {
+          'member_count': FieldValue.increment(1),
+          'member_ids': FieldValue.arrayUnion([uid]),
+        });
+        tx.set(memberRef, {
+          'username': username,
+          'rating': rating,
+          'role': 'member',
+          'joined_at': FieldValue.serverTimestamp(),
+        });
+        tx.update(userRef, {
+          'club_ids': FieldValue.arrayUnion([clubId]),
+        });
       });
 
-      await batch.commit();
       return true;
     } catch (_) {
       return false;
@@ -209,27 +209,31 @@ class ClubService {
   }
 
   // クラブを退会
+  // 非メンバーからの呼び出しやリトライでmember_countが過剰減算・マイナス化しない
+  // よう、トランザクション内でメンバーシップの存在を確認してから減算する
   Future<bool> leaveClub(String clubId) async {
     final uid = _uid;
     if (uid == null) return false;
 
     try {
-      final batch = _db.batch();
-
       final clubRef = _db.collection('clubs').doc(clubId);
-      batch.update(clubRef, {
-        'member_count': FieldValue.increment(-1),
-        'member_ids': FieldValue.arrayRemove([uid]),
-      });
-
-      batch.delete(clubRef.collection('members').doc(uid));
-
+      final memberRef = clubRef.collection('members').doc(uid);
       final userRef = _db.collection('users').doc(uid);
-      batch.update(userRef, {
-        'club_ids': FieldValue.arrayRemove([clubId]),
+
+      await _db.runTransaction((tx) async {
+        final memberSnap = await tx.get(memberRef);
+        if (!memberSnap.exists) return; // 非メンバー: 過剰減算しない
+
+        tx.update(clubRef, {
+          'member_count': FieldValue.increment(-1),
+          'member_ids': FieldValue.arrayRemove([uid]),
+        });
+        tx.delete(memberRef);
+        tx.update(userRef, {
+          'club_ids': FieldValue.arrayRemove([clubId]),
+        });
       });
 
-      await batch.commit();
       return true;
     } catch (_) {
       return false;

@@ -50,6 +50,12 @@ class NetworkService {
   }
 
   Future<void> signOut() async {
+    // 認証が切れる前に、この端末のFCMトークンを現ユーザーのfcm_tokensから
+    // 削除しておく（呼ばないと、同じ端末で別アカウントにサインインした際に
+    // 旧ユーザーが新ユーザー宛のプッシュ通知を受け取り続けてしまう）
+    try {
+      await _fcmService.removeCurrentToken();
+    } catch (_) {}
     await _auth.signOut();
   }
 

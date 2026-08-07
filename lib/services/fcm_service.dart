@@ -94,7 +94,12 @@ class FcmService {
     }
   }
 
-  static const _lastTokenPrefKey = 'fcm_last_saved_token';
+  // 同一端末でアカウントを切り替えても前ユーザーの通知が漏れないよう、
+  // キャッシュキーはuidでスコープする（旧: 端末グローバルな固定キーだったため、
+  // サインアウト時にトークン削除を挟まずに別アカウントでサインインすると、
+  // 同じFCMトークンが旧・新両方のuidのfcm_tokensに登録されたまま残り、
+  // 旧ユーザーが新ユーザー宛の通知を受け取ってしまっていた）
+  static String _lastTokenPrefKey(String uid) => 'fcm_last_saved_token_$uid';
 
   Future<void> _saveTokenToFirestore(String token) async {
     final uid = _auth.currentUser?.uid;
@@ -102,7 +107,8 @@ class FcmService {
 
     try {
       final prefs = await SharedPreferences.getInstance();
-      final prevToken = prefs.getString(_lastTokenPrefKey);
+      final prefKey = _lastTokenPrefKey(uid);
+      final prevToken = prefs.getString(prefKey);
       final docRef = _firestore.collection('users').doc(uid);
       // ローテーションで無効になった旧トークン（この端末が以前使っていた
       // もの）を、fcm_tokens配列に無期限で残さないよう先に取り除く
@@ -115,12 +121,15 @@ class FcmService {
         'fcm_tokens': FieldValue.arrayUnion([token]),
         'fcm_token_updated_at': FieldValue.serverTimestamp(),
       });
-      await prefs.setString(_lastTokenPrefKey, token);
+      await prefs.setString(prefKey, token);
     } catch (e) {
       debugPrint('FCM save token error: $e');
     }
   }
 
+  /// サインアウト時に必ず呼ぶこと（NetworkService.signOut()参照）。
+  /// 呼ばずにサインアウトすると、この端末のFCMトークンが旧ユーザーの
+  /// fcm_tokensに残り続け、以後の通知が旧ユーザーに漏れる恐れがある
   Future<void> removeCurrentToken() async {
     final uid = _auth.currentUser?.uid;
     if (uid == null) return;
@@ -134,7 +143,7 @@ class FcmService {
       }
       await _fcm.deleteToken();
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_lastTokenPrefKey);
+      await prefs.remove(_lastTokenPrefKey(uid));
     } catch (e) {
       debugPrint('FCM remove token error: $e');
     }

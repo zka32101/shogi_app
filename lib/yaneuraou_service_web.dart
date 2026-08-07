@@ -146,7 +146,9 @@ class YaneuraouService {
         }
       };
 
-      _worker!.onMessage.listen(messageListener, onDone: () {
+      // 呼び出しごとにリスナーが_worker.onMessageストリームに蓄積し続けない
+      // よう、subscriptionを保持して完了後に必ずcancel()する
+      final subscription = _worker!.onMessage.listen(messageListener, onDone: () {
         if (!evalCompleter.isCompleted) {
           evalCompleter.complete(null);
         }
@@ -158,13 +160,17 @@ class YaneuraouService {
         'depth': depth,
       });
 
-      return await evalCompleter.future.timeout(
-        Duration(seconds: 10),
-        onTimeout: () {
-          _worker?.postMessage({'type': 'stop'});
-          return null;
-        },
-      );
+      try {
+        return await evalCompleter.future.timeout(
+          Duration(seconds: 10),
+          onTimeout: () {
+            _worker?.postMessage({'type': 'stop'});
+            return null;
+          },
+        );
+      } finally {
+        await subscription.cancel();
+      }
     } catch (e) {
       print('evaluatePosition error: $e');
       return null;
