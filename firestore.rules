@@ -29,10 +29,35 @@ service cloud.firestore {
 
     // ===== ユーザープロフィール（一部公開） =====
     match /users/{userId} {
-      // 認証ユーザーは自分のプロフィールをすべて読み書き可能
-      allow read, write: if isOwner(userId);
+      // BAN状態・チート判定・レーティング・勝敗数は Cloud Functions（Admin SDK、
+      // Firestoreルールを経由しないため無条件に書き込み可）または admin カスタム
+      // クレームを持つ管理者のみが変更できる。isOwner の通常書き込みにこれらを
+      // 含めると、本人が自分でBAN解除・チートフラグ消去・レーティング偽装を
+      // 行えてしまうため明示的に除外する。
+      function protectedUserFields() {
+        return ['is_banned', 'banned_at', 'ban_reason', 'cheat_score', 'cheat_flags',
+                'flagged_for_review', 'flagged_at', 'rating', 'wins', 'losses',
+                'report_count'];
+      }
 
-      // 他のユーザーは公開情報のみ読み取り可能
+      // 新規プロフィール作成: 保護フィールドは安全な初期値のみ許可（偽装したBAN解除
+      // 済み状態・高レーティングでの初期登録を防ぐ）
+      allow create: if isOwner(userId) &&
+          request.resource.data.get('is_banned', false) == false &&
+          request.resource.data.get('rating', 1500) == 1500 &&
+          request.resource.data.get('wins', 0) == 0 &&
+          request.resource.data.get('losses', 0) == 0 &&
+          request.resource.data.get('cheat_score', 0) == 0 &&
+          request.resource.data.get('flagged_for_review', false) == false;
+
+      // 本人による更新: 保護フィールドを変更しない場合のみ許可。管理者は無条件で許可
+      allow update: if request.auth.token.admin == true ||
+          (isOwner(userId) &&
+           !request.resource.data.diff(resource.data).affectedKeys().hasAny(protectedUserFields()));
+
+      allow delete: if request.auth.token.admin == true;
+
+      // 他のユーザーは読み取りのみ可能
       allow read: if isAuthenticated();
     }
 
@@ -68,10 +93,14 @@ service cloud.firestore {
       // システムのみ（Cloud Functions経由で）書き込み可能
       allow write: if false;
 
-      // ── 遅延行為トラッキング（自己申告・cheat_detection_service.dart） ──
+      // ── 遅延行為トラッキング（対局相手が観測して記録・cheat_detection_service.dart） ──
+      // 以前は isAuthenticated() のみで、対局と無関係な第三者でも任意の対局の証跡を
+      // 捏造・改ざんできたため、当該対局の対局者本人のみに書き込みを制限する
       match /tracking/{userId} {
         allow read: if isAuthenticated();
-        allow write: if isAuthenticated();
+        allow write: if isAuthenticated() &&
+            (get(/databases/$(database)/documents/matches/$(matchId)).data.player1_id == request.auth.uid ||
+             get(/databases/$(database)/documents/matches/$(matchId)).data.player2_id == request.auth.uid);
       }
 
       // ── 観戦（spectator_service.dart） ──
@@ -96,7 +125,20 @@ service cloud.firestore {
     // ===== クラブ（club_service.dart） =====
     match /clubs/{clubId} {
       allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+
+      // 作成者本人が owner_id として自分を指定した場合のみクラブを作成可能
+      allow create: if isAuthenticated() &&
+          request.resource.data.owner_id == request.auth.uid;
+
+      // 以前は isAuthenticated() のみで、メンバーでも無い任意のユーザーが他人の
+      // クラブの名前・説明・オーナーを書き換えて乗っ取れる状態だったため、
+      // オーナー以外は参加/脱退で必要な member_count・member_ids の変更のみ許可する
+      allow update: if isAuthenticated() &&
+          (resource.data.owner_id == request.auth.uid ||
+           request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['member_count', 'member_ids']));
+
+      allow delete: if isAuthenticated() && resource.data.owner_id == request.auth.uid;
 
       match /members/{memberId} {
         // メンバードキュメントIDは本人のuidのため、本人のみ参加登録・脱退できる
@@ -155,10 +197,13 @@ service cloud.firestore {
     }
 
     // ===== 不正検出分析（cheat_detection_service.dart） =====
-    // 本人の分析結果のみ本人が書き込み・閲覧可能（他人には非公開）、管理者は閲覧可
+    // 本人は自分の分析結果を閲覧のみ可能（他人には非公開）。
+    // 書き込みは isOwner を許可すると本人が自分のチートスコア・フラグを消去・改ざん
+    // できてしまうため許可しない。Cloud Functions（Admin SDK）または admin クレーム
+    // を持つ管理者のみが書き込み可能
     match /cheat_analysis/{userId} {
       allow read: if isOwner(userId) || request.auth.token.admin == true;
-      allow write: if isOwner(userId);
+      allow write: if request.auth.token.admin == true;
     }
 
     // ===== 通知キュー（notification_service.dart / fcm_service.dart） =====
