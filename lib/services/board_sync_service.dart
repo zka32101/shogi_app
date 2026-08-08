@@ -21,6 +21,10 @@ class NetworkBoardState {
   final int lastTickMs;
   final int lastTurn;
 
+  // 引き分け提案（千日手・持将棋時に相手へ提案する用）
+  final String? drawProposedBy; // 提案したユーザーのuid（提案なしはnull）
+  final String? drawReason;     // 'sennichite' | 'jishogi'
+
   const NetworkBoardState({
     required this.board,
     required this.p1Hand,
@@ -34,6 +38,8 @@ class NetworkBoardState {
     this.p2Ms = 600000,
     this.lastTickMs = 0,
     this.lastTurn = 1,
+    this.drawProposedBy,
+    this.drawReason,
   });
 
   bool get isFinished => status == 'finished' || status == 'abandoned';
@@ -232,6 +238,29 @@ class BoardSyncService {
     });
   }
 
+  // ──────────────── 引き分け提案 ─────────────────────────────────
+  // 以前は Firestore の matches/{matchId} に書き込んでいたが、そのドキュメントは
+  // クライアントから書き込み不可(firestore.rules: allow write: if false)のため
+  // 常に権限エラーで失敗し、機能として成立していなかった。RTDB（対局中の他の
+  // 状態と同じ場所）に置くことで、対局者本人のみ書き込み可能なルールのまま機能させる
+
+  /// 引き分けを提案する（相手が承諾/拒否するまでdraw_proposed_by/draw_reasonとして残る）
+  Future<void> proposeDraw(String matchId, String proposerUid, String reason) async {
+    await _gameRef(matchId).update({
+      'draw_proposed_by': proposerUid,
+      'draw_reason': reason,
+    });
+  }
+
+  /// 引き分け提案をクリアする（拒否された場合の後始末。承諾された場合は
+  /// applyMove等と同様、対局終了(status:'finished')で自然に意味を失う）
+  Future<void> clearDrawProposal(String matchId) async {
+    await _gameRef(matchId).update({
+      'draw_proposed_by': null,
+      'draw_reason': null,
+    });
+  }
+
   // ──────────────── ストリーム ──────────────────────────────────
 
   /// 盤面状態をリアルタイムストリームで取得（RTDB版）
@@ -249,6 +278,8 @@ class BoardSyncService {
         final status      = data['status']       as String? ?? 'active';
         final winnerId    = data['winner_id']    as String?;
         final result      = data['result']       as String?;
+        final drawProposedBy = data['draw_proposed_by'] as String?;
+        final drawReason     = data['draw_reason']       as String?;
 
         // 時計
         final clock      = data['clock'] != null
@@ -284,6 +315,8 @@ class BoardSyncService {
           p2Ms:        p2Ms,
           lastTickMs:  lastTickMs,
           lastTurn:    lastTurn,
+          drawProposedBy: drawProposedBy,
+          drawReason:     drawReason,
         );
       } catch (_) {
         return null;

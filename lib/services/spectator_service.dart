@@ -4,6 +4,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'board_sync_service.dart';
 import 'network_achievement_service.dart';
+import '../utils/chat_filter.dart';
 
 /// 観戦中の対局情報
 class LiveMatch {
@@ -130,10 +131,16 @@ class SpectatorService {
 
   // ── 観戦コメント ──────────────────────────────────────────
 
-  Future<void> sendSpectatorComment(
+  /// 観戦コメントを送信する。禁止ワードフィルターに引っかかった場合や
+  /// 空文字・文字数超過の場合は送信せず false を返す（以前は対局チャット
+  /// [match_chat_widget.dart]にのみフィルターがあり、観戦チャットには
+  /// 一切適用されていなかった）
+  Future<bool> sendSpectatorComment(
       String matchId, String userId, String username, String text) async {
     try {
-      if (text.trim().isEmpty || text.length > 100) return;
+      if (text.trim().isEmpty || text.length > 100) return false;
+      final filtered = ChatFilter.filter(text);
+      if (filtered == null || filtered.isEmpty) return false;
 
       await _firestore
           .collection('matches')
@@ -142,11 +149,13 @@ class SpectatorService {
           .add({
         'user_id': userId,
         'username': username,
-        'text': text.trim(),
+        'text': filtered,
         'sent_at': DateTime.now(),
       });
+      return true;
     } catch (e) {
       print('Send spectator comment error: $e');
+      return false;
     }
   }
 

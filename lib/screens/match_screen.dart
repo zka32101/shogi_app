@@ -84,6 +84,10 @@ class _MatchScreenState extends State<MatchScreen> {
   bool _studyRecorded = false;
   bool _cheatAnalysisTriggered = false;
 
+  // 引き分け提案（相手からの提案を二重表示しないためのローカル状態）
+  bool _drawDialogShown = false;
+  bool _awaitingDrawResponse = false;
+
   // キャラクターアイコン
   String? _myCharIconId;
 
@@ -137,6 +141,32 @@ class _MatchScreenState extends State<MatchScreen> {
           }
         }
         _prevCurrentTurn = state.currentTurn;
+
+        // ── 引き分け提案の検知 ─────────────────────────────────
+        final myUid = _networkService.currentUser?.uid;
+        final proposedBy = state.drawProposedBy;
+        if (proposedBy != null && proposedBy != myUid && !_drawDialogShown) {
+          // 相手からの新しい提案 → 承諾/拒否ダイアログを表示
+          _drawDialogShown = true;
+          final reason = state.drawReason ?? '';
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _showDrawProposalDialog(reason);
+          });
+        } else if (proposedBy == null) {
+          _drawDialogShown = false;
+          if (_awaitingDrawResponse) {
+            // 自分が提案した引き分けが拒否された（承諾された場合はstatusが
+            // 'finished'になり別経路で終局処理されるため、ここには来ない）
+            _awaitingDrawResponse = false;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('相手が引き分けの提案を拒否しました')),
+                );
+              }
+            });
+          }
+        }
       }
 
       // RTDBからのサーバー時刻基準で時計を常に補正（毎回再計算）
@@ -840,12 +870,13 @@ class _MatchScreenState extends State<MatchScreen> {
   }
 
   Future<void> _proposeDraw(String reason) async {
+    final uid = _networkService.currentUser?.uid;
+    if (uid == null) return;
     try {
-      await _firestore.collection('matches').doc(widget.matchId).update({
-        'draw_proposed_by': _networkService.currentUser?.uid,
-        'draw_reason': reason,
-        'draw_proposed_at': FieldValue.serverTimestamp(),
-      });
+      // Firestoreのmatches/{id}はクライアントから書き込み不可(allow write: if false)
+      // なので、対局中の他の状態と同じくRTDB(games/{id})に提案を書き込む
+      await _boardSync.proposeDraw(widget.matchId, uid, reason);
+      _awaitingDrawResponse = true;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('引き分けを申し込みました。相手の応答を待っています...')),
@@ -857,6 +888,56 @@ class _MatchScreenState extends State<MatchScreen> {
             .showSnackBar(SnackBar(content: Text('エラー: $e')));
       }
     }
+  }
+
+  /// 相手からの引き分け提案に応答する
+  Future<void> _respondToDraw(bool accept) async {
+    try {
+      if (accept) {
+        await _networkService.finishMatchWithRating(widget.matchId, null, 'draw');
+      } else {
+        await _boardSync.clearDrawProposal(widget.matchId);
+      }
+    } catch (_) {}
+  }
+
+  void _showDrawProposalDialog(String reason) {
+    if (!mounted) return;
+    final reasonLabel = reason == 'sennichite'
+        ? '千日手'
+        : reason == 'jishogi'
+            ? '持将棋'
+            : '';
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('引き分けの提案',
+            style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+        content: Text(
+          '相手が$reasonLabelによる引き分けを提案しています。\n承諾しますか？',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _respondToDraw(false);
+            },
+            child: const Text('拒否', style: TextStyle(color: Colors.redAccent)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _respondToDraw(true);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
+            child: const Text('承諾', style: TextStyle(color: Colors.black)),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── 通報 ───────────────────────────────────────────────────
