@@ -76,19 +76,28 @@ class CheatDetectionService {
           .limit(20)
           .get();
 
+      // ②' 応答時間系の指標(②⑤⑥)が参照するトラッキングデータをまとめて取得。
+      // 指し手はRTDB(board_sync_service.dart)管理に移行済みで、Firestoreの
+      // matches.movesには一度も同期されないため、以前はここをmatches.movesから
+      // 読んでいた②⑤⑥が常にサンプル不足(0点)になっていた。対局終了時に
+      // saveInGameTracking()で実際に保存されている matches/{id}/tracking/{userId}
+      // （相手の対局相手が観測して記録したthink_times_ms/time_usage_ratios）を
+      // 参照するよう変更する
+      final tracking = await _fetchTrackingData(recentMatches.docs, userId);
+
       // ③ 各指標を計算
       final winRateScore =
           _analyzeWinRate(wins, totalGames, flags);
       final quickMoveScore =
-          await _analyzeResponseTimes(recentMatches.docs, userId, flags);
+          _analyzeResponseTimes(tracking.thinkTimesMs, flags);
       final ratingClimbScore =
           _analyzeRatingClimb(rating, totalGames, flags);
       final resignPatternScore =
           _analyzeResignPattern(recentMatches.docs, userId, flags);
       final stallingScore =
-          await _analyzeStalling(recentMatches.docs, userId, flags);
+          _analyzeStalling(tracking.usageRatios, flags);
       final uniformityScore =
-          await _analyzeThinkTimeUniformity(recentMatches.docs, userId, flags);
+          _analyzeThinkTimeUniformity(tracking.thinkTimesMs, flags);
 
       // ④ 総合スコアを算出（重み付き平均）
       score = (winRateScore * 0.28) +
@@ -142,42 +151,49 @@ class CheatDetectionService {
     return 0;
   }
 
-  /// 指標②: 応答時間パターン（一手あたりの時間）
-  Future<double> _analyzeResponseTimes(
+  /// tracking サブコレクション(matches/{id}/tracking/{userId})から
+  /// think_times_ms / time_usage_ratios を集約する。
+  /// InGameSoftPlayTracker.toFirestoreMap() が保存する形式に対応
+  Future<({List<int> thinkTimesMs, List<double> usageRatios})>
+      _fetchTrackingData(
     List<QueryDocumentSnapshot> matches,
     String userId,
-    List<String> flags,
   ) async {
-    if (matches.isEmpty) return 0;
-
-    int fastMoveCount = 0;
-    int totalMoves = 0;
+    final thinkTimesMs = <int>[];
+    final usageRatios = <double>[];
 
     for (final matchDoc in matches) {
-      final data = matchDoc.data() as Map<String, dynamic>;
-      final moves = data['moves'] as List? ?? [];
+      try {
+        final trackingDoc = await _firestore
+            .collection('matches')
+            .doc(matchDoc.id)
+            .collection('tracking')
+            .doc(userId)
+            .get();
+        final data = trackingDoc.data();
+        if (data == null) continue;
 
-      // 各手のタイムスタンプを分析
-      for (int i = 0; i < moves.length; i++) {
-        final move = moves[i] as Map<String, dynamic>?;
-        if (move == null) continue;
-
-        final playerId = move['player_id'] as String?;
-        if (playerId != userId) continue;
-
-        final thinkTime = move['think_time_ms'] as int? ?? 5000;
-        totalMoves++;
-
-        // 1秒未満 = 人間では難しい超高速手
-        if (thinkTime < 1000) {
-          fastMoveCount++;
+        final times = (data['think_times_ms'] as List?) ?? const [];
+        for (final t in times) {
+          if (t is num) thinkTimesMs.add(t.toInt());
         }
-      }
+        final ratios = (data['time_usage_ratios'] as List?) ?? const [];
+        for (final r in ratios) {
+          if (r is num) usageRatios.add(r.toDouble());
+        }
+      } catch (_) {}
     }
 
-    if (totalMoves < 10) return 0;
+    return (thinkTimesMs: thinkTimesMs, usageRatios: usageRatios);
+  }
 
-    final fastRatio = fastMoveCount / totalMoves;
+  /// 指標②: 応答時間パターン（一手あたりの時間）
+  double _analyzeResponseTimes(List<int> thinkTimesMs, List<String> flags) {
+    if (thinkTimesMs.length < 10) return 0;
+
+    // 1秒未満 = 人間では難しい超高速手
+    final fastMoveCount = thinkTimesMs.where((t) => t < 1000).length;
+    final fastRatio = fastMoveCount / thinkTimesMs.length;
 
     if (fastRatio >= 0.5) {
       flags.add(
@@ -251,37 +267,13 @@ class CheatDetectionService {
   }
 
   /// 指標⑤: 遅延行為（持ち時間の大部分を毎手消費し続ける）
-  Future<double> _analyzeStalling(
-    List<QueryDocumentSnapshot> matches,
-    String userId,
-    List<String> flags,
-  ) async {
-    if (matches.isEmpty) return 0;
+  double _analyzeStalling(List<double> usageRatios, List<String> flags) {
+    if (usageRatios.length < 10) return 0;
 
-    int stallingMoveCount = 0;
-    int trackedMoves = 0;
-
-    for (final matchDoc in matches) {
-      final data = matchDoc.data() as Map<String, dynamic>;
-      final moves = data['moves'] as List? ?? [];
-
-      for (final entry in moves) {
-        final move = entry as Map<String, dynamic>?;
-        if (move == null) continue;
-        if (move['player_id'] != userId) continue;
-
-        final thinkTimeMs = move['think_time_ms'] as int? ?? 0;
-        final timeLimitMs = move['time_limit_ms'] as int? ?? 0;
-        if (timeLimitMs <= 0) continue;
-
-        trackedMoves++;
-        if (thinkTimeMs > timeLimitMs * 0.80) stallingMoveCount++;
-      }
-    }
-
-    if (trackedMoves < 10) return 0;
-
-    final stallingRatio = stallingMoveCount / trackedMoves;
+    // usageRatiosはInGameSoftPlayTracker.recordMove()内でtimeLimitMs>0の
+    // 手のみ記録されるため、既に「持ち時間が判明している手」に絞られている
+    final stallingMoveCount = usageRatios.where((r) => r > 0.80).length;
+    final stallingRatio = stallingMoveCount / usageRatios.length;
 
     if (stallingRatio >= 0.70) {
       flags.add(
@@ -301,25 +293,11 @@ class CheatDetectionService {
   ///
   /// 人間は局面によって思考時間が大きく変動する。
   /// 毎手ほぼ同じ時間 → AIがタイマーで管理している可能性が高い。
-  Future<double> _analyzeThinkTimeUniformity(
-    List<QueryDocumentSnapshot> matches,
-    String userId,
-    List<String> flags,
-  ) async {
-    if (matches.isEmpty) return 0;
-
-    final times = <int>[];
-
-    for (final matchDoc in matches) {
-      final data = matchDoc.data() as Map<String, dynamic>;
-      final moves = data['moves'] as List? ?? [];
-      for (final entry in moves) {
-        final move = entry as Map<String, dynamic>?;
-        if (move == null || move['player_id'] != userId) continue;
-        final t = move['think_time_ms'] as int? ?? 0;
-        if (t > 500) times.add(t); // 500ms未満は除外（高速手は別指標で判定）
-      }
-    }
+  double _analyzeThinkTimeUniformity(
+      List<int> thinkTimesMs, List<String> flags) {
+    final times = thinkTimesMs
+        .where((t) => t > 500) // 500ms未満は除外（高速手は別指標で判定）
+        .toList();
 
     if (times.length < 10) return 0;
 
