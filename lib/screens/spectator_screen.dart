@@ -199,12 +199,21 @@ class _SpectatorGameScreenState extends State<SpectatorGameScreen> {
     final profile = await _networkService.getUserProfile(user.uid);
     _commentController.clear();
 
-    await _spectatorService.sendSpectatorComment(
+    final sent = await _spectatorService.sendSpectatorComment(
       widget.matchId,
       user.uid,
       profile?.username ?? '観戦者',
       text,
     );
+    if (!sent && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('不適切な言葉が含まれています。'),
+          backgroundColor: Colors.redAccent,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
   @override

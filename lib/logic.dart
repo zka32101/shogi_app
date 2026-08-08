@@ -801,6 +801,11 @@ class AI {
     return score;
   }
 
+  // 王手中のクワイエッサンス延長: 通常のqDepth予算を使い切っても、王手回避手
+  // だけは最大でこの分だけ余分に読む（王手放置による誤評価を防ぎつつ、
+  // 際限のない延長による探索コスト爆発を避けるための上限）
+  static const _kCheckExtensionFloor = 4;
+
   // ===== D. クワイエッサンス探索 =====
   // depth=0の時、取り合いが続く場合は延長探索して地平線効果を防ぐ
   static int _qSearch(
@@ -813,29 +818,72 @@ class AI {
     bool aiIsP1,
     int qDepth,
   ) {
-    // stand-pat: 現在の静的評価（取り合いを強制しない権利）
-    final standPat = eval(b, p1h, p2h);
+    final currP1 = maximizing == aiIsP1 ? aiIsP1 : !aiIsP1;
+    final inCheck = GL.inCheck(b, currP1);
 
-    if (maximizing) {
-      if (standPat >= beta) return standPat; // β枝刈り
-      if (standPat > alpha) alpha = standPat;
-    } else {
-      if (standPat <= alpha) return standPat; // α枝刈り
-      if (standPat < beta)  beta  = standPat;
+    // 王手中は「これ以上指さずに現局面の評価を採用する」というstand-patの
+    // 前提（＝手番を放棄できる）が成立しない。以前は王手中でも無条件で
+    // stand-patを採用し、かつ候補手も取る手・成る手のみに絞っていたため、
+    // 唯一の脱出手が非捕獲の移動（駒を取らずに玉を逃がす手等）だった場合に
+    // それを候補から除外してしまい、王手放置に等しい著しく不正確な評価に
+    // なっていた。王手中は全合法手（＝王手回避手）を候補にする
+    if (!inCheck) {
+      // stand-pat: 現在の静的評価（取り合いを強制しない権利）
+      final standPat = eval(b, p1h, p2h);
+
+      if (maximizing) {
+        if (standPat >= beta) return standPat; // β枝刈り
+        if (standPat > alpha) alpha = standPat;
+      } else {
+        if (standPat <= alpha) return standPat; // α枝刈り
+        if (standPat < beta)  beta  = standPat;
+      }
+
+      if (qDepth <= 0) return standPat;
+
+      // 取る手と成り手のみ生成
+      final tactical = allMoves(b, currP1, p1h, p2h).where((mv) =>
+        mv.drop == null && (b[mv.tr][mv.tc] != null || mv.promote)
+      ).toList();
+      if (tactical.isEmpty) return standPat;
+
+      // MVV-LVAで探索順をソート
+      final sorted = _sortMoves(b, tactical);
+      int val = standPat;
+
+      for (final mv in sorted) {
+        final next = apply(b, p1h, p2h, mv, currP1);
+        final score = _qSearch(
+          next.b, next.p1h, next.p2h,
+          alpha, beta, !maximizing, aiIsP1, qDepth - 1,
+        );
+        if (maximizing) {
+          val = max(val, score);
+          alpha = max(alpha, val);
+        } else {
+          val = min(val, score);
+          beta  = min(beta,  val);
+        }
+        if (beta <= alpha) break; // α-β枝刈り
+      }
+      return val;
     }
 
-    if (qDepth <= 0) return standPat;
+    // ── 王手中: 回避手を探索 ──
+    if (qDepth <= -_kCheckExtensionFloor) {
+      // 延長上限に達した: stand-pat（＝王手放置扱い）ではなく、実際の局面の
+      // 静的評価を暫定値として返す（不正確ではあるが王手放置よりはましな値）
+      return eval(b, p1h, p2h);
+    }
 
-    // 取る手と成り手のみ生成
-    final currP1 = maximizing == aiIsP1 ? aiIsP1 : !aiIsP1;
-    final tactical = allMoves(b, currP1, p1h, p2h).where((mv) =>
-      mv.drop == null && (b[mv.tr][mv.tc] != null || mv.promote)
-    ).toList();
-    if (tactical.isEmpty) return standPat;
+    final evasions = allMoves(b, currP1, p1h, p2h);
+    if (evasions.isEmpty) {
+      // 王手中に合法手が無い = 詰み
+      return maximizing ? -99999 : 99999;
+    }
 
-    // MVV-LVAで探索順をソート
-    final sorted = _sortMoves(b, tactical);
-    int val = standPat;
+    final sorted = _sortMoves(b, evasions);
+    int val = maximizing ? -1000000 : 1000000;
 
     for (final mv in sorted) {
       final next = apply(b, p1h, p2h, mv, currP1);

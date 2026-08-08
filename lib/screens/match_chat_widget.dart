@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../services/chat_service.dart';
 import '../theme/app_theme.dart';
+import '../utils/chat_filter.dart';
 
 class MatchChatWidget extends StatefulWidget {
   final String matchId;
@@ -232,29 +233,9 @@ class _PostMatchChatWidgetState extends State<PostMatchChatWidget> {
     super.dispose();
   }
 
-  // 禁止ワードリスト（追加可能）
-  static const _bannedWords = [
-    'バカ', 'ばか', '馬鹿', 'アホ', 'あほ', '阿呆',
-    'クソ', 'くそ', '糞', 'キモい', 'きもい', '気持ち悪い',
-    'うざい', 'ウザい', 'うざ', 'ウザ', '死ね', 'しね',
-    '消えろ', 'ゴミ', 'ごみ', 'ハゲ', 'デブ', 'ブス',
-    'カス', 'かす', 'チート', '不正', 'ソフト指し',
-  ];
-
-  // 空白・記号を除去して比較することで、単語の間にスペースや記号を挟む
-  // 単純な回避（例:「し ね」「し.ね」）を防ぐ
-  static final _separatorPattern =
-      RegExp(r'[\s.,、･・。，．\-ー_]+', unicode: true);
-
-  String? _filterMessage(String text) {
-    final normalized = text.replaceAll(_separatorPattern, '');
-    for (final word in _bannedWords) {
-      if (text.contains(word) || normalized.contains(word)) {
-        return null; // null = 送信禁止
-      }
-    }
-    return text;
-  }
+  // 禁止ワードフィルターは match_chat_widget.dart / spectator_service.dart の
+  // 両方から使う共通ロジックとして utils/chat_filter.dart に切り出し済み
+  String? _filterMessage(String text) => ChatFilter.filter(text);
 
   Future<void> _send() async {
     final rawText = _controller.text.trim();
