@@ -601,7 +601,20 @@ exports.matchmaking = functions.pubsub
           if (ratingDiff <= 200) {
             // マッチング成立 → matches に新規作成
             const matchRef = db.collection('matches').doc();
-            await db.runTransaction(async (tx) => {
+            const p1Ref = db.collection('matching_queue').doc(p1.id);
+            const p2Ref = db.collection('matching_queue').doc(p2.id);
+            // このスケジュール実行の冒頭で読んだqueueSnapは既にstaleになりうる
+            // （3秒間隔の前回実行がまだ処理中、等）。tx.get()による検証なしに
+            // blind writeでmatched状態にしていたため、同一プレイヤーが複数の
+            // matchesに同時登録されうるTOCTOUがあった。コミット直前に
+            // status=='waiting'のままかをトランザクション内で再確認する
+            const paired = await db.runTransaction(async (tx) => {
+              const [p1Snap, p2Snap] = await Promise.all([tx.get(p1Ref), tx.get(p2Ref)]);
+              if (!p1Snap.exists || !p2Snap.exists) return false;
+              if (p1Snap.data().status !== 'waiting' || p2Snap.data().status !== 'waiting') {
+                return false;
+              }
+
               tx.set(matchRef, {
                 player1_id:  p1.id,
                 player2_id:  p2.id,
@@ -609,17 +622,15 @@ exports.matchmaking = functions.pubsub
                 created_at:  admin.firestore.FieldValue.serverTimestamp(),
                 handicap:    null,
               });
-              tx.update(db.collection('matching_queue').doc(p1.id), {
-                status: 'matched',
-                match_id: matchRef.id,
-              });
-              tx.update(db.collection('matching_queue').doc(p2.id), {
-                status: 'matched',
-                match_id: matchRef.id,
-              });
+              tx.update(p1Ref, { status: 'matched', match_id: matchRef.id });
+              tx.update(p2Ref, { status: 'matched', match_id: matchRef.id });
+              return true;
             });
-            matched.push(p1.id, p2.id);
-            break;
+            if (paired) {
+              matched.push(p1.id, p2.id);
+              break;
+            }
+            // 検証に失敗した場合はこのペアを不成立として、他の候補を探す
           }
         }
       }

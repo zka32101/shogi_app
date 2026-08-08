@@ -144,11 +144,23 @@ class NetworkService {
     String? winnerId,
     String result,
   ) async {
-    // RTDBを先に更新（必須: MatchScreenのboardStreamが終了を検知する）
-    await FirebaseDatabase.instance.ref('games/$matchId').update({
-      'status':    'finished',
-      'winner_id': winnerId,
-      'result':    result,
+    // RTDBを先に更新（必須: MatchScreenのboardStreamが終了を検知する）。
+    // 単純なupdate()だと、両者がほぼ同時に異なる結果（例: 片方は詰み検知、
+    // もう片方は時間切れ検知）を確定させた場合に後勝ちで結果が入れ替わって
+    // しまうため、「まだactive/未終局の場合のみ確定」というトランザクションで
+    // 排他制御する。既に別クライアントが終局を確定済みならabortして何もしない
+    // （abortは例外を投げないため、呼び出し元の挙動は変わらない）
+    await FirebaseDatabase.instance.ref('games/$matchId').runTransaction((Object? current) {
+      if (current == null) return Transaction.abort();
+      final data = Map<dynamic, dynamic>.from(current as Map);
+      final currentStatus = data['status'] as String?;
+      if (currentStatus == 'finished' || currentStatus == 'abandoned') {
+        return Transaction.abort();
+      }
+      data['status'] = 'finished';
+      data['winner_id'] = winnerId;
+      data['result'] = result;
+      return Transaction.success(data);
     });
     // Firestoreへの更新（オプション: 認証エラー時はスキップ）
     try {
