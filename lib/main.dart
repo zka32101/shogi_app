@@ -558,7 +558,7 @@ class _PlayTabState extends State<_PlayTab> {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(AppTheme.rCard),
                   border: Border.all(
                     color: _rankColor.withAlpha(80),
                     width: 1.5,
@@ -610,7 +610,7 @@ class _PlayTabState extends State<_PlayTab> {
                   ),
                   decoration: BoxDecoration(
                     color: Colors.white.withAlpha(5),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(AppTheme.rChip),
                     border: Border.all(color: Colors.white12),
                   ),
                   child: Row(
@@ -692,7 +692,7 @@ class _PlayTabState extends State<_PlayTab> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
                 color: Colors.brown.shade900.withAlpha(100),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: BorderRadius.circular(AppTheme.rBtn),
                 border: Border.all(color: Colors.white12),
               ),
               child: Column(
@@ -841,7 +841,7 @@ class _PlayTabState extends State<_PlayTab> {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppTheme.rCard),
                         border: Border.all(color: Colors.indigo.withAlpha(80)),
                       ),
                       child: Row(
@@ -993,7 +993,7 @@ class _StudyTab extends StatelessWidget {
                       height: 46,
                       decoration: BoxDecoration(
                         color: AppTheme.success.withAlpha(30),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(AppTheme.rCard),
                       ),
                       child: Icon(Icons.trending_up, color: AppTheme.success, size: 26),
                     ),
@@ -1057,10 +1057,10 @@ class _StudyTab extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: Colors.amber.withAlpha(30),
-                borderRadius: BorderRadius.circular(12),
+                color: AppTheme.accent.withAlpha(30),
+                borderRadius: BorderRadius.circular(AppTheme.rCard),
               ),
-              child: const Icon(Icons.explore, color: Colors.amber, size: 26),
+              child: const Icon(Icons.explore, color: AppTheme.accent, size: 26),
             ),
             const SizedBox(width: 14),
             const Expanded(
@@ -1070,7 +1070,7 @@ class _StudyTab extends StatelessWidget {
                   Text(
                     '学習ガイド',
                     style: TextStyle(
-                      color: Colors.amber,
+                      color: AppTheme.accent,
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
                     ),
@@ -1232,7 +1232,7 @@ class _LearnTile extends StatelessWidget {
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: AppTheme.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(AppTheme.rCard),
                 border: Border.all(color: color.withAlpha(60)),
               ),
               child: Column(
@@ -1243,7 +1243,7 @@ class _LearnTile extends StatelessWidget {
                     height: 38,
                     decoration: BoxDecoration(
                       color: color.withAlpha(38),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(AppTheme.rBtn),
                     ),
                     child: Icon(item.icon, color: color, size: 20),
                   ),
@@ -1268,7 +1268,7 @@ class _LearnTile extends StatelessWidget {
             const Positioned(
               top: 4,
               right: 4,
-              child: Icon(Icons.lock, color: Colors.amber, size: 14),
+              child: Icon(Icons.lock, color: AppTheme.accent, size: 14),
             ),
         ],
       ),
@@ -1441,15 +1441,15 @@ class _SettingsTab extends StatelessWidget {
                       width: 90,
                       decoration: BoxDecoration(
                         color: cfg.background,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(AppTheme.rChip),
                         border: Border.all(
-                          color: sel ? Colors.amber : Colors.white24,
+                          color: sel ? AppTheme.accent : Colors.white24,
                           width: sel ? 2.5 : 1,
                         ),
                         boxShadow: sel
                             ? [
                                 BoxShadow(
-                                  color: Colors.amber.withAlpha(80),
+                                  color: AppTheme.accent.withAlpha(80),
                                   blurRadius: 6,
                                 ),
                               ]
@@ -1480,7 +1480,7 @@ class _SettingsTab extends StatelessWidget {
                             child: Text(
                               cfg.label,
                               style: TextStyle(
-                                color: sel ? Colors.amber : Colors.white70,
+                                color: sel ? AppTheme.accent : Colors.white70,
                                 fontSize: 11,
                                 fontWeight: sel
                                     ? FontWeight.bold
@@ -1518,18 +1518,18 @@ class _SettingsTab extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: sel
-                              ? Colors.amber.withAlpha(40)
+                              ? AppTheme.accent.withAlpha(40)
                               : Colors.white10,
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(AppTheme.rChip),
                           border: Border.all(
-                            color: sel ? Colors.amber : Colors.white24,
+                            color: sel ? AppTheme.accent : Colors.white24,
                             width: sel ? 2 : 1,
                           ),
                         ),
                         child: Text(
                           label,
                           style: TextStyle(
-                            color: sel ? Colors.amber : Colors.white70,
+                            color: sel ? AppTheme.accent : Colors.white70,
                             fontSize: 13,
                             fontWeight: sel
                                 ? FontWeight.bold
@@ -1596,7 +1596,7 @@ class _SettingsTab extends StatelessWidget {
               Builder(
                 builder: (ctx) => ListTile(
                   contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.face, color: Colors.amber),
+                  leading: const Icon(Icons.face, color: AppTheme.accent),
                   title: const Text('キャラクターアイコン', style: TextStyle(color: Colors.white, fontSize: 14)),
                   subtitle: const Text('対局中に表示されるアイコンを変更', style: TextStyle(color: Colors.white38, fontSize: 11)),
                   trailing: const Icon(Icons.chevron_right, color: Colors.white38),
@@ -1629,7 +1629,7 @@ class _SettingsTab extends StatelessWidget {
               _feedbackTile(
                 context,
                 icon: Icons.bug_report_outlined,
-                color: Colors.redAccent,
+                color: AppTheme.danger,
                 title: 'バグを報告する',
                 subtitle: '不具合・おかしな動作を教えてください',
                 type: FeedbackType.bug,
@@ -1638,7 +1638,7 @@ class _SettingsTab extends StatelessWidget {
               _feedbackTile(
                 context,
                 icon: Icons.lightbulb_outline,
-                color: Colors.amber,
+                color: AppTheme.accent,
                 title: '改善要望を送る',
                 subtitle: 'こんな機能が欲しい！をお聞かせください',
                 type: FeedbackType.request,
@@ -1682,9 +1682,9 @@ class _SettingsTab extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(vertical: 10),
                 decoration: BoxDecoration(
                   color: active ? Colors.brown.shade700 : Colors.white10,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: BorderRadius.circular(AppTheme.rBtn),
                   border: Border.all(
-                    color: active ? Colors.amber : Colors.white24,
+                    color: active ? AppTheme.accent : Colors.white24,
                     width: active ? 1.5 : 1,
                   ),
                 ),
@@ -1692,7 +1692,7 @@ class _SettingsTab extends StatelessWidget {
                   p.$1,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: active ? Colors.amber : Colors.white70,
+                    color: active ? AppTheme.accent : Colors.white70,
                     fontSize: 13,
                     fontWeight: active ? FontWeight.bold : FontWeight.normal,
                   ),
@@ -1780,7 +1780,7 @@ Widget _bigButton(
       backgroundColor: color,
       foregroundColor: Colors.white,
       padding: const EdgeInsets.symmetric(vertical: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.rCard)),
       elevation: 2,
     ),
     onPressed: onTap,
@@ -1803,7 +1803,7 @@ Widget _settingCard(List<Widget> children) => Container(
   padding: const EdgeInsets.all(16),
   decoration: BoxDecoration(
     color: AppTheme.surface,
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(AppTheme.rCard),
     border: Border.all(color: Colors.white12),
   ),
   child: Column(
@@ -1817,7 +1817,7 @@ Widget _settingChip(String text, Color color) => Container(
   decoration: BoxDecoration(
     color: color.withAlpha(50),
     border: Border.all(color: color, width: 0.8),
-    borderRadius: BorderRadius.circular(10),
+    borderRadius: BorderRadius.circular(AppTheme.rBtn),
   ),
   child: Text(
     text,
@@ -1840,7 +1840,7 @@ Widget _buildPremiumCard(BuildContext context) => Container(
   padding: const EdgeInsets.all(12),
   decoration: BoxDecoration(
     color: AppTheme.surface,
-    borderRadius: BorderRadius.circular(12),
+    borderRadius: BorderRadius.circular(AppTheme.rCard),
     border: Border.all(
       color: PurchaseService.isPremium ? AppTheme.accent : Colors.white12,
     ),
@@ -1921,7 +1921,7 @@ Widget _feedbackTile(
             height: 36,
             decoration: BoxDecoration(
               color: color.withAlpha(30),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(AppTheme.rChip),
               border: Border.all(color: color.withAlpha(80)),
             ),
             child: Icon(icon, color: color, size: 18),
