@@ -587,7 +587,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
           children: [
             const SizedBox(height: 16),
             const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.indigo),
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primary),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -647,7 +647,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
                       setState(() => _isLoading = false);
                     }
                   },
-                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade700),
+                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.danger),
                   child: const Text('キャンセル'),
                 );
               },
@@ -674,7 +674,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
           children: [
             const SizedBox(height: 16),
             const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Colors.amber),
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -747,7 +747,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
                     }
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
+                    backgroundColor: AppTheme.danger,
                   ),
                   child: const Text('キャンセル'),
                 );
@@ -806,14 +806,14 @@ class _Chip extends StatelessWidget {
           color: selected ? Colors.brown.shade600 : Colors.grey.shade800,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: selected ? Colors.amber : Colors.transparent,
+            color: selected ? AppTheme.accent : Colors.transparent,
             width: 1.5,
           ),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? Colors.amber : Colors.white54,
+            color: selected ? AppTheme.accent : Colors.white54,
             fontSize: 12,
             fontWeight: selected ? FontWeight.bold : FontWeight.normal,
           ),

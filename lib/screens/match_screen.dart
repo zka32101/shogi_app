@@ -470,7 +470,7 @@ class _MatchScreenState extends State<MatchScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
               content:
-                  Text('時間切れで敗北しました', style: TextStyle(color: Colors.red))),
+                  Text('時間切れで敗北しました', style: TextStyle(color: AppTheme.danger))),
         );
       }
     } catch (e) {
@@ -570,7 +570,7 @@ class _MatchScreenState extends State<MatchScreen> {
               child: const Text('キャンセル')),
           ElevatedButton(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: AppTheme.danger,
                   foregroundColor: Colors.white),
               onPressed: () => Navigator.pop(context, true),
               child: const Text('投了する')),
@@ -697,7 +697,7 @@ class _MatchScreenState extends State<MatchScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('千日手', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold)),
+        title: const Text('千日手', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
         content: const Text(
           '同一局面が4回繰り返されました。\n千日手により引き分けを申し込みますか？',
           style: TextStyle(color: Colors.white70),
@@ -731,7 +731,7 @@ class _MatchScreenState extends State<MatchScreen> {
         title: Text(
           '連続王手の千日手',
           style: TextStyle(
-            color: myLose ? Colors.redAccent : Colors.greenAccent,
+            color: myLose ? AppTheme.danger : AppTheme.success,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -755,7 +755,7 @@ class _MatchScreenState extends State<MatchScreen> {
               } catch (_) {}
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: myLose ? Colors.red.shade700 : Colors.green.shade700,
+              backgroundColor: myLose ? AppTheme.danger : AppTheme.success,
             ),
             child: const Text('確認', style: TextStyle(color: Colors.white)),
           ),
@@ -815,7 +815,7 @@ class _MatchScreenState extends State<MatchScreen> {
           title: Text(
             myPts >= 24 ? '持将棋 — あなたの勝ち' : '持将棋 — あなたの負け',
             style: TextStyle(
-              color: myPts >= 24 ? Colors.greenAccent : Colors.redAccent,
+              color: myPts >= 24 ? AppTheme.success : AppTheme.danger,
               fontWeight: FontWeight.bold,
             ),
           ),
@@ -828,7 +828,7 @@ class _MatchScreenState extends State<MatchScreen> {
             ElevatedButton(
               onPressed: () => Navigator.pop(context),
               style: ElevatedButton.styleFrom(
-                backgroundColor: myPts >= 24 ? Colors.green.shade700 : Colors.red.shade700,
+                backgroundColor: myPts >= 24 ? AppTheme.success : AppTheme.danger,
               ),
               child: const Text('確認', style: TextStyle(color: Colors.white)),
             ),
@@ -925,7 +925,7 @@ class _MatchScreenState extends State<MatchScreen> {
               Navigator.pop(context);
               _respondToDraw(false);
             },
-            child: const Text('拒否', style: TextStyle(color: Colors.redAccent)),
+            child: const Text('拒否', style: TextStyle(color: AppTheme.danger)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -1002,7 +1002,7 @@ class _MatchScreenState extends State<MatchScreen> {
               ElevatedButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red.shade700,
+                  backgroundColor: AppTheme.danger,
                   foregroundColor: Colors.white,
                 ),
                 child: const Text('投了して戻る'),
@@ -1034,7 +1034,7 @@ class _MatchScreenState extends State<MatchScreen> {
           actions: [
             IconButton(
               icon: Icon(Icons.list_alt,
-                  color: _showKifu ? Colors.amber : Colors.white70),
+                  color: _showKifu ? AppTheme.accent : Colors.white70),
               onPressed: () => setState(() {
                 _showKifu = !_showKifu;
                 if (_showKifu) _showChat = false;
@@ -1043,7 +1043,7 @@ class _MatchScreenState extends State<MatchScreen> {
             ),
             IconButton(
               icon: Icon(Icons.chat,
-                  color: _showChat ? Colors.amber : Colors.white70),
+                  color: _showChat ? AppTheme.accent : Colors.white70),
               onPressed: () => setState(() {
                 _showChat = !_showChat;
                 if (_showChat) _showKifu = false;
@@ -1565,7 +1565,7 @@ class _MatchScreenState extends State<MatchScreen> {
               ? 'レーティング +$delta（$newRating）'
               : 'レーティング $delta（$newRating）'),
           backgroundColor:
-              delta >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+              delta >= 0 ? AppTheme.success : AppTheme.danger,
           duration: const Duration(seconds: 3),
         ),
       );
@@ -1678,7 +1678,7 @@ class _MatchScreenState extends State<MatchScreen> {
                   color: isDraw
                       ? Colors.grey
                       : isWinner
-                          ? Colors.amber
+                          ? AppTheme.accent
                           : Colors.grey.shade600,
                 ),
                 const SizedBox(height: 12),
@@ -1688,7 +1688,7 @@ class _MatchScreenState extends State<MatchScreen> {
                     color: isDraw
                         ? Colors.grey
                         : isWinner
-                            ? Colors.amber
+                            ? AppTheme.accent
                             : Colors.grey.shade600,
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
@@ -1721,7 +1721,7 @@ class _MatchScreenState extends State<MatchScreen> {
                       icon: const Icon(Icons.analytics, size: 16),
                       label: const Text('棋譜分析'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo.shade700,
+                        backgroundColor: AppTheme.primary,
                         foregroundColor: Colors.white,
                       ),
                     ),
