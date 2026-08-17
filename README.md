@@ -1,17 +1,28 @@
-# shogi_app
+# 効棋 (Kouki)
 
-A new Flutter project.
+将棋アプリ。AI対局・ネットワーク対局・詰将棋・棋譜管理・手筋トレーニングを搭載。
 
-## Getting Started
+開発: Petit Studio（Petit Works Apps）
 
-This project is a starting point for a Flutter application.
+## 主な機能
 
-A few resources to get you started if this is your first Flutter project:
+- **AI対局**: 難易度別（ランダム〜上級）のAI相手にオフラインで対局
+- **ネットワーク対局**: レーティングマッチング、フレンド対戦、観戦機能
+- **詰将棋・手筋トレーニング**: 段階別の問題を収録
+- **棋譜管理**: 棋譜の記録・再生・分析
+- **クラブ・実績・シーズンランキング**などのソーシャル機能
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## 技術スタック
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- **Flutter** / Dart
+- **状態管理**: Riverpod
+- **バックエンド**: Firebase（Authentication, Firestore, Realtime Database, Cloud Functions）
+- **将棋エンジン**: 独自実装のα-β探索AI（Web版はやねうら王/WASMを併用）
+
+## ライセンス
+
+本リポジトリのソースコードは公開されていますが、[LICENSE](./LICENSE) の通りオールライツリザーブド（無断転載・再配布・商用利用不可）です。閲覧目的での公開であり、オープンソースライセンスではありません。
+
+## 開発者向け情報
+
+開発環境のセットアップ・アーキテクチャの詳細は [CLAUDE.md](./CLAUDE.md) を参照してください。

@@ -50,8 +50,15 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // 難読化・未使用リソース削減を有効化（APKサイズ削減・簡易的な解析対策）。
+            // ルールは android/app/proguard-rules.pro 参照。有効化に伴い、
+            // ストア提出前に実機/実ビルドでの動作確認を必ず行うこと
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
     }
 }

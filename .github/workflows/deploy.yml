@@ -1,26 +1,59 @@
-﻿name: Build and Deploy APK
+name: Build Signed Android App Bundle
 
+# 以前は署名設定なしで `flutter build apk --release` を実行するだけの
+# 張りぼてワークフローだった（key.propertiesがCI上に存在しないため実際には
+# Gradleの署名設定評価でビルド自体が失敗する状態で、成功したかのような
+# echoで終わっていた）。GitHub Secretsからkeystoreを復元して実際に署名付き
+# AAB(Android App Bundle)をビルドし、Actionsの成果物としてダウンロードできる
+# ようにする。Google Play Consoleへの自動アップロードは、初回のアプリ登録を
+# 手動で済ませた後、android/PLAY_CONSOLE_UPLOAD_SETUP.md の手順で別途追加できる
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch: {}
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      
+      - uses: actions/checkout@v4
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.x'
-      
+          channel: stable
+
       - name: Get dependencies
         run: flutter pub get
-      
-      - name: Build APK
-        run: flutter build apk --release
-      
-      - name: Upload APK
-        run: echo "APK built and ready for deployment"
+
+      - name: Restore Android signing keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::error::ANDROID_KEYSTORE_BASE64 が設定されていません。android/ANDROID_RELEASE_SETUP.md を参照してGitHub Secretsを登録してください"
+            exit 1
+          fi
+          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode -o "$RUNNER_TEMP/upload-keystore.jks"
+          cat > android/key.properties << EOF
+          storePassword=$ANDROID_KEYSTORE_PASSWORD
+          keyPassword=$ANDROID_KEY_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          storeFile=$RUNNER_TEMP/upload-keystore.jks
+          EOF
+
+      - name: Build signed App Bundle (AAB)
+        run: flutter build appbundle --release
+
+      - name: Upload AAB as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30

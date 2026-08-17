@@ -88,6 +88,22 @@ ios/fastlane/.env
 ios/fastlane/.env.*
 *.mobileprovision
 *.ipa
+
+# ビルド成果物（署名済みAPK/AAB等）。ローカル開発パス・大容量バイナリが
+# 誤ってコミットされる事故を防ぐため、リポジトリ本体には含めない。
+# 配布はGitHub Releases等、git管理外の場所を使うこと
+*.apk
+*.aab
+release-outputs/builds/
+
+# 個人の作業メモ・引き継ぎ資料（ローカルパスや外部共有リンクを含みうるため
+# リポジトリには含めない）
+google_drive_upload_info.txt
+DELIVERABLES.txt
+PROJECT_SUMMARY.md
+SETUP.md
+*引き継ぎ*.md
+.claude/memory.md
 *token*
 
 # App Store & Play Store

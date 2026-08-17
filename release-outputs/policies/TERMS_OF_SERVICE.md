@@ -1,6 +1,6 @@
 # 利用規約 / Terms of Service
 
-**アプリ名**: 将棋 - Shogi Board  
+**アプリ名**: 効棋 (Kouki)  
 **開発者**: Petit Studio  
 **最終更新**: 2026-05-23
 
