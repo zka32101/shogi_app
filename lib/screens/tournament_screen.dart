@@ -272,6 +272,15 @@ class TournamentDetailScreen extends StatelessWidget {
   final NetworkService _networkService = NetworkService();
   final RatingService _ratingService = RatingService();
 
+  // StreamBuilderのbuilder（実質build()）は再構築のたびに呼ばれるため、
+  // ここでガード無しにcheckTournamentWin()を呼ぶと、トーナメント詳細画面が
+  // 開いている間ずっと（対局結果のストリーム更新のたびに）無条件で
+  // 実績チェックのFirestore読み取りが走ってしまっていた。StatelessWidgetの
+  // インスタンス自体は再構築のたびに作り直されるため、静的なSetで
+  // 「(トーナメント, ユーザー)の組み合わせを既にチェック済みか」をプロセス
+  // 内で記憶し、同一セッション中の重複呼び出しを防ぐ
+  static final Set<String> _checkedTournamentWins = {};
+
   TournamentDetailScreen({super.key, required this.tournamentId});
 
   @override
@@ -306,7 +315,10 @@ class TournamentDetailScreen extends StatelessWidget {
     // 対局結果を確定させた側(勝者・敗者どちらの端末でもありうる)ではなく、
     // 優勝者自身のセッションで判定・付与する必要がある
     if (t.status == 'finished' && t.championId != null && t.championId == myId) {
-      NetworkAchievementService().checkTournamentWin(myId!);
+      final checkKey = '$tournamentId:$myId';
+      if (_checkedTournamentWins.add(checkKey)) {
+        NetworkAchievementService().checkTournamentWin(myId!);
+      }
     }
 
     return ListView(

@@ -12,6 +12,7 @@ import 'notification_service.dart';
 import 'network_achievement_service.dart'; // 将来の実装用（Cloud Functions移行後に削除可）
 import 'daily_challenge_service.dart';     // 将来の実装用
 import 'fcm_service.dart';
+import 'friend_service.dart';
 
 class NetworkService {
   static final NetworkService _instance = NetworkService._internal();
@@ -392,6 +393,14 @@ class NetworkService {
           .collection('blocked_users')
           .doc(targetUserId)
           .set({'blocked_at': FieldValue.serverTimestamp()});
+
+      // ブロック済みでも既存のフレンド関係が残っていると、オンライン状態が
+      // 見えたり対局招待を送れたりしてしまうため、フレンド関係があれば解除する
+      try {
+        await FriendService().removeFriend(me.uid, targetUserId);
+      } catch (e) {
+        print('Remove friend on block error: $e');
+      }
     } catch (e) {
       print('Block user error: $e');
     }

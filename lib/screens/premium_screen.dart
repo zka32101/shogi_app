@@ -63,6 +63,10 @@ class _PremiumScreenState extends State<PremiumScreen> {
           const SnackBar(content: Text('500円プランを購入しました！')),
         );
         _checkStatus();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('購入をキャンセルしました')),
+        );
       }
     }
   }

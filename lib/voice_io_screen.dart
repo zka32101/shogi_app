@@ -178,9 +178,12 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
   // ───────────────────────────────────────────
   Future<void> _startListening() async {
     if (!_speechAvailable) {
+      if (!mounted) return;
       setState(() => _errorMessage = '音声認識が利用できません（マイクの権限を確認してください）');
       // 権限が拒否された直後などは再初期化を試みる
       await _initSpeech();
+      // await の間に画面がdisposeされている可能性があるため、setStateの前にmountedを確認する
+      if (!mounted) return;
       if (!_speechAvailable) return;
     }
 
@@ -191,30 +194,41 @@ class _VoiceIOScreenState extends State<VoiceIOScreen>
       _recordingSeconds = 0;
     });
 
-    await _speech.listen(
-      // ignore: deprecated_member_use
-      localeId: 'ja_JP',
-      // ignore: deprecated_member_use
-      listenFor: const Duration(seconds: 10),
-      // ignore: deprecated_member_use
-      pauseFor: const Duration(seconds: 3),
-      onResult: (SpeechRecognitionResult result) {
-        if (!mounted) return;
-        setState(() {
-          _recordingSeconds = (result.recognizedWords.length / 2).ceil();
-          _transcribedText = result.recognizedWords;
-        });
-        if (result.finalResult) {
-          final recognized = result.recognizedWords.trim();
-          setState(() => _isListening = false);
-          if (recognized.isEmpty) {
-            setState(() => _errorMessage = 'もう一度お願いします');
-          } else {
-            _processVoiceMove(recognized);
+    try {
+      await _speech.listen(
+        // ignore: deprecated_member_use
+        localeId: 'ja_JP',
+        // ignore: deprecated_member_use
+        listenFor: const Duration(seconds: 10),
+        // ignore: deprecated_member_use
+        pauseFor: const Duration(seconds: 3),
+        onResult: (SpeechRecognitionResult result) {
+          if (!mounted) return;
+          setState(() {
+            _recordingSeconds = (result.recognizedWords.length / 2).ceil();
+            _transcribedText = result.recognizedWords;
+          });
+          if (result.finalResult) {
+            final recognized = result.recognizedWords.trim();
+            setState(() => _isListening = false);
+            if (recognized.isEmpty) {
+              setState(() => _errorMessage = 'もう一度お願いします');
+            } else {
+              _processVoiceMove(recognized);
+            }
           }
-        }
-      },
-    );
+        },
+      );
+    } catch (e) {
+      // listen()が例外を投げた場合、_isListeningがtrueのまま残ると
+      // UIが「停止」アイコンのまま固まり続けてしまうため、確実にリセットする
+      if (mounted) {
+        setState(() {
+          _isListening = false;
+          _errorMessage = '音声認識でエラーが発生しました';
+        });
+      }
+    }
   }
 
   void _stopListening() {

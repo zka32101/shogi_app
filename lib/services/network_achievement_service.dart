@@ -242,16 +242,19 @@ class NetworkAchievementService {
     }
 
     // 勝利数
+    // 以前は == での比較だったため、集計値の補正やロールバック等で
+    // カウンタが閾値をまたいで飛んだ場合、その実績が永久に解除されなく
+    // なるバグがあった（>= であれば一度でも閾値以上になった時点で解除できる）
     if (won) {
-      if (totalWins == 10) await _unlock(userId, AchievementId.netWin10, unlocked);
-      if (totalWins == 50) await _unlock(userId, AchievementId.netWin50, unlocked);
-      if (totalWins == 100) await _unlock(userId, AchievementId.netWin100, unlocked);
-      if (totalWins == 500) await _unlock(userId, AchievementId.netWin500, unlocked);
+      if (totalWins >= 10) await _unlock(userId, AchievementId.netWin10, unlocked);
+      if (totalWins >= 50) await _unlock(userId, AchievementId.netWin50, unlocked);
+      if (totalWins >= 100) await _unlock(userId, AchievementId.netWin100, unlocked);
+      if (totalWins >= 500) await _unlock(userId, AchievementId.netWin500, unlocked);
     }
 
     // 対局数
-    if (totalMatches == 100) await _unlock(userId, AchievementId.play100, unlocked);
-    if (totalMatches == 500) await _unlock(userId, AchievementId.play500, unlocked);
+    if (totalMatches >= 100) await _unlock(userId, AchievementId.play100, unlocked);
+    if (totalMatches >= 500) await _unlock(userId, AchievementId.play500, unlocked);
 
     // レーティング
     if (newRating >= 1600) await _unlock(userId, AchievementId.rating1600, unlocked);

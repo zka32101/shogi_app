@@ -110,17 +110,24 @@ class FcmService {
       final prefKey = _lastTokenPrefKey(uid);
       final prevToken = prefs.getString(prefKey);
       final docRef = _firestore.collection('users').doc(uid);
+      // update()はドキュメントが未作成だとnot-foundで例外を投げ、それを
+      // 外側のcatchが握りつぶしてトークン保存自体が失敗していた
+      // （アカウント作成直後などusers/{uid}ドキュメントがまだ存在しない
+      // タイミングでトークンが届くと、以後onTokenRefreshが自然に発火する
+      // まで永久にプッシュ通知を受け取れなくなる）。ドキュメントが無ければ
+      // 作成しつつマージするset(merge:true)に変更する
+      //
       // ローテーションで無効になった旧トークン（この端末が以前使っていた
       // もの）を、fcm_tokens配列に無期限で残さないよう先に取り除く
       if (prevToken != null && prevToken != token) {
-        await docRef.update({
+        await docRef.set({
           'fcm_tokens': FieldValue.arrayRemove([prevToken]),
-        });
+        }, SetOptions(merge: true));
       }
-      await docRef.update({
+      await docRef.set({
         'fcm_tokens': FieldValue.arrayUnion([token]),
         'fcm_token_updated_at': FieldValue.serverTimestamp(),
-      });
+      }, SetOptions(merge: true));
       await prefs.setString(prefKey, token);
     } catch (e) {
       debugPrint('FCM save token error: $e');
@@ -137,9 +144,16 @@ class FcmService {
     try {
       final token = await _fcm.getToken();
       if (token != null) {
-        await _firestore.collection('users').doc(uid).update({
-          'fcm_tokens': FieldValue.arrayRemove([token]),
-        });
+        // Firestore側の削除が失敗（例: ドキュメント未作成でupdate()が
+        // not-foundを投げる）しても、以降の端末側トークン削除まで
+        // 巻き込んで止めない
+        try {
+          await _firestore.collection('users').doc(uid).update({
+            'fcm_tokens': FieldValue.arrayRemove([token]),
+          });
+        } catch (e) {
+          debugPrint('FCM remove token from Firestore error: $e');
+        }
       }
       await _fcm.deleteToken();
       final prefs = await SharedPreferences.getInstance();

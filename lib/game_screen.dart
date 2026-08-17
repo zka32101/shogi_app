@@ -3218,6 +3218,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           'stats_total_wins',
           (prefs.getInt('stats_total_wins') ?? 0) + 1,
         );
+        // プレイヤー視点でのAI対局のみの勝利数（vsAI時のみplayerWonが
+        // non-nullになるためこのif内はAI対局に限定される）。
+        // 弱点分析系画面（weakness_mining_screen/weakness_analysis_screen）
+        // はこれまでstats_p1_wins_aiを「勝利数」として読んでいたが、これは
+        // 先手側の勝利数（人間・AIどちらが先手でも加算される）であり、
+        // プレイヤーが後手で勝った対局が集計から漏れていた
+        await prefs.setInt(
+          'stats_wins_ai',
+          (prefs.getInt('stats_wins_ai') ?? 0) + 1,
+        );
         // キャラクター絆レベル（選択中のアバターでのAI対局勝利数）
         if (_charIconId != null) {
           await CharacterBondService.addWin(_charIconId!);

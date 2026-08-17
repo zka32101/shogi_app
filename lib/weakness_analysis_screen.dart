@@ -163,7 +163,10 @@ class _WeaknessAnalysisScreenState extends State<WeaknessAnalysisScreen>
     _totalWins = prefs.getInt('stats_total_wins') ?? 0;
     _rating = prefs.getInt('rating_current') ?? 1000;
     _totalAiGames = prefs.getInt('stats_total_ai') ?? 0;
-    _aiWins = prefs.getInt('stats_p1_wins_ai') ?? 0;
+    // stats_p1_wins_aiは「先手側の勝利数」（人間・AIどちらが先手でも加算）
+    // であり、プレイヤーが後手で勝った対局が漏れるため、プレイヤー視点で
+    // 集計するstats_wins_aiを使う
+    _aiWins = prefs.getInt('stats_wins_ai') ?? 0;
     _p2Wins = prefs.getInt('stats_p2_wins') ?? 0;
 
     final allKeys = prefs.getKeys();

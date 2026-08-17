@@ -65,8 +65,11 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
     _prefs = await SharedPreferences.getInstance();
 
     // Load stats（total_ai_games/ai_winsは存在しないキーで常に0だったため修正）
+    // stats_p1_wins_aiは「先手側の勝利数」（人間・AIどちらが先手でも加算）
+    // であり、プレイヤーが後手で勝った対局が漏れるため、プレイヤー視点で
+    // 集計するstats_wins_aiを使う
     _totalAiGames = _prefs.getInt('stats_total_ai') ?? 0;
-    _aiWins = _prefs.getInt('stats_p1_wins_ai') ?? 0;
+    _aiWins = _prefs.getInt('stats_wins_ai') ?? 0;
 
     // Load or analyze weakness patterns
     await _loadOrAnalyzeWeaknesses();

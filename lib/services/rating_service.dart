@@ -1,6 +1,8 @@
 // lib/services/rating_service.dart
 // ELO レーティング計算エンジン
 
+import 'dart:math' as math;
+
 class RatingService {
   static final RatingService _instance = RatingService._internal();
 
@@ -55,7 +57,7 @@ class RatingService {
   /// rating差が200の場合、高い方の期待勝率は約0.76
   double _calculateExpected(int rating1, int rating2) {
     final ratingDiff = rating2 - rating1;
-    return 1.0 / (1.0 + Math.pow(10, ratingDiff / 400.0));
+    return 1.0 / (1.0 + math.pow(10, ratingDiff / 400.0));
   }
 
   /// ユーザーのランキング順位を計算
@@ -82,23 +84,5 @@ class RatingService {
     if (rating >= 400) return '3級';
     if (rating >= 200) return '4級';
     return '5級以下';
-  }
-}
-
-class Math {
-  static double pow(double base, double exponent) {
-    return base == 0 ? 0 : _pow(base, exponent);
-  }
-
-  static double _pow(double base, double exponent) {
-    var result = 1.0;
-    while (exponent > 0) {
-      if (exponent % 2 == 1) {
-        result *= base;
-      }
-      base *= base;
-      exponent = (exponent / 2).floorToDouble();
-    }
-    return result;
   }
 }

@@ -53,20 +53,29 @@ class KifuAnalyticsService {
     final blunders = <BlunderInfo>[];
     final goodMoves = <GoodMoveInfo>[];
 
-    if (evalHistory.length < 2) return (blunders, goodMoves);
+    if (evalHistory.isEmpty) return (blunders, goodMoves);
 
-    for (int i = 1; i < evalHistory.length && i <= moveNotations.length; i++) {
-      final delta = evalHistory[i] - evalHistory[i - 1];
+    // evalHistory[i] は moveNotations[i] を指した"後"の評価値（_endTurn()で
+    // 1手ごとにkifu/評価値が同時にaddされるため、両リストは同じ添字iで
+    // 対応する）。以前は添字を1からずらしてループしており、
+    // (1) 初手(i=0)が判定対象から漏れる、(2) delta(=evalHistory[i]-
+    // evalHistory[i-1]、実質i手目の結果)にmoveNotations[i-1]という
+    // ひとつ前の手の指し手を紐付けてしまう、(3) moveIsP1の偶奇判定が
+    // 手番と逆になる、という3つのバグが重なっていた。
+    for (int i = 0; i < evalHistory.length && i < moveNotations.length; i++) {
+      // i=0（初手）には直前の評価値が無いため、先後互角とみなせる0を基準にする
+      final delta = evalHistory[i] - (i > 0 ? evalHistory[i - 1] : 0);
 
-      final moveIsP1 = (i % 2 == 1);
+      final moveIsP1 = (i % 2 == 0); // 先手が偶数番目（0手目, 2手目, ...）
       final playerDelta = playerIsP1 == moveIsP1 ? delta : -delta;
 
-      final notation = moveNotations[i - 1];
+      final notation = moveNotations[i];
       final (fromSq, toSq, piece) = _parseNotation(notation);
+      final moveNum = i + 1; // 表示用は1手目から数える
 
       if (playerDelta <= -80) {
         blunders.add(BlunderInfo(
-          moveNum: i,
+          moveNum: moveNum,
           evalDelta: playerDelta,
           fromSquare: fromSq,
           toSquare: toSq,
@@ -77,7 +86,7 @@ class KifuAnalyticsService {
 
       if (playerDelta >= 150) {
         goodMoves.add(GoodMoveInfo(
-          moveNum: i,
+          moveNum: moveNum,
           evalDelta: playerDelta,
           toSquare: toSq,
           pieceMoved: piece,

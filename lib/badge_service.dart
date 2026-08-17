@@ -469,7 +469,11 @@ class BadgeService {
 
     // ── AI対局 ───────────────────────────────────────────────
     if (isAiGame) {
-      final aiWins = prefs.getInt('stats_p1_wins_ai') ?? 0;
+      // stats_p1_wins_aiは「先手側の勝利数」（人間・AIどちらが先手でも
+      // 加算される）であり、プレイヤーが後手で勝った対局が集計から漏れ、
+      // 常に後手でAI対局する場合ai10wins/ai50winsバッジが永久に解除
+      // されないバグになっていたため、プレイヤー視点のstats_wins_aiを使う
+      final aiWins = prefs.getInt('stats_wins_ai') ?? 0;
       if (aiWins >= 10) await tryUnlock(BadgeId.ai10wins);
       if (aiWins >= 50) await tryUnlock(BadgeId.ai50wins);
 

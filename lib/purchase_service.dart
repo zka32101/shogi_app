@@ -69,22 +69,53 @@ class PurchaseService {
   /// 300円プラン購入
   static Future<bool> purchasePlan300() async {
     if (!_isAvailable || _plan300Product == null) return false;
-    try {
-      final param = PurchaseParam(productDetails: _plan300Product!);
-      return await _iap.buyNonConsumable(purchaseParam: param);
-    } catch (_) {
-      return false;
-    }
+    return _purchaseAndAwaitResult(_plan300Product!, _plan300Id);
   }
 
   /// 500円プラン購入
   static Future<bool> purchasePlan500() async {
     if (!_isAvailable || _plan500Product == null) return false;
+    return _purchaseAndAwaitResult(_plan500Product!, _plan500Id);
+  }
+
+  /// buyNonConsumable()の戻り値は「購入リクエストを送信できたか」のみを
+  /// 示し、実際の購入完了・キャンセル・決済失敗は非同期のpurchaseStream
+  /// 経由（_onPurchaseUpdate）で後から届く。リクエスト送信の成否だけを
+  /// 見て呼び出し元が即座に「購入しました」と表示すると、後でユーザーが
+  /// キャンセルしたり決済が失敗した場合でも購入成功したように見えてしまう
+  /// ため、実際の結果イベントを待ってから返す
+  static Future<bool> _purchaseAndAwaitResult(
+    ProductDetails product,
+    String productId,
+  ) async {
+    final completer = Completer<bool>();
+    final sub = _iap.purchaseStream.listen((purchases) {
+      for (final p in purchases) {
+        if (p.productID != productId) continue;
+        if (p.status == PurchaseStatus.purchased ||
+            p.status == PurchaseStatus.restored) {
+          if (!completer.isCompleted) completer.complete(true);
+        } else if (p.status == PurchaseStatus.error ||
+            p.status == PurchaseStatus.canceled) {
+          if (!completer.isCompleted) completer.complete(false);
+        }
+        // pending は最終結果ではないため待ち続ける
+      }
+    });
+
     try {
-      final param = PurchaseParam(productDetails: _plan500Product!);
-      return await _iap.buyNonConsumable(purchaseParam: param);
+      final param = PurchaseParam(productDetails: product);
+      final submitted = await _iap.buyNonConsumable(purchaseParam: param);
+      if (!submitted) return false;
+
+      return await completer.future.timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => false,
+      );
     } catch (_) {
       return false;
+    } finally {
+      await sub.cancel();
     }
   }
 
