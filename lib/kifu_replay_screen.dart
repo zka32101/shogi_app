@@ -10,48 +10,34 @@ import 'package:image/image.dart' as img;
 import 'piece.dart';
 import 'logic.dart';
 import 'theme/app_theme.dart';
+import 'game_screen.dart' show Handicap, initShogiBoard;
 
 // ===== 初期盤面生成 =====
-List<List<Piece?>> _buildInitBoard() {
-  final b = List<List<Piece?>>.generate(
-    9,
-    (_) => List<Piece?>.filled(9, null, growable: false),
-  );
-  void s(int r, int c, PieceType t, bool p1) => b[r][c] = Piece(t, p1);
-
-  // 後手（P2）上部
-  s(0, 0, PieceType.lance, false);
-  s(0, 1, PieceType.knight, false);
-  s(0, 2, PieceType.silver, false);
-  s(0, 3, PieceType.gold, false);
-  s(0, 4, PieceType.king, false);
-  s(0, 5, PieceType.gold, false);
-  s(0, 6, PieceType.silver, false);
-  s(0, 7, PieceType.knight, false);
-  s(0, 8, PieceType.lance, false);
-  s(1, 1, PieceType.rook, false);
-  s(1, 7, PieceType.bishop, false);
-  for (int c = 0; c < 9; c++) {
-    s(2, c, PieceType.pawn, false);
+// 以前はここで常に平手の初期盤面を独自に組み立てており、widget.handicapは
+// 表示ラベルにしか使われていなかったため、駒落ち対局の棋譜を再生すると
+// 実際には存在しないはずの駒が初手から並んだ状態になっていた。
+// game_screen.dartのinitShogiBoard()（_initBoardのエイリアス）を使い、
+// 駒落ち設定に応じた初期盤面を生成する
+Handicap _handicapFromLabel(String label) {
+  switch (label) {
+    case '香落ち':
+      return Handicap.lance;
+    case '角落ち':
+      return Handicap.bishop;
+    case '飛車落ち':
+      return Handicap.rook;
+    case '飛角落ち':
+    case '二枚落ち':
+      return Handicap.rookBishop;
+    case '四枚落ち':
+      return Handicap.four;
+    case '六枚落ち':
+      return Handicap.six;
+    case '八枚落ち':
+      return Handicap.eight;
+    default:
+      return Handicap.none; // '平手' や未知の値は平手として扱う
   }
-
-  // 先手（P1）下部
-  s(8, 0, PieceType.lance, true);
-  s(8, 1, PieceType.knight, true);
-  s(8, 2, PieceType.silver, true);
-  s(8, 3, PieceType.gold, true);
-  s(8, 4, PieceType.king, true);
-  s(8, 5, PieceType.gold, true);
-  s(8, 6, PieceType.silver, true);
-  s(8, 7, PieceType.knight, true);
-  s(8, 8, PieceType.lance, true);
-  s(7, 7, PieceType.rook, true);
-  s(7, 1, PieceType.bishop, true);
-  for (int c = 0; c < 9; c++) {
-    s(6, c, PieceType.pawn, true);
-  }
-
-  return b;
 }
 
 // ===== KifuReplayScreen =====
@@ -202,7 +188,7 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
 
   // ===== 盤面を step 手目まで再構築 =====
   void _resetToStep(int step) {
-    final b = _buildInitBoard();
+    final b = initShogiBoard(_handicapFromLabel(widget.handicap));
     final Map<PieceType, int> h1 = {};
     final Map<PieceType, int> h2 = {};
     int? ltr, ltc;

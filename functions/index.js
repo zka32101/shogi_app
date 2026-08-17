@@ -661,45 +661,59 @@ exports.checkTimeouts = functions.pubsub
 
     if (!gamesSnap.exists()) return null;
 
-    const rtdbUpdates = {};
-    const firestoreJobs = [];
-
+    const matchIds = [];
     gamesSnap.forEach((child) => {
-      const game    = child.val();
-      const matchId = child.key;
-      if (!game || !game.clock) return;
-
-      const { p1_ms, p2_ms, last_tick_ms, last_turn } = game.clock;
-      const elapsed = now - (last_tick_ms || now);
-
-      let timedOutSide = null; // 'p1' | 'p2' (負けた側)
-      if (last_turn === 1 && p1_ms - elapsed <= 0) timedOutSide = 'p1';
-      else if (last_turn === 2 && p2_ms - elapsed <= 0) timedOutSide = 'p2';
-
-      if (!timedOutSide) return;
-
-      const winnerId = timedOutSide === 'p1'
-        ? game.player2_id
-        : game.player1_id;
-
-      rtdbUpdates[`games/${matchId}/status`]   = 'finished';
-      rtdbUpdates[`games/${matchId}/result`]   = 'timeout';
-      rtdbUpdates[`games/${matchId}/winner_id`] = winnerId || null;
-
-      firestoreJobs.push(
-        db.collection('matches').doc(matchId).update({
-          status:      'finished',
-          result:      'timeout',
-          winner_id:   winnerId || null,
-          finished_at: admin.firestore.FieldValue.serverTimestamp(),
-        }).catch((e) => console.error(`Firestore update failed for ${matchId}:`, e))
-      );
+      matchIds.push(child.key);
     });
 
-    if (Object.keys(rtdbUpdates).length > 0) {
-      await rtdb.ref().update(rtdbUpdates).catch(console.error);
-      await Promise.all(firestoreJobs);
-    }
+    // 各対局ごとにRTDBトランザクションで再検証してから確定させる。
+    // 以前はread→blind update（rtdb.ref().update()）で確定していたため、
+    // クエリ取得後・更新前の間に対局が投了や入玉勝ち等で既に正しく終了して
+    // いた場合、その結果をこの関数がtimeoutで上書きしてしまうTOCTOUが
+    // あった（matchmakingで修正済みの問題と同種）。トランザクションの
+    // コールバック内でstatus==='active'であることと再度のタイムアウト
+    // 判定を行い、committedの場合のみFirestore側も更新する。
+    await Promise.all(matchIds.map(async (matchId) => {
+      let timedOutSide = null;
+      let winnerId = null;
+
+      try {
+        const result = await rtdb.ref(`games/${matchId}`).transaction((game) => {
+          if (!game || game.status !== 'active' || !game.clock) return undefined; // 中断（対局が変化済み）
+
+          const { p1_ms, p2_ms, last_tick_ms, last_turn } = game.clock;
+          const elapsed = now - (last_tick_ms || now);
+
+          let side = null; // 'p1' | 'p2' (負けた側)
+          if (last_turn === 1 && p1_ms - elapsed <= 0) side = 'p1';
+          else if (last_turn === 2 && p2_ms - elapsed <= 0) side = 'p2';
+
+          if (!side) return undefined; // まだタイムアウトしていない
+
+          const winner = side === 'p1' ? game.player2_id : game.player1_id;
+          timedOutSide = side;
+          winnerId = winner || null;
+
+          return {
+            ...game,
+            status:    'finished',
+            result:    'timeout',
+            winner_id: winner || null,
+          };
+        });
+
+        if (result.committed && timedOutSide) {
+          await db.collection('matches').doc(matchId).update({
+            status:      'finished',
+            result:      'timeout',
+            winner_id:   winnerId,
+            finished_at: admin.firestore.FieldValue.serverTimestamp(),
+          }).catch((e) => console.error(`Firestore update failed for ${matchId}:`, e));
+        }
+      } catch (e) {
+        console.error(`checkTimeouts: transaction failed for ${matchId}:`, e);
+      }
+    }));
 
     return null;
   });
@@ -740,17 +754,31 @@ exports.cleanupStale = functions.pubsub
       if (!abandonedSnap.exists()) return null;
 
       const updates = {};
+      const staleMatchIds = [];
       abandonedSnap.forEach((child) => {
         const game         = child.val();
         const lastActivity = game.last_activity_ms || 0;
         if (lastActivity < rtdbCutoff) {
           updates[`games/${child.key}/status`] = 'abandoned';
+          staleMatchIds.push(child.key);
         }
       });
 
       if (Object.keys(updates).length > 0) {
         await rtdb.ref().update(updates);
         console.log(`Abandoned ${Object.keys(updates).length} stale games`);
+
+        // RTDBをabandonedにするだけではFirestore側のmatches/{matchId}が
+        // 更新されず、onMatchFinishedトリガーが発火しないためレーティングが
+        // 確定せず、クライアントUI上も対局が「進行中」のまま残り続けて
+        // いた。Firestore側も合わせて終了状態にする。
+        await Promise.all(staleMatchIds.map((matchId) =>
+          db.collection('matches').doc(matchId).update({
+            status:      'finished',
+            result:      'abandoned',
+            finished_at: admin.firestore.FieldValue.serverTimestamp(),
+          }).catch((e) => console.error(`cleanupStale: Firestore update failed for ${matchId}:`, e))
+        ));
       }
     } catch (e) {
       console.error('cleanupStale: RTDB cleanup failed', e);
@@ -789,7 +817,7 @@ exports.generateDailyProblems = functions.pubsub
         usedIndices.add(randomIdx);
 
         const sfen = sfenPool[randomIdx];
-        const problem = _generateProblem(sfen, i + 1, today);
+        const problem = await _generateProblem(sfen, i + 1, today);
         if (problem) {
           problems.push(problem);
         }
@@ -864,13 +892,48 @@ function _getSfenPool() {
 }
 
 /**
- * SFEN から問題を生成（簡易版）
- * 本番では problem_generator.dart をポートした TypeScript 版を使用
+ * SFEN から問題を生成
+ *
+ * 以前はanswerが全問題共通のハードコードされたダミー値
+ * {fr:0,fc:0,tr:1,tc:1,drop:null,promote:false} で、SFENの内容と無関係な
+ * 意味のない「正解手」が本番の日替わり問題として配信されていた。
+ * evaluateTesuji等で既に使っているYaneuraOuエンジン(getEngine())に
+ * この局面を探索させ、実際にその局面で最善とされる手をanswerに設定する。
+ * また、p1_turnも常にtrue固定だったのをSFENの手番から正しく算出する。
  */
-function _generateProblem(sfen, index, dateStr) {
+async function _generateProblem(sfen, index, dateStr) {
   try {
     // 簡易的な難度判定（SFEN の長さで仮判定）
     const difficulty = sfen.length < 50 ? '初級' : sfen.length < 70 ? '中級' : '上級';
+
+    const eng = await getEngine();
+    eng.position(sfen);
+
+    const bestMoveUsi = await new Promise((resolve) => {
+      // タクティクス問題としての精度と1回あたりの生成時間のバランスを
+      // 取った探索深さ（evaluateTesujiのデフォルトdepth=20より浅め。
+      // generateDailyProblemsは1回の実行で5問直列に生成するため）
+      eng.go({ depth: 12 }, (line) => {
+        if (line.startsWith('bestmove')) {
+          const parts = line.split(' ');
+          resolve(parts[1] || null);
+        }
+      });
+    });
+
+    if (!bestMoveUsi || bestMoveUsi === 'resign' || bestMoveUsi === 'win') {
+      console.error(`No legal best move for SFEN: ${sfen}`);
+      return null;
+    }
+
+    const answer = _usiMoveToAnswer(bestMoveUsi);
+    if (!answer) {
+      console.error(`Failed to parse engine move "${bestMoveUsi}" for SFEN: ${sfen}`);
+      return null;
+    }
+
+    // SFENの手番（"b"=先手番→この問題はp1が解く／"w"=後手番→p2が解く）
+    const p1Turn = !sfen.includes(' w ');
 
     return {
       id: `daily_${dateStr}_${index}`,
@@ -880,15 +943,8 @@ function _generateProblem(sfen, index, dateStr) {
       board: sfen,
       p1_hand: {},
       p2_hand: {},
-      p1_turn: true,
-      answer: {
-        fr: 0,
-        fc: 0,
-        tr: 1,
-        tc: 1,
-        drop: null,
-        promote: false,
-      },
+      p1_turn: p1Turn,
+      answer,
       explanation: `詰将棋問題です。${difficulty}の難易度でお試しください。`,
       source_url: null,
       source_title: 'Auto-generated',
@@ -897,6 +953,54 @@ function _generateProblem(sfen, index, dateStr) {
     console.error(`Failed to generate problem for SFEN: ${sfen}`, e);
     return null;
   }
+}
+
+// USIの駒打ち文字（大文字1文字）→ PieceType のenum index
+// （lib/piece.dart の PieceType: king=0,rook=1,bishop=2,gold=3,silver=4,
+//  knight=5,lance=6,pawn=7,... の並び順と一致させること）
+const _USI_DROP_PIECE_INDEX = { R: 1, B: 2, G: 3, S: 4, N: 5, L: 6, P: 7 };
+
+/**
+ * USI形式の指し手文字列（例: "7g7f", "8h2b+", "P*5e"）を、
+ * lib/piece.dart の AMove.toJson() と同じ {fr, fc, tr, tc, drop, promote}
+ * 形式に変換する。
+ * 座標規約は lib/tesuji_problems.dart のコメントと同じ:
+ *   筋(file) = 9 - col, 段(rank) = row + 1
+ *   つまり col = 9 - file, row = rank文字コード - 'a'
+ */
+function _usiMoveToAnswer(usi) {
+  const dropMatch = usi.match(/^([PLNSGBR])\*(\d)([a-i])$/);
+  if (dropMatch) {
+    const dropIndex = _USI_DROP_PIECE_INDEX[dropMatch[1]];
+    if (dropIndex === undefined) return null;
+    const file = parseInt(dropMatch[2], 10);
+    const rank = dropMatch[3];
+    return {
+      fr: -1,
+      fc: -1,
+      tr: rank.charCodeAt(0) - 'a'.charCodeAt(0),
+      tc: 9 - file,
+      drop: dropIndex,
+      promote: false,
+    };
+  }
+
+  const moveMatch = usi.match(/^(\d)([a-i])(\d)([a-i])(\+)?$/);
+  if (!moveMatch) return null;
+
+  const fFile = parseInt(moveMatch[1], 10);
+  const fRank = moveMatch[2];
+  const tFile = parseInt(moveMatch[3], 10);
+  const tRank = moveMatch[4];
+
+  return {
+    fr: fRank.charCodeAt(0) - 'a'.charCodeAt(0),
+    fc: 9 - fFile,
+    tr: tRank.charCodeAt(0) - 'a'.charCodeAt(0),
+    tc: 9 - tFile,
+    drop: null,
+    promote: moveMatch[5] === '+',
+  };
 }
 
 // ── AI 解説 (Claude API) ──────────────────────────────────────────

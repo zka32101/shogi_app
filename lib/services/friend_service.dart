@@ -135,6 +135,9 @@ class FriendService {
       // 自分への申請はNG
       if (senderId == recipientId) return false;
 
+      // ブロック関係がある場合はNG（どちらがブロックしていても不可）
+      if (await _isBlockedEitherWay(senderId, recipientId)) return false;
+
       // すでにフレンドか確認
       final existing = await _firestore
           .collection('friends')
@@ -341,10 +344,15 @@ class FriendService {
     if (query.trim().isEmpty) return [];
     try {
       // ユーザー名で前方一致検索
+      // 以前は上限に '${query}z' を使っていたが、'z'(U+007A) はひらがな・
+      // カタカナ・漢字（U+3040以降）より前にソートされるため、日本語の
+      // ユーザー名がほとんどこの範囲に収まらず検索結果から漏れていた。
+      // Firestoreの前方一致検索の定石である ''（非常に大きい値の
+      // プライベート使用領域文字）を使い、任意の文字集合で正しく機能させる
       final snap = await _firestore
           .collection('users')
           .where('username', isGreaterThanOrEqualTo: query)
-          .where('username', isLessThan: '${query}z')
+          .where('username', isLessThan: '$query')
           .limit(20)
           .get();
       return snap.docs.map((d) {
@@ -446,5 +454,30 @@ class FriendService {
   /// 順序不問のフレンドドキュメントID（uid1_uid2 or uid2_uid1 の小さい方）
   String _friendDocId(String a, String b) {
     return a.compareTo(b) < 0 ? '${a}_$b' : '${b}_$a';
+  }
+
+  /// aがbをブロック、またはbがaをブロックしているかを確認（どちらか一方でも真）
+  /// NetworkService.isBlockedと同じ users/{uid}/blocked_users/{target} を参照する
+  Future<bool> _isBlockedEitherWay(String a, String b) async {
+    try {
+      final results = await Future.wait([
+        _firestore
+            .collection('users')
+            .doc(a)
+            .collection('blocked_users')
+            .doc(b)
+            .get(),
+        _firestore
+            .collection('users')
+            .doc(b)
+            .collection('blocked_users')
+            .doc(a)
+            .get(),
+      ]);
+      return results.any((doc) => doc.exists);
+    } catch (e) {
+      // ブロック確認に失敗した場合は安全側に倒さず通常フローを続行する
+      return false;
+    }
   }
 }
