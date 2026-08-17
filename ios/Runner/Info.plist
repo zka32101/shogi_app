@@ -53,7 +53,10 @@
 	<string>LaunchScreen</string>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
-	<!-- TODO: Replace with real AdMob App ID before production release -->
+	<!-- ⚠️ TODO: これはGoogle公式のサンプル用テストApp IDです。本番ストア提出前に
+	     必ずAdMob Consoleでこのアプリを登録して発行される実際のApp IDに
+	     置き換えてください。テストIDのまま本番配信するとAdMobプログラム
+	     ポリシー違反となり、アカウント停止のリスクがあります -->
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>SKAdNetworkItems</key>

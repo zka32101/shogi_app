@@ -1,35 +1,36 @@
 # Google Play リリースチェックリスト
-# 将棋 - Shogi Board（com.petitStudio.shogiApp）
+# 効棋 / Kouki（com.petitworksapps.kouki）
 
-生成日: 2026-05-23 | アプリタイプ: ボードゲーム / 教育（将棋）
+生成日: 2026-05-23 | 更新日: 2026-08-17 | アプリタイプ: ボードゲーム / 教育（将棋）
+
+> ⚠️ このファイルは 2026-05-23 時点の生成後、しばらく更新されずアプリ名・
+> パッケージ名・IAP商品ID等が実装と食い違っていた（旧アプリ名「将棋 - Shogi Board」
+> ／旧パッケージ名 `com.petitStudio.shogiApp` のまま）。現在の実装（`android/app/
+> build.gradle.kts` の `applicationId` = `com.petitworksapps.kouki`、
+> `AndroidManifest.xml` のアプリラベル = 「効棋 - Kouki」、
+> `lib/purchase_service.dart` のIAP商品ID）に合わせて更新済み。
 
 ---
 
 ## ✅ Phase 1: ビルド・署名
 
-- [ ] **Android 署名鍵を作成**
+- [x] `android/app/build.gradle.kts` の `signingConfig` は `key.properties`（gitignore対象）を
+      参照する構成に済み。**未対応**: `key.properties` 自体の作成とCI用Secretsの登録
+      （手順は `android/ANDROID_RELEASE_SETUP.md` を参照）
   ```bash
-  keytool -genkey -v -keystore shogi_release.jks \
-    -alias shogi -keyalg RSA -keysize 2048 -validity 10000
+  keytool -genkey -v -keystore upload-keystore.jks \
+    -alias upload -keyalg RSA -keysize 2048 -validity 10000
   ```
-- [ ] `build.gradle.kts` の `signingConfig` を debug → release に変更
-  ```kotlin
-  signingConfigs {
-    create("release") {
-      storeFile = file("shogi_release.jks")
-      storePassword = System.getenv("KEY_STORE_PASSWORD")
-      keyAlias = "shogi"
-      keyPassword = System.getenv("KEY_PASSWORD")
-    }
-  }
-  buildTypes {
-    release { signingConfig = signingConfigs.getByName("release") }
-  }
-  ```
-- [x] `flutter build apk --release` で APK 生成 ✅ 55.8MB（release-outputs/builds/android/app-release.apk）
-- [x] `flutter build appbundle --release` で AAB 生成 ✅ 46.7MB（release-outputs/builds/android/app-release.aab）
-- [x] AAB のサイズ確認 ✅ 46.7MB（推奨 100MB 以下 — OK）
+- [x] `android/app/build.gradle.kts` で `isMinifyEnabled`/`isShrinkResources` を有効化済み
+      （`android/app/proguard-rules.pro` 参照。要実ビルド動作確認）
+- [ ] `.github/workflows/deploy.yml`（`workflow_dispatch`）で署名付きAABをビルドし、
+      Actions成果物としてダウンロード（詳細は `android/ANDROID_RELEASE_SETUP.md`）
 - [ ] Google Play Console で **アプリ署名** を有効化（推奨）
+
+> 以前このセクションには「APK/AAB生成済み・55.8MB/46.7MB・署名: debug key」という
+> チェック済み記載があったが、実体は debug 鍵で署名された提出不可能なビルドで、
+> リポジトリに直接コミットされていた（現在は履歴から削除・.gitignore対象化済み）。
+> 提出用のAABは上記の正しい署名フローで都度ビルドし直すこと。
 
 ---
 
@@ -48,25 +49,32 @@
 - [ ] [AdMob Console](https://admob.google.com/) でアプリを登録
 - [ ] 本番 App ID を `AndroidManifest.xml` に設定
   ```xml
-  <!-- 現在: テスト用 ca-app-pub-3940256099942544~3347511713 -->
+  <!-- 現在: テスト用 ca-app-pub-3940256099942544~3347511713（TODOコメント有り） -->
   <meta-data
     android:name="com.google.android.gms.ads.APPLICATION_ID"
     android:value="ca-app-pub-XXXXXXXXXX~XXXXXXXXXX"/>  <!-- ← 本番ID -->
   ```
-- [ ] 広告ユニットID（Banner/Interstitial）を本番IDに変更
+- [x] 広告ユニットID（Banner）はリリースビルドで `--dart-define=ADMOB_ANDROID_BANNER_ID=...`
+      `--dart-define=ADMOB_IOS_BANNER_ID=...` を指定する方式に変更済み
+      （`lib/ad_service_mobile.dart`）。デバッグビルドはGoogle公式テストIDを自動使用。
+      **未対応**: 本番Ad Unit IDの取得・実際の指定
 - [ ] テスト端末で広告表示確認
 
 ---
 
 ## ✅ Phase 4: IAP（アプリ内課金）設定
 
-- [ ] Google Play Console → 収益化 → 製品 で以下を作成:
-  | 製品ID | 種別 | 価格 | 説明 |
+- [ ] Google Play Console → 収益化 → 製品 で以下を作成（`lib/purchase_service.dart` と
+      一致させること。旧版は `liki_shogi_no_ads_monthly`/`liki_shogi_theme_pack` という
+      異なる商品IDで記載されていたが、実装と食い違っていたため修正）:
+  | 製品ID | 種別 | 価格目安 | 説明 |
   |--------|------|------|------|
-  | `liki_shogi_no_ads_monthly` | サブスク | ¥250/月 | Proプラン（広告非表示） |
-  | `liki_shogi_theme_pack` | 買い切り | ¥120 | テーマパック（エメラルド・桜） |
-- [ ] サブスクの自動更新・猶予期間を設定
-- [ ] IAP の実機テスト（ライセンステスター登録）
+  | `liki_shogi_plan_300` | 買い切り（non-consumable） | ¥300 | プレミアム機能解放 |
+  | `liki_shogi_plan_500` | 買い切り（non-consumable） | ¥500 | プレミアム機能解放（上位プラン） |
+
+  いずれか一方を購入すればプレミアム状態になる（`PurchaseService.isPremium`）。
+  サブスクリプションではなく買い切りのため、自動更新・猶予期間の設定は不要。
+- [ ] IAP の実機テスト（ライセンステスター登録・`restorePurchases`の動作確認）
 
 ---
 
@@ -84,8 +92,8 @@
 ## ✅ Phase 6: Google Play Console 設定
 
 ### ストア掲載情報
-- [ ] **アプリ名（日本語）**: 将棋 - Shogi Board
-- [ ] **アプリ名（英語）**: Shogi - Japanese Chess Board
+- [ ] **アプリ名（日本語）**: 効棋 (Kouki)
+- [ ] **アプリ名（英語）**: Kouki - Shogi
 - [ ] **短い説明（80文字以内）**: 本格将棋アプリ。AI対局・ネット対局・棋譜管理・手筋トレーニング搭載
 - [ ] **詳細説明（4000文字以内）**: ↓ 以下をカスタマイズ
   ```
@@ -169,19 +177,20 @@ release-outputs/
 │   └── android/
 │       ├── SCREENSHOT_GUIDE.md  ✅ 生成済み
 │       └── screenshots/         ← スクリーンショットをここに配置
-├── builds/
-│   └── android/
-│       ├── app-release.apk    ✅ 55.8MB（署名: debug key）
-│       └── app-release.aab    ✅ 46.7MB（署名: debug key）
 └── GOOGLE_PLAY_CHECKLIST.md   ✅ このファイル
 ```
+
+> `builds/android/app-release.{apk,aab}` は debug 鍵で署名された提出不可能な
+> ビルドで、リポジトリに直接コミットされていたため削除した（`.gitignore` で
+> `release-outputs/builds/` を対象化済み）。提出用ビルドは
+> `android/ANDROID_RELEASE_SETUP.md` の手順で都度生成すること。
 
 ---
 
 ## 🚨 リリース前の最重要 TODO
 
-1. **Firebase 本番設定** (`firebase_options.dart` を置き換え)
-2. **AdMob App ID** を本番IDに変更
-3. **Android 署名鍵** を作成して設定
-4. **プライバシーポリシー** を公開URLにホスティング
-5. **IAP 製品** を Google Play Console に登録
+1. **AdMob App ID / Ad Unit ID** を本番IDに変更（`AndroidManifest.xml`・`ios/Runner/Info.plist`・`--dart-define`）
+2. **Android 署名鍵** を作成し `android/ANDROID_RELEASE_SETUP.md` の手順でGitHub Secretsに登録
+3. **プライバシーポリシー・利用規約** を公開URLにホスティング（`release-outputs/policies/`。連絡先は現状プレースホルダ `support@petitworksapps.example` のため実際の連絡先メールに差し替えること）
+4. **IAP 製品**（`liki_shogi_plan_300`／`liki_shogi_plan_500`）を Google Play Console に登録
+5. `isMinifyEnabled`/`isShrinkResources` 有効化後のリリースビルドで主要機能の動作確認

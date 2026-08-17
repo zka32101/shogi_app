@@ -1,9 +1,9 @@
 # プライバシーポリシー / Privacy Policy
 
-**アプリ名 / App Name**: 将棋 - Shogi Board  
+**アプリ名 / App Name**: 効棋 (Kouki)  
 **開発者 / Developer**: Petit Studio  
-**最終更新 / Last Updated**: 2026-05-23  
-**パッケージ / Package ID**: com.petitStudio.shogiApp
+**最終更新 / Last Updated**: 2026-08-17  
+**パッケージ / Package ID**: com.petitworksapps.kouki
 
 ---
 
@@ -27,13 +27,17 @@
 | **Google AdMob** | 広告表示（サブスク未加入の場合） | 広告ID・デバイス情報 | [Google Privacy](https://policies.google.com/privacy) |
 | **Google Play In-App Purchase** | サブスクリプション・テーマパック購入 | 購入情報（Google Play 経由） | [Google Play Privacy](https://play.google.com/intl/ja/about/play-terms/) |
 | **Sentry** | クラッシュレポート・エラートラッキング | エラーログ・スタックトレース（個人情報なし） | [Sentry Privacy](https://sentry.io/privacy/) |
+| **端末OSの音声認識機能**（Apple / Google） | 音声による棋譜入力・読み上げ操作 | マイクの音声データ（機能利用時のみ） | [Apple Privacy](https://www.apple.com/legal/privacy/) / [Google Privacy](https://policies.google.com/privacy) |
+
+音声入力機能をオンにした場合、マイクにアクセスし、端末OS標準の音声認識機能（Apple/Googleが提供）を通じて音声をテキストに変換します。この音声データは本アプリ独自のサーバーには送信・保存されませんが、端末OSの音声認識処理の一環としてApple/Googleのサービスに送信される場合があります。マイクへのアクセスは音声入力機能を実際に使用したときのみ行われます。
 
 ### 2. 収集しない情報
 
 本アプリは以下の情報を**一切収集しません**：
 - 氏名・メールアドレス・電話番号などの個人識別情報
 - 位置情報（GPS）
-- 連絡先・カメラ・マイクへのアクセス
+- カメラへのアクセス（マイクは上記「音声入力機能」利用時のみアクセスします）
+- 連絡先へのアクセス
 - 他のアプリのデータ
 
 ### 3. ネットワーク対局について
@@ -78,11 +82,15 @@
 | **Google AdMob** | Advertising (for non-subscribers) | Advertising ID, device info | [Google Privacy](https://policies.google.com/privacy) |
 | **Google Play IAP** | Subscription & theme pack purchase | Purchase info via Google Play | [Google Play Privacy](https://play.google.com/intl/en/about/play-terms/) |
 | **Sentry** | Crash reports & error tracking | Error logs, stack traces (no PII) | [Sentry Privacy](https://sentry.io/privacy/) |
+| **Device OS speech recognition** (Apple / Google) | Voice input for entering/reading game records | Microphone audio (only while the feature is in use) | [Apple Privacy](https://www.apple.com/legal/privacy/) / [Google Privacy](https://policies.google.com/privacy) |
+
+When you enable voice input, the app accesses the microphone and converts speech to text using your device's built-in speech recognition (provided by Apple or Google). This audio is not sent to or stored on our own servers, but it may be sent to Apple's or Google's speech recognition services as part of the device OS's standard processing. The microphone is only accessed while the voice input feature is actively in use.
 
 ### 2. Information We Do NOT Collect
 - Personal identifiers (name, email, phone number)
 - Location data (GPS)
-- Access to contacts, camera, or microphone
+- Access to the camera (the microphone is accessed only for the voice input feature described above)
+- Access to contacts
 - Data from other applications
 
 ### 3. Children's Privacy

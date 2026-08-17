@@ -43,7 +43,10 @@
             android:exported="false"
             tools:node="remove" />
 
-        <!-- TODO: Replace with real AdMob App ID before production release -->
+        <!-- ⚠️ TODO: これはGoogle公式のサンプル用テストApp IDです。本番ストア提出前に
+             必ずAdMob Consoleでこのアプリを登録して発行される実際のApp IDに
+             置き換えてください。テストIDのまま本番配信するとAdMobプログラム
+             ポリシー違反となり、アカウント停止のリスクがあります -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-3940256099942544~3347511713"/>
