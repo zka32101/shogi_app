@@ -191,6 +191,6 @@ release-outputs/
 
 1. **AdMob App ID / Ad Unit ID** を本番IDに変更（`AndroidManifest.xml`・`ios/Runner/Info.plist`・`--dart-define`）
 2. **Android 署名鍵** を作成し `android/ANDROID_RELEASE_SETUP.md` の手順でGitHub Secretsに登録
-3. **プライバシーポリシー・利用規約** を公開URLにホスティング（`release-outputs/policies/`。連絡先は現状プレースホルダ `yourwishdev@gmail.com` のため実際の連絡先メールに差し替えること）
+3. **プライバシーポリシー・利用規約** を公開URLにホスティング（`release-outputs/policies/`。連絡先は現状プレースホルダ `zkaz83@gmail.com` のため実際の連絡先メールに差し替えること）
 4. **IAP 製品**（`liki_shogi_plan_300`／`liki_shogi_plan_500`）を Google Play Console に登録
 5. `isMinifyEnabled`/`isShrinkResources` 有効化後のリリースビルドで主要機能の動作確認

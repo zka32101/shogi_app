@@ -30,7 +30,7 @@
 本規約は日本法に準拠し、東京地方裁判所を管轄裁判所とします。
 
 ### 第6条（お問い合わせ）
-**Email**: yourwishdev@gmail.com
+**Email**: zkaz83@gmail.com
 
 ---
 
@@ -56,4 +56,4 @@ App provided "as is". No liability for service interruption or data loss.
 These terms are governed by the laws of Japan.
 
 ### 6. Contact
-**Email**: yourwishdev@gmail.com — Petit Studio
+**Email**: zkaz83@gmail.com — Petit Studio
