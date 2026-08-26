@@ -469,7 +469,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
         );
         setState(() => _isLoading = false);
       }
@@ -518,7 +518,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
         );
         setState(() => _isLoading = false);
       }
@@ -567,7 +567,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
         );
         setState(() => _isLoading = false);
       }

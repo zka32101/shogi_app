@@ -545,7 +545,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
       }
     } finally {
       if (mounted) setState(() => _isMakingMove = false);
@@ -582,7 +582,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
         setState(() => _isResigning = false);
       }
     }
@@ -881,7 +881,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
       }
     }
   }
@@ -963,7 +963,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラー: $e')));
+            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
       }
     }
   }
@@ -1015,7 +1015,7 @@ class _MatchScreenState extends State<MatchScreen> {
           } catch (e) {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('投了処理に失敗しました: $e')),
+                SnackBar(content: Text('投了処理に失敗しました。時間をおいて再度お試しください')),
               );
             }
           }

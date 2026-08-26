@@ -302,7 +302,7 @@ class _AsyncTrainingDuelScreenState extends State<AsyncTrainingDuelScreen>
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('エラー: $e')),
+                      SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
                     );
                   }
                 }
