@@ -117,7 +117,6 @@ class CheatDetectionService {
         await _flagUserForReview(userId, score, flags);
       }
     } catch (e) {
-      print('Cheat analysis error: $e');
     }
 
     return CheatAnalysisResult(
@@ -345,7 +344,6 @@ class CheatDetectionService {
         'requires_review': score >= _warnThreshold,
       }, SetOptions(merge: true));
     } catch (e) {
-      print('Save analysis error: $e');
     }
   }
 
@@ -363,10 +361,7 @@ class CheatDetectionService {
         'flagged_for_review': true,
         'flagged_at': DateTime.now(),
       });
-      print(
-          'User $userId flagged for review (score: $score, flags: $flags)');
     } catch (e) {
-      print('Flag user error: $e');
     }
   }
 
@@ -388,7 +383,6 @@ class CheatDetectionService {
         'flagged_for_review': false,
       });
     } catch (e) {
-      print('Clear flag error: $e');
     }
   }
 
@@ -403,7 +397,6 @@ class CheatDetectionService {
           .doc(userId)
           .set(tracker.toFirestoreMap(), SetOptions(merge: true));
     } catch (e) {
-      print('Save in-game tracking error: $e');
     }
   }
 
@@ -425,7 +418,6 @@ class CheatDetectionService {
         }
       }
     } catch (e) {
-      print('Batch analyze error: $e');
     }
     return results;
   }

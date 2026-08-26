@@ -89,11 +89,8 @@ class NetworkGameService {
       try {
         await FirebaseAuth.instance.signInAnonymously()
             .timeout(const Duration(seconds: 5));
-        print('[MATCH] 匿名認証完了: ${FirebaseAuth.instance.currentUser?.uid}');
       } on TimeoutException {
-        print('[MATCH] 匿名認証タイムアウト（ランダムIDで続行）');
       } catch (e) {
-        print('[MATCH] 匿名認証失敗（ランダムIDで続行）: $e');
       }
     }
     if (completer.isCompleted) return completer.future;
@@ -104,8 +101,6 @@ class NetworkGameService {
     // ── Step1: 自分のエントリを追加 ───────────────────────────────────────
     final myRef = mqRef.push();
     _myMatchKey = myRef.key!;
-    print('[MATCH] 参加 myKey=$_myMatchKey uid=$myId');
-
     try {
       await myRef.set({
         'userId':       myId,
@@ -115,9 +110,7 @@ class NetworkGameService {
         'timeLimitSec': timeLimitSec,
         'createdAt':    ServerValue.timestamp,
       });
-      print('[MATCH] RTDBエントリ作成完了 key=$_myMatchKey');
     } catch (e) {
-      print('[MATCH] RTDBエントリ作成失敗: $e');
       if (!completer.isCompleted) {
         completer.completeError(Exception('RTDB接続エラー: $e'));
       }
@@ -151,7 +144,6 @@ class NetworkGameService {
           final createdAt = (d['createdAt'] as num?)?.toInt() ?? 0;
           if (createdAt > 0 && nowMs - createdAt > 120000) {
             mqRef.child(key).remove().catchError((_) {});
-            print('[MATCH] 古いエントリ削除: $key');
             continue;
           }
           // 持ち時間が一致しないと対局が成立しないため、これは常に必須のフィルタ
@@ -171,14 +163,12 @@ class NetworkGameService {
           }
         }
       } catch (e) {
-        print('[MATCH] スキャンエラー: $e');
       }
       return (foundKey, foundRating);
     }
 
     // 見つかったホストのゲストとして参加する
     Future<void> becomeGuest(String hostKey, int? hostRating) async {
-      print('[MATCH] GUEST → ホスト=$hostKey');
       _rescanTimer?.cancel();
       _rescanTimer = null;
 
@@ -201,8 +191,6 @@ class NetworkGameService {
         if (data == null) return;
         final matchId = data['roomCode'] as String?;
         if (matchId == null || matchId.isEmpty) return;
-
-        print('[MATCH] GUEST完了: matchId=$matchId');
         _matchWatchSub?.cancel();
         _isHost   = false;
         _matchId  = matchId;
@@ -237,7 +225,6 @@ class NetworkGameService {
       await becomeGuest(foundHostKey, foundHostRating);
     } else {
       // ══ ホストとして待機 ════════════════════════════════════════════════
-      print('[MATCH] HOST 待機中 myKey=$_myMatchKey');
       _isHost = true;
       bool _roomCreating = false;
 
@@ -275,8 +262,6 @@ class NetworkGameService {
         _matchWatchSub?.cancel();
         _rescanTimer?.cancel();
         _rescanTimer = null;
-        print('[MATCH] HOST: ゲスト参加確認 → マッチ作成');
-
         try {
           final hostUid  = myId;
           final guestUid = data['guestId'] as String? ?? 'guest_${Random().nextInt(9999)}';
@@ -312,13 +297,10 @@ class NetworkGameService {
               'created_at':   FieldValue.serverTimestamp(),
             });
           } catch (fe) {
-            print('[MATCH] HOST: Firestore作成スキップ（RTDBのみで続行）: $fe');
           }
 
           _matchId  = matchId;
           _roomCode = matchId;
-          print('[MATCH] HOST: matchId=$matchId');
-
           // ゲストにmatchIdをroomCodeとして通知
           await myRef.update({'roomCode': matchId, 'status': 'playing'});
 
@@ -335,7 +317,6 @@ class NetworkGameService {
             ));
           }
         } catch (e) {
-          print('[MATCH] HOST: マッチ作成失敗 $e');
           try {
             await myRef.update({
               'status':      'open',
@@ -362,8 +343,6 @@ class NetworkGameService {
 
   /// マッチングをキャンセル（UIをブロックしない同期的キャンセル）
   static void cancelMatchmaking() {
-    print('[CLEANUP] マッチングキャンセル');
-
     // Active completer を即時エラーで完了させる（startMatchmaking のawaitを解放）
     final c = _activeCompleter;
     _activeCompleter = null;
@@ -559,7 +538,6 @@ class NetworkGameService {
     // ルームを削除（ホストのみ）
     if (_isHost && _roomCode != null) {
       FirebaseDatabase.instance.ref('rooms/$_roomCode').remove().catchError((_) {});
-      print('[CLEANUP] dispose: ルーム削除 $_roomCode');
     }
     _myMatchKey = null;
     _roomCode = null;
@@ -601,9 +579,7 @@ class NetworkGameService {
             if (_isHost && _roomCode != null) {
               try {
                 await FirebaseDatabase.instance.ref('rooms/$_roomCode').remove();
-                print('[CLEANUP] 対局終了後、ルーム削除: $_roomCode');
               } catch (e) {
-                print('[CLEANUP] ルーム削除失敗: $e');
               }
             }
           });

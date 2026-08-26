@@ -295,7 +295,6 @@ class _MatchScreenState extends State<MatchScreen> {
         );
       }
     } catch (e) {
-      print('Init board error: $e');
     }
   }
 
@@ -308,7 +307,6 @@ class _MatchScreenState extends State<MatchScreen> {
           .watchOpponentPresence(widget.matchId, widget.isPlayer1)
           .listen(_onOpponentPresence);
     } catch (e) {
-      print('[Presence] init error: $e');
     }
   }
 
@@ -361,7 +359,6 @@ class _MatchScreenState extends State<MatchScreen> {
       await _networkService.finishMatchWithRating(
           widget.matchId, myId, 'disconnect');
     } catch (e) {
-      print('[Presence] claim victory error: $e');
     }
   }
 
@@ -474,7 +471,6 @@ class _MatchScreenState extends State<MatchScreen> {
         );
       }
     } catch (e) {
-      print('Timeout error: $e');
     }
   }
 

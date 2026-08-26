@@ -54,7 +54,6 @@ class PracticePointsSystem {
       await _recordHistory(prefs, points);
     } catch (e) {
       // SharedPreferences エラーを無視（ゲーム進行を止めない）
-      print('PracticePointsSystem error: $e');
     }
   }
 

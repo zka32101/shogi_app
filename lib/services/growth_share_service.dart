@@ -41,7 +41,6 @@ class GrowthShareService {
         await file.delete();
       }
     } catch (e) {
-      print('❌ シェアエラー: $e');
     }
   }
 

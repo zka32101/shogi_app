@@ -81,7 +81,6 @@ class ChatService {
         'sent_at': ServerValue.timestamp,
       });
     } catch (e) {
-      print('Send preset message error: $e');
     }
   }
 
@@ -125,7 +124,6 @@ class ChatService {
         'sent_at': ServerValue.timestamp,
       });
     } catch (e) {
-      print('Send post match message error: $e');
     }
   }
 

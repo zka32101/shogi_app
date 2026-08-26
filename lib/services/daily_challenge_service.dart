@@ -312,7 +312,6 @@ class DailyChallengeService {
         );
       }
     } catch (e) {
-      print('Update challenge progress error: $e');
     }
   }
 
@@ -356,7 +355,6 @@ class DailyChallengeService {
             amount: ratingChange);
       }
     } catch (e) {
-      print('On match finished challenge update error: $e');
     }
   }
 
@@ -495,7 +493,6 @@ class DailyChallengeService {
 
       return streak;
     } catch (e) {
-      print('Update login streak error: $e');
       return 0;
     }
   }
