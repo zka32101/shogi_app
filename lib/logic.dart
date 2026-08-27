@@ -442,6 +442,13 @@ class RepetitionChecker {
     _posInCheck.clear();
   }
 
+  /// 局面ハッシュを公開（呼び出し側が「同一局面についての重複通知」を
+  /// 抑止する目的などで使用する。record/isConsecutiveCheckと同じハッシュ
+  /// 関数を使うことで、局面の同一性判定を一致させる）
+  static String hashOf(List<List<Piece?>> board, Map<PieceType, int> p1Hand,
+          Map<PieceType, int> p2Hand, bool p1Turn) =>
+      _hash(board, p1Hand, p2Hand, p1Turn);
+
   // 現局面で p1Turn 側が王手されているか（inCheck の static wrapper）
   static bool inCheck(List<List<Piece?>> board, bool p1Turn) =>
       GL.inCheck(board, p1Turn);
@@ -525,6 +532,17 @@ class AI {
 
   /// 対局開始前に呼ぶ。personality=nullでデフォルト評価関数に戻る
   static void setPersonality(AiPersonality? personality, {bool aiIsP1 = true}) {
+    // 置換表(_tt)は局面（盤面・持ち駒・手番）のみをキーにしており、棋風
+    // (personality)やAI側の手番(aiIsP1)は含まれない。しかしeval()はこれら
+    // 静的フィールドを参照してスコアを計算するため、棋風・AI側が変わる
+    // 前に探索したエントリを使い回すと、異なる棋風で評価したスコアが
+    // 別の棋風の探索に混入する（幽霊対局・棋力診断など、1つのisolate内で
+    // setPersonalityを複数回呼び分けるケースで発生しうる）。変更時のみ
+    // 置換表をクリアして正しさを優先する（同一棋風のまま呼ばれる通常の
+    // 対局中は不要なクリアが発生せず、既存のTT再利用による高速化を維持）
+    if (_personality != personality || _personalityAiIsP1 != aiIsP1) {
+      _tt.clear();
+    }
     _personality = personality;
     _personalityAiIsP1 = aiIsP1;
   }
@@ -1248,7 +1266,16 @@ class AI {
     // ── 葉ノード ──
     if (depth == 0) {
       final s = _qSearch(b, p1h, p2h, alpha, beta, maximizing, aiIsP1, 4);
-      _tt[hash] = _TTEntry(s, 0, _TTFlag.exact);
+      // _qSearch はstand-patのα/β枝刈りにより、確定値ではなく上限値/下限値
+      // のみを返すことがある（例: standPat>=betaでの早期returnはβ以上である
+      // ことしか保証しない下限値）。それを一律exactとして保存すると、後続の
+      // 探索がその値を「確定した正確な評価値」として無条件に信用してしまい、
+      // 誤った枝刈り・悪手選択につながる。内部ノードの保存（下記）と同じ
+      // 判定式で、実際に確定できた種別のフラグを付ける
+      final flag = s <= origAlpha ? _TTFlag.alpha
+          : s >= beta    ? _TTFlag.beta
+          : _TTFlag.exact;
+      _tt[hash] = _TTEntry(s, 0, flag);
       return s;
     }
 

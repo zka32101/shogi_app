@@ -68,7 +68,15 @@ class _MatchScreenState extends State<MatchScreen> {
 
   // 千日手検出: RepetitionChecker（連続王手検出対応）
   final _repChecker = RepetitionChecker();
-  bool _sennichiteHandled = false;
+  // 千日手ダイアログを一度通知済みの局面ハッシュ集合。
+  // 「続ける」選択後に同一局面が繰り返し検出され続けてダイアログが連発
+  // するのを防ぐための重複抑止。以前は単一のbool(_sennichiteHandled)で
+  // &&により_repChecker.record()自体を丸ごとスキップしていたため、一度
+  // 千日手ダイアログを閉じると、以降その対局では別の局面の千日手判定や
+  // 連続王手（本来は自動負けになるべき）が二度と検出されなくなる致命的な
+  // バグがあった。局面ハッシュ単位で管理することで、record()は毎回必ず
+  // 呼びつつ、同じ局面についての再通知だけを抑止する
+  final Set<String> _notifiedSennichiteHashes = {};
 
   // 互換性のため残す（_checkSpecialEndings で使用）
   final List<String> _boardHistory = [];
@@ -619,18 +627,24 @@ class _MatchScreenState extends State<MatchScreen> {
     final isP1Turn = !widget.isPlayer1; // 相手番（今しがた指した後の次番）
 
     // ── 千日手チェック（RepetitionChecker 使用 · 連続王手検出対応）──
-    if (!_sennichiteHandled &&
-        _repChecker.record(board, p1Hand, p2Hand, isP1Turn)) {
-      _sennichiteHandled = true;
+    // record()は毎手必ず呼ぶ（局面カウントを止めない）。ダイアログの
+    // 重複表示だけを局面ハッシュ単位で抑止する
+    if (_repChecker.record(board, p1Hand, p2Hand, isP1Turn)) {
       final isConsecutiveCheck =
           _repChecker.isConsecutiveCheck(board, p1Hand, p2Hand, isP1Turn);
       if (isConsecutiveCheck) {
         // 連続王手の千日手: isP1Turn 側に王手をかけ続けた相手（!isP1Turn）が負け
         // ネットワーク対局では自分が王手をかけていたかで判定
+        // （対局が終局するため重複抑止は不要）
         final checkerIsMe = widget.isPlayer1 != isP1Turn;
         _showConsecutiveCheckLossDialog(myLose: checkerIsMe);
       } else {
-        _showSennichiteDialog();
+        final hash = RepetitionChecker.hashOf(board, p1Hand, p2Hand, isP1Turn);
+        if (_notifiedSennichiteHashes.add(hash)) {
+          // add()はSetに未登録だった場合のみtrueを返すため、
+          // 同一局面についての二度目以降の通知はここで自然に抑止される
+          _showSennichiteDialog();
+        }
       }
       return;
     }

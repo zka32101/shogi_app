@@ -142,7 +142,7 @@ class NetworkService {
     // しまうため、「まだactive/未終局の場合のみ確定」というトランザクションで
     // 排他制御する。既に別クライアントが終局を確定済みならabortして何もしない
     // （abortは例外を投げないため、呼び出し元の挙動は変わらない）
-    await FirebaseDatabase.instance.ref('games/$matchId').runTransaction((Object? current) {
+    final txResult = await FirebaseDatabase.instance.ref('games/$matchId').runTransaction((Object? current) {
       if (current == null) return Transaction.abort();
       final data = Map<dynamic, dynamic>.from(current as Map);
       final currentStatus = data['status'] as String?;
@@ -154,6 +154,13 @@ class NetworkService {
       data['result'] = result;
       return Transaction.success(data);
     });
+    // RTDBトランザクションがabortした（＝別クライアントが既に終局を確定済み）
+    // 場合はここで打ち切る。以前はこの結果を見ずに常にFirestoreを上書き
+    // していたため、両者がほぼ同時に異なる結果（例: 片方は詰み検知、もう
+    // 片方は時間切れ検知）を確定させると、RTDB側は排他制御で正しく先勝ち
+    // が残るのに、Firestore側（対局結果の永続記録）だけが後から誤った
+    // 結果で上書きされてしまうバグがあった
+    if (!txResult.committed) return;
     // Firestoreへの更新（オプション: 認証エラー時はスキップ）
     try {
       await _firestore.collection('matches').doc(matchId).update({
