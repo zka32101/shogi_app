@@ -149,12 +149,44 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
     return Column(
       children: [
         _buildHandRow(oppHand, isMyHand: false),
+        // ✨ 改善 Phase 3.1: 手番表示の改善
+        _buildTurnIndicator(),
         const SizedBox(height: 2),
         Expanded(child: _buildBoardWithLabels()),
         const SizedBox(height: 2),
         _buildHandRow(myHand, isMyHand: true),
         _buildAttackMapToggle(),
       ],
+    );
+  }
+
+  // ✨ 改善 Phase 3.1: 目立つ手番表示
+  Widget _buildTurnIndicator() {
+    final isMyTurn = widget.isMyTurn;
+    return Container(
+      height: 32,
+      color: isMyTurn
+          ? Colors.green.shade700.withAlpha(180)
+          : Colors.grey.shade700.withAlpha(180),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            isMyTurn ? Icons.undo_outlined : Icons.done_all,
+            color: Colors.white,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            isMyTurn ? '👤 あなたの番です' : '⏳ 相手の番です',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -373,7 +405,7 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
       top: y,
       width: cellSz,
       height: cellSz,
-      child: Center(child: _buildKomaTile(piece, cellSz, cellSz)),
+      child: Center(child: _buildKomaTile(piece, cellSz, cellSz, isSelected: false)),
     );
   }
 
@@ -392,11 +424,15 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
         _animTC == col &&
         _anim.value < 0.999;
 
-    // 背景色
+    // ✨ 改善 Phase 3.1: 背景色 + 最後の手のハイライト強化
     Color bg = _themeConfig.cell;
     if (isSelected) {
       bg = Colors.amber.shade300;
-    } else if (isLastTo || isLastFrom) {
+    } else if (isLastTo) {
+      // 移動先: より目立つハイライト
+      bg = Colors.amber.shade200;
+    } else if (isLastFrom) {
+      // 移動元: 薄いハイライト
       bg = Colors.amber.shade100;
     }
 
@@ -428,8 +464,10 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
       cellBorder = Border.all(color: _themeConfig.cellBorder, width: 0.5);
     }
 
+    // ✨ 改善 Phase 3.2: タップ領域拡大（±5pxの誤差をカバー）
     return GestureDetector(
       onTap: () => _onTapCell(row, col),
+      behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: cellW,
         height: cellH,
@@ -440,7 +478,7 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
             children: [
               // 駒（アニメーション中の移動先は非表示）
               if (piece != null && !isAnimDst)
-                Center(child: _buildKomaTile(piece, cellW, cellH)),
+                Center(child: _buildKomaTile(piece, cellW, cellH, isSelected: isSelected)),
               // 合法手: 空マス → ドット
               if (isLegal && piece == null)
                 Center(
@@ -492,26 +530,47 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
     );
   }
 
-  Widget _buildKomaTile(Piece piece, double cellW, double cellH) {
+  Widget _buildKomaTile(Piece piece, double cellW, double cellH, {bool isSelected = false}) {
     final pointsUp = piece.isPlayer1 == widget.isPlayer1;
     final quarterTurns = pointsUp ? 0 : 2;
+
+    // ✨ 改善 Phase 3.1: 駒サイズ拡大 (0.88 → 0.98)
+    final komaScale = isSelected ? 1.05 : 0.98;  // 選択時はさらに拡大
+    final komaWidth = cellW * komaScale;
+    final komaHeight = cellH * komaScale;
+
+    // ✨ 改善 Phase 3.2: 選択時に視覚フィードバック（影）
     return SizedBox(
-      width: cellW * 0.88,
-      height: cellH * 0.88,
-      child: CustomPaint(
-        painter: KomaPainter(
-          pointsUp: pointsUp,
-          fill: const Color(0xFFF4DDA6),
-          border: const Color(0xFFC49A4E),
-        ),
-        child: Center(
-          child: RotatedBox(
-            quarterTurns: quarterTurns,
-            child: Text(
-              piece.label,
-              style: komaLabelStyle(
-                isPromoted: piece.isPromoted,
-                fontSize: cellW * 0.52,
+      width: komaWidth,
+      height: komaHeight,
+      child: Container(
+        decoration: isSelected
+            ? BoxDecoration(
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.amber.withAlpha(180),
+                    blurRadius: 8,
+                    spreadRadius: 2,
+                  ),
+                ],
+              )
+            : null,
+        child: CustomPaint(
+          painter: KomaPainter(
+            pointsUp: pointsUp,
+            fill: const Color(0xFFF4DDA6),
+            border: const Color(0xFFC49A4E),
+          ),
+          child: Center(
+            child: RotatedBox(
+              quarterTurns: quarterTurns,
+              child: Text(
+                piece.label,
+                style: komaLabelStyle(
+                  isPromoted: piece.isPromoted,
+                  fontSize: cellW * 0.54,  // フォントサイズもわずかに拡大
+                ),
               ),
             ),
           ),
@@ -544,6 +603,7 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
                           onTap: isMyHand && widget.isMyTurn
                               ? () => _onTapHandPiece(e.key)
                               : null,
+                          behavior: HitTestBehavior.opaque,
                           child: Container(
                             margin: const EdgeInsets.symmetric(horizontal: 2),
                             padding: const EdgeInsets.symmetric(
@@ -554,7 +614,16 @@ class _NetworkBoardWidgetState extends State<NetworkBoardWidget>
                                   : Colors.brown.shade700,
                               borderRadius: BorderRadius.circular(4),
                               border: _selectedHandPiece == e.key
-                                  ? Border.all(color: Colors.amber, width: 1.5)
+                                  ? Border.all(color: Colors.amber, width: 2.0)
+                                  : Border.all(color: Colors.amber.withAlpha(100), width: 1.0),
+                              boxShadow: _selectedHandPiece == e.key
+                                  ? [
+                                      BoxShadow(
+                                        color: Colors.amber.withAlpha(150),
+                                        blurRadius: 6,
+                                        spreadRadius: 1,
+                                      ),
+                                    ]
                                   : null,
                             ),
                             child: Row(
