@@ -137,20 +137,17 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
     });
 
     try {
-      print('[DEBUG] マッチング開始...');
       final prefs    = await SharedPreferences.getInstance();
       final myRating = prefs.getInt('rating_current') ?? 1000;
       final strengthStr = _strengthPref == _StrengthPref.weak   ? 'weak'
                         : _strengthPref == _StrengthPref.strong ? 'strong'
                         : 'any';
-      print('[DEBUG] Firebase準備状態: ${NetworkGameService.firebaseReady}');
       final result = await NetworkGameService.startMatchmaking(
         myRating:     myRating,
         strengthPref: strengthStr,
         rated:        _rated,
         timeLimitSec: _timeControlSec,
       );
-      print('[DEBUG] マッチング成功: ${result.matchId}');
       _matchingTimer?.cancel();
       await _checkDailyLimit(countUp: true);
       if (mounted) _goToMatchScreen(
@@ -161,7 +158,6 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
         timeLimitSec:   _timeControlSec,
       );
     } on TimeoutException catch (e) {
-      print('[DEBUG] マッチングタイムアウト: $e');
       _matchingTimer?.cancel();
       if (mounted) {
         setState(() {
@@ -174,8 +170,6 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
       _matchingTimer?.cancel();
       // ユーザーキャンセルは静かに終了
       if (e is MatchCancelledException) return;
-      print('[DEBUG] マッチングエラー: $e');
-      print('[DEBUG] スタックトレース: $st');
       if (mounted) {
         setState(() {
           _state = _LobbyState.initial;

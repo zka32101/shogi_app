@@ -39,13 +39,10 @@ class NetworkService {
       if (_auth.currentUser == null) {
         await _auth.signInAnonymously()
             .timeout(const Duration(seconds: 5));
-        print('Anonymous sign-in successful: ${_auth.currentUser?.uid}');
       } else {
-        print('Already signed in: ${_auth.currentUser?.uid}');
       }
       return true;
     } catch (e) {
-      print('Firebase initFirebase error: $e');
       return false;
     }
   }
@@ -71,7 +68,6 @@ class NetworkService {
       }
       return null;
     } catch (e) {
-      print('Get user profile error: $e');
       return null;
     }
   }
@@ -80,7 +76,6 @@ class NetworkService {
     try {
       await _firestore.collection('users').doc(uid).set(profile.toJson());
     } catch (e) {
-      print('Create user profile error: $e');
     }
   }
 
@@ -88,7 +83,6 @@ class NetworkService {
     try {
       await _firestore.collection('users').doc(uid).update(data);
     } catch (e) {
-      print('Update user profile error: $e');
     }
   }
 
@@ -107,7 +101,6 @@ class NetworkService {
       await matchRef.set(match.toJson());
       return matchRef.id;
     } catch (e) {
-      print('Create match error: $e');
       return '';
     }
   }
@@ -120,7 +113,6 @@ class NetworkService {
       }
       return null;
     } catch (e) {
-      print('Get match error: $e');
       return null;
     }
   }
@@ -131,7 +123,6 @@ class NetworkService {
         'board_state': boardState,
       });
     } catch (e) {
-      print('Update match board error: $e');
     }
   }
 
@@ -151,7 +142,7 @@ class NetworkService {
     // しまうため、「まだactive/未終局の場合のみ確定」というトランザクションで
     // 排他制御する。既に別クライアントが終局を確定済みならabortして何もしない
     // （abortは例外を投げないため、呼び出し元の挙動は変わらない）
-    await FirebaseDatabase.instance.ref('games/$matchId').runTransaction((Object? current) {
+    final txResult = await FirebaseDatabase.instance.ref('games/$matchId').runTransaction((Object? current) {
       if (current == null) return Transaction.abort();
       final data = Map<dynamic, dynamic>.from(current as Map);
       final currentStatus = data['status'] as String?;
@@ -163,6 +154,13 @@ class NetworkService {
       data['result'] = result;
       return Transaction.success(data);
     });
+    // RTDBトランザクションがabortした（＝別クライアントが既に終局を確定済み）
+    // 場合はここで打ち切る。以前はこの結果を見ずに常にFirestoreを上書き
+    // していたため、両者がほぼ同時に異なる結果（例: 片方は詰み検知、もう
+    // 片方は時間切れ検知）を確定させると、RTDB側は排他制御で正しく先勝ち
+    // が残るのに、Firestore側（対局結果の永続記録）だけが後から誤った
+    // 結果で上書きされてしまうバグがあった
+    if (!txResult.committed) return;
     // Firestoreへの更新（オプション: 認証エラー時はスキップ）
     try {
       await _firestore.collection('matches').doc(matchId).update({
@@ -186,8 +184,6 @@ class NetworkService {
       // ① 報告者がスパム状態かチェック
       final isReporterSpam = await _isReporterSpamming(reporterUid);
       if (isReporterSpam) {
-        print('Reporter is spamming. Rejecting report.');
-
         // BAN確定はセキュリティルール上 Cloud Functions / 管理者のみが行える
         // （is_banned 等はクライアントの isOwner 書き込みから保護されているため、
         // 通常ユーザーの実行ではここは失敗しうる）。実際のBAN処理が失敗しても
@@ -211,7 +207,6 @@ class NetworkService {
             );
           }
         } catch (e) {
-          print('Ban spam reporter error (expected without admin rights): $e');
         }
         return false; // 報告を受け付けない
       }
@@ -262,13 +257,11 @@ class NetworkService {
             );
           }
         } catch (e) {
-          print('Auto-ban after report threshold error (expected without admin rights): $e');
         }
       }
 
       return true;
     } catch (e) {
-      print('Submit report error: $e');
       return false;
     }
   }
@@ -312,7 +305,6 @@ class NetworkService {
 
       return false;
     } catch (e) {
-      print('Check reporter spamming error: $e');
       return false;
     }
   }
@@ -327,7 +319,6 @@ class NetworkService {
           .get();
       return snapshot.docs.length;
     } catch (e) {
-      print('Get report count error: $e');
       return 0;
     }
   }
@@ -341,7 +332,6 @@ class NetworkService {
       }
       return false;
     } catch (e) {
-      print('Is user banned error: $e');
       return false;
     }
   }
@@ -353,7 +343,6 @@ class NetworkService {
         'status': approved ? 'reviewed' : 'dismissed',
       });
     } catch (e) {
-      print('Review report error: $e');
     }
   }
 
@@ -376,7 +365,6 @@ class NetworkService {
         );
       }
     } catch (e) {
-      print('Unban user error: $e');
     }
   }
 
@@ -399,10 +387,8 @@ class NetworkService {
       try {
         await FriendService().removeFriend(me.uid, targetUserId);
       } catch (e) {
-        print('Remove friend on block error: $e');
       }
     } catch (e) {
-      print('Block user error: $e');
     }
   }
 
@@ -418,7 +404,6 @@ class NetworkService {
           .doc(targetUserId)
           .delete();
     } catch (e) {
-      print('Unblock user error: $e');
     }
   }
 

@@ -172,7 +172,6 @@ class YaneuraouService {
         await subscription.cancel();
       }
     } catch (e) {
-      print('evaluatePosition error: $e');
       return null;
     }
   }

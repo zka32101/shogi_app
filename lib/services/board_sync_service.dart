@@ -85,7 +85,6 @@ class BoardSyncService {
         });
       });
     } catch (e) {
-      print('[BoardSync] boardFromJson error: $e');
       return _emptyBoard();
     }
   }

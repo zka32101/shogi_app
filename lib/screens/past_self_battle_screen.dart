@@ -31,7 +31,6 @@ class _PastSelfBattleScreenState extends State<PastSelfBattleScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('❌ ゲーム読み込みエラー: $e');
       setState(() => _isLoading = false);
     }
   }

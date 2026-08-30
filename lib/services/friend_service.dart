@@ -189,7 +189,6 @@ class FriendService {
 
       return true;
     } catch (e) {
-      print('Send friend request error: $e');
       return false;
     }
   }
@@ -246,7 +245,6 @@ class FriendService {
         await _achievementService.checkFriendCount(uid, count);
       }
     } catch (e) {
-      print('Accept friend request error: $e');
       rethrow;
     }
   }
@@ -365,7 +363,6 @@ class FriendService {
         };
       }).toList();
     } catch (e) {
-      print('Search users error: $e');
       return [];
     }
   }
@@ -399,7 +396,6 @@ class FriendService {
 
       return ref.id;
     } catch (e) {
-      print('Send direct challenge error: $e');
       rethrow;
     }
   }

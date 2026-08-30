@@ -83,7 +83,10 @@ exports.onMatchFinished = functions.firestore
 
     // status が 'finished' に変わったときだけ処理
     if (before.status === 'finished' || after.status !== 'finished') return null;
-    // 二重実行防止フラグ
+    // 二重実行防止フラグ（トリガー発火時点の event snapshot での粗い事前チェック。
+    // Cloud Functionsのトリガーはat-least-once配信のため同一イベントが複数回
+    // 発火しうる。この時点の after は古いスナップショットの可能性があるので、
+    // 確定判定は必ずトランザクション内で最新ドキュメントを読み直して行う）
     if (after.rating_updated === true) return null;
 
     const matchId  = context.params.matchId;
@@ -102,6 +105,14 @@ exports.onMatchFinished = functions.firestore
 
     try {
       await db.runTransaction(async (tx) => {
+        // トランザクション内で最新のmatchドキュメントを読み直し、
+        // rating_updatedを再検証する（重複トリガー配信によるレーティング
+        // 二重加算を防ぐ。外側のガードだけでは古いスナップショットに
+        // 対する判定になり、同時発火した2回の実行が両方すり抜けうる）
+        const matchRef = change.after.ref;
+        const matchSnap = await tx.get(matchRef);
+        if (!matchSnap.exists || matchSnap.data().rating_updated === true) return;
+
         const winnerRef = db.collection('users').doc(winnerId);
         const loserRef  = db.collection('users').doc(loserId);
         const [winnerDoc, loserDoc] = await Promise.all([
@@ -753,20 +764,41 @@ exports.cleanupStale = functions.pubsub
 
       if (!abandonedSnap.exists()) return null;
 
-      const updates = {};
-      const staleMatchIds = [];
+      const candidateIds = [];
       abandonedSnap.forEach((child) => {
         const game         = child.val();
         const lastActivity = game.last_activity_ms || 0;
         if (lastActivity < rtdbCutoff) {
-          updates[`games/${child.key}/status`] = 'abandoned';
-          staleMatchIds.push(child.key);
+          candidateIds.push(child.key);
         }
       });
 
-      if (Object.keys(updates).length > 0) {
-        await rtdb.ref().update(updates);
-        console.log(`Abandoned ${Object.keys(updates).length} stale games`);
+      if (candidateIds.length === 0) return null;
+
+      // 各対局ごとにRTDBトランザクションで再検証してから確定させる。
+      // 以前はここでread→blind update（rtdb.ref().update()）で確定させて
+      // いたため、クエリ取得後・トランザクション書き込み前の間に対局が
+      // 投了や時間切れ等で既に正しく終了していた場合、その正しい結果を
+      // このcleanupStaleが「abandoned」で上書きしてしまうTOCTOUがあった
+      // （checkTimeoutsで修正済みの問題と同種で、こちらは未対応だった）。
+      // committedの場合のみFirestore側も更新する。
+      const staleMatchIds = [];
+      await Promise.all(candidateIds.map(async (matchId) => {
+        try {
+          const result = await rtdb.ref(`games/${matchId}`).transaction((game) => {
+            if (!game || game.status !== 'active') return undefined; // 既に変化済み: 中断
+            const lastActivity = game.last_activity_ms || 0;
+            if (lastActivity >= rtdbCutoff) return undefined; // 再検証で新しい活動を検知
+            return { ...game, status: 'abandoned' };
+          });
+          if (result.committed) staleMatchIds.push(matchId);
+        } catch (e) {
+          console.error(`cleanupStale: transaction failed for ${matchId}:`, e);
+        }
+      }));
+
+      if (staleMatchIds.length > 0) {
+        console.log(`Abandoned ${staleMatchIds.length} stale games`);
 
         // RTDBをabandonedにするだけではFirestore側のmatches/{matchId}が
         // 更新されず、onMatchFinishedトリガーが発火しないためレーティングが

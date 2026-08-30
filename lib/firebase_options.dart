@@ -45,6 +45,6 @@ class DefaultFirebaseOptions {
     projectId:         'petit-works-games',
     databaseURL:       'https://petit-works-games-default-rtdb.asia-southeast1.firebasedatabase.app',
     storageBucket:     'petit-works-games.firebasestorage.app',
-    iosBundleId:       'com.petitWorks.shogiApp',
+    iosBundleId:       'com.petitworksapps.kouki',
   );
 }

@@ -43,7 +43,6 @@ import 'services/firebase_logging_service.dart';
 import 'services/kifu_analytics_service.dart';
 import 'models/game_analysis.dart';
 import 'defeat_experience_widget.dart';
-import 'package:flutter/foundation.dart' show kDebugMode;
 import 'defeat_screen.dart';
 import 'practice_points_system.dart';
 import 'theme/app_theme.dart';
@@ -1779,9 +1778,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           openingName: _openingLabel.isNotEmpty ? _openingLabel : null,
           playerIsP1: !_userIsP2,
         );
-        print('✅ 棋譜分析完了: 悪手${analysis.blunders.length}個, 好手${analysis.goodMoves.length}個');
       } catch (e) {
-        print('❌ 棋譜分析エラー: $e');
       }
     }
     if (vsAI && s.opponentCharacterId != null) {
@@ -1933,7 +1930,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         historicalBlunders.addAll(matching);
                       }
                     } catch (e) {
-                      print('⚠️ 過去の悪手取得エラー: $e');
                     }
                     if (mounted) {
                       Navigator.push(
@@ -3587,8 +3583,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       );
     } catch (e) {
       // エラーログを出力（本番では Firebase Crashlytics に送信）
-      print('DefeatExperienceSheet error: $e');
-
       // エラー時でもホーム画面に戻す
       try {
         if (mounted) {
@@ -3633,7 +3627,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
       return (worstMove, suggestedMove);
     } catch (e) {
-      print('AnalyzeDefeatMove error: $e');
       return (null, null);
     }
   }
@@ -3671,7 +3664,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         }
       }
     } catch (e) {
-      print('FormatMove error: $e');
       // エラーが発生した場合
     }
     return '???';

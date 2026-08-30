@@ -21,7 +21,6 @@ class BookDecoder {
       final bytes = await file.readAsBytes();
       return _parseSfenFromBytes(bytes);
     } catch (e) {
-      print('Error: $e');
       return [];
     }
   }
@@ -36,7 +35,6 @@ class BookDecoder {
     const headerMagic = 'YANEURAOU_BOOK1';
 
     if (bytes.length < 16) {
-      print('ファイルが短すぎます（ヘッダー不完全）');
       return sfens;
     }
 
@@ -44,15 +42,11 @@ class BookDecoder {
         String.fromCharCodes(bytes.sublist(0, 15)).replaceAll('\x00', '');
 
     if (!headerStr.startsWith('YANEURAOU')) {
-      print('警告: 标準的なやねうら王ヘッダーではありません');
     }
 
     // 局面データの解析開始
     // Note: 完全な実装にはバイナリフォーマットの詳細理解が必要
     // ここではスタブとして、簡単な処理のみ
-    print('定跡書サイズ: ${bytes.length} bytes');
-    print('ヘッダー: $headerStr');
-
     // 実装例：テキスト形式の定跡書から抽出
     // 多くの公開定跡書はテキスト形式（SFEN1行）で配布されている
     sfens.addAll(_extractFromTextBook(bytes));
@@ -89,7 +83,6 @@ class BookDecoder {
         }
       }
     } catch (e) {
-      print('テキスト解析エラー: $e');
     }
 
     return sfens;

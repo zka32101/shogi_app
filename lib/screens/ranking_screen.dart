@@ -60,7 +60,6 @@ class _RankingScreenState extends State<RankingScreen>
         });
       }
     } catch (e) {
-      print('Load current user rank error: $e');
     }
   }
 

@@ -432,7 +432,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
               title: const Text('アカウント停止'),
               content: const Text(
                 'このアカウントは不正行為のため停止されています。\n\n'
-                '詳細は support@kouki.jp までお問い合わせください。',
+                'プライバシーポリシーを参照してお問い合わせください。',
               ),
               actions: [
                 TextButton(
@@ -469,7 +469,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
         );
         setState(() => _isLoading = false);
       }
@@ -518,7 +518,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
         );
         setState(() => _isLoading = false);
       }
@@ -567,7 +567,7 @@ class _NetworkGameHomeState extends State<NetworkGameHome> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('エラー: $e')),
+          SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')),
         );
         setState(() => _isLoading = false);
       }

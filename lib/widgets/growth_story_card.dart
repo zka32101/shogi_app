@@ -345,7 +345,6 @@ class GrowthStoryImageGenerator {
       final pngBytes = await image.toByteData(format: ui.ImageByteFormat.png);
       return pngBytes?.buffer.asUint8List();
     } catch (e) {
-      print('❌ 画像生成エラー: $e');
       return null;
     }
   }

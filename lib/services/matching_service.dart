@@ -107,7 +107,6 @@ class MatchingService {
 
       return queueRef.id;
     } catch (e) {
-      print('Join matching queue error: $e');
       rethrow;
     }
   }
@@ -119,7 +118,6 @@ class MatchingService {
         'status': 'cancelled',
       });
     } catch (e) {
-      print('Cancel matching queue error: $e');
     }
   }
 
@@ -186,7 +184,6 @@ class MatchingService {
       // 通常マッチング（同クラブ優先）
       await _createMatch(queue, candidates.first);
     } catch (e) {
-      print('Try matchmaking error: $e');
     }
   }
 
@@ -248,10 +245,7 @@ class MatchingService {
           matchId: matchRef.id,
         );
       });
-
-      print('Match created: ${matchRef.id}');
     } catch (e) {
-      print('Create match error: $e');
     }
   }
 
@@ -284,10 +278,8 @@ class MatchingService {
 
         if (doc.exists && doc['status'] == 'waiting') {
           await cancelMatchingQueue(queueId);
-          print('Matching timeout for queue: $queueId');
         }
       } catch (e) {
-        print('Matching timeout error: $e');
       }
     });
   }
@@ -321,7 +313,6 @@ class MatchingService {
         'finished_at': DateTime.now(),
       });
     } catch (e) {
-      print('Cancel match error: $e');
     }
   }
 }

@@ -384,7 +384,6 @@ class NetworkAchievementService {
 
       unlocked.add(achievementId);
     } catch (e) {
-      print('Unlock achievement error: $e');
     }
   }
 
@@ -411,7 +410,6 @@ class NetworkAchievementService {
         }
       });
     } catch (e) {
-      print('Check count achievement error: $e');
     }
   }
 }

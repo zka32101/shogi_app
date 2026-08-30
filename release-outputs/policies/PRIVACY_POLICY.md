@@ -59,7 +59,7 @@
 ### 7. お問い合わせ
 
 プライバシーに関するご質問は以下にお寄せください：  
-**Email**: support@petitworksapps.example  
+**Email**: zkaz83@gmail.com  
 **開発者**: Petit Studio
 
 ---
@@ -97,4 +97,4 @@ When you enable voice input, the app accesses the microphone and converts speech
 This app is not directed at children under 13 and does not knowingly collect personal information from minors.
 
 ### 4. Contact
-For privacy inquiries: **support@petitworksapps.example** — Petit Studio
+For privacy inquiries: **zkaz83@gmail.com** — Petit Studio

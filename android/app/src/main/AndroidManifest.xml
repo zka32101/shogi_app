@@ -43,13 +43,15 @@
             android:exported="false"
             tools:node="remove" />
 
-        <!-- ⚠️ TODO: これはGoogle公式のサンプル用テストApp IDです。本番ストア提出前に
-             必ずAdMob Consoleでこのアプリを登録して発行される実際のApp IDに
-             置き換えてください。テストIDのまま本番配信するとAdMobプログラム
-             ポリシー違反となり、アカウント停止のリスクがあります -->
+        <!-- ⚠️ CRITICAL: Google Play提出前に必ず本番用AdMob App IDに置き換えてください！
+             テストIDのまま配信するとAdMobプログラムポリシー違反でアカウント停止のリスク。
+
+             対応：Google AdMob Console → このアプリを登録 → App ID取得 → 下に置き換え
+             本番App ID: ca-app-pub-[16文字]~[10文字] の形式
+        -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-3940256099942544~3347511713"/>
+            android:value="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"/>
         <!-- 一部端末のImpeller(Vulkan)バックエンドで盤面駒に薄い残像が出る
              不具合が確認されたため、安定版のSkiaレンダラーへ切り替え -->
         <meta-data

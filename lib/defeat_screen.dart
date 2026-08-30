@@ -116,7 +116,6 @@ class _DefeatScreenState extends State<DefeatScreen> {
         'evaluations': widget.analysis.evaluations,
       };
     } catch (e) {
-      print('Evaluation analysis error: $e');
       return {};
     }
   }

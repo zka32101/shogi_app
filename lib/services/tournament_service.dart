@@ -214,7 +214,6 @@ class TournamentService {
         return true;
       });
     } catch (e) {
-      print('Join tournament error: $e');
       return false;
     }
   }
@@ -237,7 +236,6 @@ class TournamentService {
         tx.update(ref, {'entries': newEntries});
       });
     } catch (e) {
-      print('Leave tournament error: $e');
     }
   }
 
@@ -302,7 +300,6 @@ class TournamentService {
         'started_at': DateTime.now(),
       });
     } catch (e) {
-      print('Start tournament error: $e');
       rethrow;
     }
   }
@@ -411,7 +408,6 @@ class TournamentService {
       }
       return resultStatus;
     } catch (e) {
-      print('Report match result error: $e');
       return 'error';
     }
   }
@@ -482,7 +478,6 @@ class TournamentService {
         tx.update(docRef, {'matches': allMatches});
       });
     } catch (e) {
-      print('Advance round error: $e');
     }
   }
 

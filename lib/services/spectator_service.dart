@@ -90,7 +90,6 @@ class SpectatorService {
         tx.set(spectatorRef, {'joined_at': DateTime.now(), 'user_id': userId});
       });
     } catch (e) {
-      print('Join spectate error: $e');
     }
   }
 
@@ -119,7 +118,6 @@ class SpectatorService {
       // 観戦回数の実績判定（1試合の観戦終了ごとに+1）
       await NetworkAchievementService().checkSpectate(userId);
     } catch (e) {
-      print('Leave spectate error: $e');
     }
   }
 
@@ -154,7 +152,6 @@ class SpectatorService {
       });
       return true;
     } catch (e) {
-      print('Send spectator comment error: $e');
       return false;
     }
   }

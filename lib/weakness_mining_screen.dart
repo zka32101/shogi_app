@@ -90,7 +90,6 @@ class _WeaknessMiningScreenState extends State<WeaknessMiningScreen> {
             .map((p) => WeaknessPattern.fromJson(p as Map<String, dynamic>))
             .toList();
       } catch (e) {
-        print('Error loading cached patterns: $e');
         await _analyzeGameHistory();
       }
     } else {
