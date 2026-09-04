@@ -40,7 +40,7 @@ jobs:
             echo "::error::ANDROID_KEYSTORE_BASE64 が設定されていません。android/ANDROID_RELEASE_SETUP.md を参照してGitHub Secretsを登録してください"
             exit 1
           fi
-          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode -o "$RUNNER_TEMP/upload-keystore.jks"
+          echo -n "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/upload-keystore.jks"
           cat > android/key.properties << EOF
           storePassword=$ANDROID_KEYSTORE_PASSWORD
           keyPassword=$ANDROID_KEY_PASSWORD
