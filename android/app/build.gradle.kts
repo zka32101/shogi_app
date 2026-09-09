@@ -39,7 +39,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.petitworksapps.kouki"
+        applicationId = "com.yourwish.koki"
         minSdk = 21
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
