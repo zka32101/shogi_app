@@ -46,3 +46,11 @@
 -keepattributes *Annotation*
 -keepattributes InnerClasses
 -keepattributes EnclosingMethod
+
+# Google Play Core（Flutterのdeferred components/動的機能モジュール用）
+# 本アプリはdeferred componentsを使用していないため、Flutterエンジンが
+# 参照するPlay Core Split Install関連クラスが存在しなくてもR8の警告を
+# 無視してよい（未使用コードパスのため実行時にも問題にならない）
+-dontwarn com.google.android.play.core.splitcompat.**
+-dontwarn com.google.android.play.core.splitinstall.**
+-dontwarn com.google.android.play.core.tasks.**
