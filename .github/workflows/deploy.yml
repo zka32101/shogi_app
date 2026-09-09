@@ -51,9 +51,19 @@ jobs:
       - name: Build signed App Bundle (AAB)
         run: flutter build appbundle --release
 
+      - name: Build signed APK
+        run: flutter build apk --release
+
       - name: Upload AAB as workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release-aab
           path: build/app/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Upload APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/apk/release/app-release.apk
           retention-days: 30
