@@ -1,7 +1,7 @@
 // lib/services/network_service.dart
 // Firebase ネットワーク対局・報告機能
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_firestore/cloud_firestore.dart' hide Transaction;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../models/user_profile.dart';
