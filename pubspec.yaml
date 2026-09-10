@@ -24,7 +24,7 @@ dependencies:
 
   # 広告・課金
   google_mobile_ads: ^5.3.0
-  in_app_purchase: ^4.0.0
+  in_app_purchase: ^6.0.0
 
   # Firebase（ネットワーク対局・報告機能・Cloud Functions）
   firebase_core: ^4.11.0
