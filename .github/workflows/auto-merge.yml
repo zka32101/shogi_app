@@ -12,7 +12,7 @@ on:
 jobs:
   auto-merge:
     runs-on: ubuntu-latest
-    if: github.actor == 'dependabot[bot]' || github.event_name == 'workflow_run'
+    if: github.actor == 'dependabot[bot]' || github.event_name == 'workflow_run' || github.event_name == 'check_suite'
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,8 +24,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Auto-merge on CI success
+      - name: Auto-merge on CI success (workflow_run)
         if: github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success'
+        run: |
+          PR_NUMBER=$(gh pr list --state open --json number -q ".[0].number")
+          if [ ! -z "$PR_NUMBER" ]; then
+            gh pr merge --auto --squash "$PR_NUMBER" || true
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Auto-merge on CI success (check_suite)
+        if: github.event_name == 'check_suite' && github.event.check_suite.conclusion == 'success'
         run: |
           PR_NUMBER=$(gh pr list --state open --json number -q ".[0].number")
           if [ ! -z "$PR_NUMBER" ]; then
