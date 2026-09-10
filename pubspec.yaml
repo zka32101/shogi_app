@@ -2,7 +2,7 @@ name: shogi_app
 description: "将棋ボードゲーム。AI対局・ネットワーク対局・棋譜管理・手筋トレーニングを搭載。"
 publish_to: 'none'
 
-version: 1.1.3+14
+version: 1.1.3+15
 
 environment:
   sdk: ^3.11.5
@@ -24,7 +24,7 @@ dependencies:
 
   # 広告・課金
   google_mobile_ads: ^5.3.0
-  in_app_purchase: ^4.0.0
+  in_app_purchase: ^3.2.3
 
   # Firebase（ネットワーク対局・報告機能・Cloud Functions）
   firebase_core: ^4.11.0
