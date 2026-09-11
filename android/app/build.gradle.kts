@@ -70,6 +70,9 @@ android {
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     implementation("androidx.multidex:multidex:2.0.1")
+
+    // Play Billing Library 8.0.0+ for latest Google Play monetization features
+    implementation("com.android.billingclient:billing:8.0.0")
 }
 
 flutter {
