@@ -9,6 +9,7 @@ import 'dart:async';
 import '../logic.dart';
 import '../piece.dart';
 import '../game_screen.dart';
+import '../l10n.dart';
 import '../services/matching_service.dart';
 import '../services/network_service.dart';
 import '../services/board_sync_service.dart';
