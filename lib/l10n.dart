@@ -89,12 +89,10 @@ class L10n {
     'pieces_in_hand': '持ち駒',
     'moves': '手数',
     'time': '時間',
-    'resign': '投了',
     'resign_confirm': '投了しますか？',
     'resign_confirm_match': 'この対局を終了します。',
     'resign_button': '投了する',
     'cancel': 'キャンセル',
-    'draw': '引き分け',
     'draw_proposal': '引き分けを申し込む',
     'draw_accept': '承諾',
     'draw_reject': '拒否',
@@ -106,7 +104,6 @@ class L10n {
     'jishogi': '持将棋',
     'continue': '続ける',
     'opponent_moved': '相手が指した',
-    'your_turn': 'あなたの手番',
     'game_in_progress': '対局中',
   };
 
@@ -173,12 +170,10 @@ class L10n {
     'pieces_in_hand': 'Pieces in Hand',
     'moves': 'Moves',
     'time': 'Time',
-    'resign': 'Resign',
     'resign_confirm': 'Are you sure you want to resign?',
     'resign_confirm_match': 'This game will end.',
     'resign_button': 'Resign',
     'cancel': 'Cancel',
-    'draw': 'Draw',
     'draw_proposal': 'Propose Draw',
     'draw_accept': 'Accept',
     'draw_reject': 'Reject',
@@ -190,7 +185,6 @@ class L10n {
     'jishogi': 'Jishogi Draw',
     'continue': 'Continue',
     'opponent_moved': 'Opponent moved',
-    'your_turn': 'Your turn',
     'game_in_progress': 'Game in progress',
   };
 
