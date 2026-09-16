@@ -226,11 +226,11 @@ class _LanguageSettingsWidgetState extends State<LanguageSettingsWidget> {
       children: [
         const Icon(Icons.language, color: Colors.white70),
         const SizedBox(width: 8),
-        const Expanded(
+        Expanded(
           child: Text('言語 / Language',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: Colors.white70)),
+              style: const TextStyle(color: Colors.white70)),
         ),
         const SizedBox(width: 12),
         SizedBox(
