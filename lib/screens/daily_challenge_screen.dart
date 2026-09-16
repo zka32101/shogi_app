@@ -301,13 +301,17 @@ class _ChallengeTile extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        Text(
-                          challenge.title,
-                          style: TextStyle(
-                            color:
-                                completed ? Colors.green : AppTheme.textHigh,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 15,
+                        Expanded(
+                          child: Text(
+                            challenge.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color:
+                                  completed ? Colors.green : AppTheme.textHigh,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                         if (completed) ...[
@@ -320,6 +324,8 @@ class _ChallengeTile extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       challenge.description,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
                           color: AppTheme.textMid, fontSize: 12),
                     ),

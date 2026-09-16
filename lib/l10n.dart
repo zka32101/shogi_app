@@ -188,25 +188,33 @@ class _LanguageSettingsWidgetState extends State<LanguageSettingsWidget> {
       children: [
         const Icon(Icons.language, color: Colors.white70),
         const SizedBox(width: 8),
-        const Text('言語 / Language', style: TextStyle(color: Colors.white70)),
-        const Spacer(),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'ja', label: Text('日本語')),
-            ButtonSegment(value: 'en', label: Text('English')),
-          ],
-          selected: {_current},
-          onSelectionChanged: (val) async {
-            final lang = val.first;
-            await L10n.setLanguage(lang);
-            setState(() => _current = lang);
-            widget.onChanged();
-          },
-          style: SegmentedButton.styleFrom(
-            backgroundColor: AppTheme.bg,
-            selectedBackgroundColor: Colors.blue.shade700,
-            foregroundColor: Colors.white70,
-            selectedForegroundColor: Colors.white,
+        const Expanded(
+          child: Text('言語 / Language',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: Colors.white70)),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 200,
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'ja', label: Text('日本語')),
+              ButtonSegment(value: 'en', label: Text('English')),
+            ],
+            selected: {_current},
+            onSelectionChanged: (val) async {
+              final lang = val.first;
+              await L10n.setLanguage(lang);
+              setState(() => _current = lang);
+              widget.onChanged();
+            },
+            style: SegmentedButton.styleFrom(
+              backgroundColor: AppTheme.bg,
+              selectedBackgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white70,
+              selectedForegroundColor: Colors.white,
+            ),
           ),
         ),
       ],
