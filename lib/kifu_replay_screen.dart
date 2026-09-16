@@ -811,6 +811,8 @@ class _KifuReplayScreenState extends State<KifuReplayScreen> {
                         Expanded(
                           child: Text(
                             m.text,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: TextStyle(
                               color: isCurrent
                                   ? Colors.lightBlueAccent

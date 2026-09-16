@@ -9,6 +9,7 @@ import 'dart:async';
 import '../logic.dart';
 import '../piece.dart';
 import '../game_screen.dart';
+import '../l10n.dart';
 import '../services/matching_service.dart';
 import '../services/network_service.dart';
 import '../services/board_sync_service.dart';
@@ -169,7 +170,7 @@ class _MatchScreenState extends State<MatchScreen> {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('相手が引き分けの提案を拒否しました')),
+                  SnackBar(content: Text(L10n.t('opponent_rejected_draw'))),
                 );
               }
             });
@@ -473,9 +474,9 @@ class _MatchScreenState extends State<MatchScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
               content:
-                  Text('時間切れで敗北しました', style: TextStyle(color: AppTheme.danger))),
+                  Text(L10n.t('time_lost'), style: TextStyle(color: AppTheme.danger))),
         );
       }
     } catch (e) {
@@ -553,7 +554,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
+            .showSnackBar(SnackBar(content: Text(L10n.t('error_occurred'))));
       }
     } finally {
       if (mounted) setState(() => _isMakingMove = false);
@@ -566,18 +567,18 @@ class _MatchScreenState extends State<MatchScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('投了しますか？'),
-        content: const Text('この対局を終了します。'),
+        title: Text(L10n.t('resign_confirm')),
+        content: Text(L10n.t('resign_confirm_match')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
-              child: const Text('キャンセル')),
+              child: Text(L10n.t('cancel'))),
           ElevatedButton(
               style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.danger,
                   foregroundColor: Colors.white),
               onPressed: () => Navigator.pop(context, true),
-              child: const Text('投了する')),
+              child: Text(L10n.t('resign_button'))),
         ],
       ),
     );
@@ -590,7 +591,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
+            .showSnackBar(SnackBar(content: Text(L10n.t('error_occurred'))));
         setState(() => _isResigning = false);
       }
     }
@@ -707,15 +708,17 @@ class _MatchScreenState extends State<MatchScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('千日手', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
-        content: const Text(
-          '同一局面が4回繰り返されました。\n千日手により引き分けを申し込みますか？',
-          style: TextStyle(color: Colors.white70),
+        title: Text(L10n.t('repetition'), style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+        content: Text(
+          L10n.t('repetition') == '千日手'
+              ? '同一局面が4回繰り返されました。\n千日手により引き分けを申し込みますか？'
+              : 'The same position has been repeated 4 times.\nPropose draw by repetition?',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('続ける'),
+            child: Text(L10n.t('continue')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -723,7 +726,7 @@ class _MatchScreenState extends State<MatchScreen> {
               await _proposeDraw('sennichite');
             },
             style: ElevatedButton.styleFrom(backgroundColor: Colors.amber.shade700),
-            child: const Text('引き分けを申し込む', style: TextStyle(color: Colors.black)),
+            child: Text(L10n.t('draw_proposal'), style: const TextStyle(color: Colors.black)),
           ),
         ],
       ),
@@ -854,17 +857,17 @@ class _MatchScreenState extends State<MatchScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('持将棋', style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+        title: Text(L10n.t('jishogi'), style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
         content: Text(
-          '両玉が相手陣に入りました。\n'
-          '先手: $p1Pts点 / 後手: $p2Pts点\n\n'
-          '持将棋として引き分けを申し込みますか？',
+          L10n.t('jishogi') == '持将棋'
+              ? '両玉が相手陣に入りました。\n先手: $p1Pts点 / 後手: $p2Pts点\n\n持将棋として引き分けを申し込みますか？'
+              : 'Both kings have entered opponent territory.\nSente: $p1Pts points / Gote: $p2Pts points\n\nPropose draw by jishogi?',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('続ける'),
+            child: Text(L10n.t('continue')),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -872,7 +875,7 @@ class _MatchScreenState extends State<MatchScreen> {
               await _proposeDraw('jishogi');
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
-            child: const Text('引き分けを申し込む', style: TextStyle(color: Colors.black)),
+            child: Text(L10n.t('draw_proposal'), style: const TextStyle(color: Colors.black)),
           ),
         ],
       ),
@@ -889,13 +892,13 @@ class _MatchScreenState extends State<MatchScreen> {
       _awaitingDrawResponse = true;
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('引き分けを申し込みました。相手の応答を待っています...')),
+          SnackBar(content: Text(L10n.t('draw_proposal_sent'))),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
+            .showSnackBar(SnackBar(content: Text(L10n.t('error_occurred'))));
       }
     }
   }
@@ -923,10 +926,12 @@ class _MatchScreenState extends State<MatchScreen> {
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('引き分けの提案',
-            style: TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+        title: Text(L10n.t('draw'),
+            style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
         content: Text(
-          '相手が$reasonLabelによる引き分けを提案しています。\n承諾しますか？',
+          L10n.t('draw') == '引き分け'
+              ? '相手が$reasonLabelによる引き分けを提案しています。\n承諾しますか？'
+              : 'Opponent proposes draw by $reasonLabel.\nAccept?',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -935,7 +940,7 @@ class _MatchScreenState extends State<MatchScreen> {
               Navigator.pop(context);
               _respondToDraw(false);
             },
-            child: const Text('拒否', style: TextStyle(color: AppTheme.danger)),
+            child: Text(L10n.t('draw_reject'), style: const TextStyle(color: AppTheme.danger)),
           ),
           ElevatedButton(
             onPressed: () {
@@ -943,7 +948,7 @@ class _MatchScreenState extends State<MatchScreen> {
               _respondToDraw(true);
             },
             style: ElevatedButton.styleFrom(backgroundColor: AppTheme.accent),
-            child: const Text('承諾', style: TextStyle(color: Colors.black)),
+            child: Text(L10n.t('draw_accept'), style: const TextStyle(color: Colors.black)),
           ),
         ],
       ),
@@ -977,7 +982,7 @@ class _MatchScreenState extends State<MatchScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('エラーが発生しました。時間をおいて再度お試しください')));
+            .showSnackBar(SnackBar(content: Text(L10n.t('error_occurred'))));
       }
     }
   }

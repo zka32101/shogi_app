@@ -89,6 +89,25 @@ class L10n {
     'pieces_in_hand': '持ち駒',
     'moves': '手数',
     'time': '時間',
+    'resign': '投了',
+    'resign_confirm': '投了しますか？',
+    'resign_confirm_match': 'この対局を終了します。',
+    'resign_button': '投了する',
+    'cancel': 'キャンセル',
+    'draw': '引き分け',
+    'draw_proposal': '引き分けを申し込む',
+    'draw_accept': '承諾',
+    'draw_reject': '拒否',
+    'opponent_rejected_draw': '相手が引き分けの提案を拒否しました',
+    'draw_proposal_sent': '引き分けを申し込みました。相手の応答を待っています...',
+    'time_lost': '時間切れで敗北しました',
+    'error_occurred': 'エラーが発生しました。時間をおいて再度お試しください',
+    'repetition': '千日手',
+    'jishogi': '持将棋',
+    'continue': '続ける',
+    'opponent_moved': '相手が指した',
+    'your_turn': 'あなたの手番',
+    'game_in_progress': '対局中',
   };
 
   static const Map<String, String> _en = {
@@ -154,6 +173,25 @@ class L10n {
     'pieces_in_hand': 'Pieces in Hand',
     'moves': 'Moves',
     'time': 'Time',
+    'resign': 'Resign',
+    'resign_confirm': 'Are you sure you want to resign?',
+    'resign_confirm_match': 'This game will end.',
+    'resign_button': 'Resign',
+    'cancel': 'Cancel',
+    'draw': 'Draw',
+    'draw_proposal': 'Propose Draw',
+    'draw_accept': 'Accept',
+    'draw_reject': 'Reject',
+    'opponent_rejected_draw': 'Opponent rejected the draw proposal',
+    'draw_proposal_sent': 'Draw proposal sent. Waiting for opponent response...',
+    'time_lost': 'Lost by time',
+    'error_occurred': 'An error occurred. Please try again later.',
+    'repetition': 'Repetition Draw',
+    'jishogi': 'Jishogi Draw',
+    'continue': 'Continue',
+    'opponent_moved': 'Opponent moved',
+    'your_turn': 'Your turn',
+    'game_in_progress': 'Game in progress',
   };
 
   static String pieceLabel(String jaLabel) {
@@ -188,25 +226,33 @@ class _LanguageSettingsWidgetState extends State<LanguageSettingsWidget> {
       children: [
         const Icon(Icons.language, color: Colors.white70),
         const SizedBox(width: 8),
-        const Text('言語 / Language', style: TextStyle(color: Colors.white70)),
-        const Spacer(),
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'ja', label: Text('日本語')),
-            ButtonSegment(value: 'en', label: Text('English')),
-          ],
-          selected: {_current},
-          onSelectionChanged: (val) async {
-            final lang = val.first;
-            await L10n.setLanguage(lang);
-            setState(() => _current = lang);
-            widget.onChanged();
-          },
-          style: SegmentedButton.styleFrom(
-            backgroundColor: AppTheme.bg,
-            selectedBackgroundColor: Colors.blue.shade700,
-            foregroundColor: Colors.white70,
-            selectedForegroundColor: Colors.white,
+        Expanded(
+          child: Text('言語 / Language',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(color: Colors.white70)),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 200,
+          child: SegmentedButton<String>(
+            segments: const [
+              ButtonSegment(value: 'ja', label: Text('日本語')),
+              ButtonSegment(value: 'en', label: Text('English')),
+            ],
+            selected: {_current},
+            onSelectionChanged: (val) async {
+              final lang = val.first;
+              await L10n.setLanguage(lang);
+              setState(() => _current = lang);
+              widget.onChanged();
+            },
+            style: SegmentedButton.styleFrom(
+              backgroundColor: AppTheme.bg,
+              selectedBackgroundColor: Colors.blue.shade700,
+              foregroundColor: Colors.white70,
+              selectedForegroundColor: Colors.white,
+            ),
           ),
         ),
       ],

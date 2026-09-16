@@ -264,17 +264,12 @@ class _FeedbackScreenState extends State<FeedbackScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.content_copy, color: Colors.amber, size: 40),
+            const Icon(Icons.wifi_off, color: Colors.amber, size: 40),
             const SizedBox(height: 12),
             const Text(
-              'オフライン状態のため、内容をクリップボードにコピーしました。\n以下のメールアドレスに貼り付けて送信してください:',
+              'ネットワーク接続を確認してください。\nオンライン状態で再度お試しください。',
               style: TextStyle(color: Colors.white70, fontSize: 13),
               textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 8),
-            SelectableText(
-              'funvestment1@gmail.com',
-              style: TextStyle(color: Colors.lightBlue.shade300, fontWeight: FontWeight.bold),
             ),
           ],
         ),
