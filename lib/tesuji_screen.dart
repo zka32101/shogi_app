@@ -971,7 +971,7 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
                 final size =
                     constraints.maxWidth < 400 ? constraints.maxWidth : 380.0;
                 final labelSize = size * 0.05;
-                final boardOffset = labelSize * 1.2;
+                final boardOffset = labelSize;
                 final cellSize = (size - labelSize) / 9;
 
                 return Center(
@@ -985,7 +985,7 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
                                 final localX =
                                     details.localPosition.dx - labelSize;
                                 final localY =
-                                    details.localPosition.dy - boardOffset;
+                                    details.localPosition.dy - labelSize;
                                 final c = (localX / cellSize).floor();
                                 final r = (localY / cellSize).floor();
                                 if (r >= 0 && r < 9 && c >= 0 && c < 9) {
