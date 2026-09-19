@@ -2053,6 +2053,25 @@ class _SolvePageState extends State<_SolvePage> {
   // ── 動的詰み検証 ──────────────────────────────────────
   // 固定手順との一致ではなく「詰みに向かう有効手か」を判定する。
 
+  // ===== 成りダイアログ =====
+  Future<bool?> _askPromo() => showDialog<bool>(
+    context: context,
+    barrierDismissible: false,
+    builder: (_) => AlertDialog(
+      title: const Text('成りますか？'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, false),
+          child: const Text('成らない'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, true),
+          child: const Text('成る'),
+        ),
+      ],
+    ),
+  );
+
   Future<void> _tryMove(int fr, int fc, int tr, int tc) async {
     if (_verifying) return;
     final piece = _board[fr][fc];
@@ -2061,30 +2080,26 @@ class _SolvePageState extends State<_SolvePage> {
     setState(() {
       _selected = null;
       _legalDots = {};
+      _verifying = true; // 成りダイアログ表示中も操作をロックしておく
     });
 
-    // 成り判定: 詰み探索で成りと不成りを両方試す（自動で良い方を選ぶ）
-    // 必須成り
-    bool forcedPromote = piece.canPromote && piece.mustPromote(tr);
-
-    // 成り・不成りの候補を構築
-    final candidates = <AMove>[];
-    if (forcedPromote) {
-      candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: true));
-    } else if (piece.canPromote) {
-      // 成りゾーンなら両方試す（詰みに繋がる方を優先）
-      bool inZ(int row) => piece.isPlayer1 ? row <= 2 : row >= 6;
-      if (inZ(fr) || inZ(tr)) {
-        candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: true));
-        candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: false));
+    // 成り判定: 必須成りは自動、成りゾーンならユーザーに選択させる
+    bool promote = false;
+    if (piece.canPromote) {
+      if (piece.mustPromote(tr)) {
+        promote = true;
       } else {
-        candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: false));
+        bool inZ(int row) => piece.isPlayer1 ? row <= 2 : row >= 6;
+        if (inZ(fr) || inZ(tr)) {
+          promote = (await _askPromo()) ?? false;
+        }
       }
-    } else {
-      candidates.add(AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: false));
     }
+    if (!mounted) return;
 
-    await _verifyAndApplyMove(candidates);
+    final mv = AMove(fr: fr, fc: fc, tr: tr, tc: tc, promote: promote);
+    setState(() => _verifying = false); // _verifyAndApplyMoveが再度ロックする
+    await _verifyAndApplyMove([mv]);
   }
 
   Future<void> _tryDrop(int tr, int tc) async {
