@@ -1,5 +1,6 @@
 // lib/editor_screen.dart — 局面エディタ
 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'logic.dart';
@@ -403,33 +404,44 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildBoard() {
-    return AspectRatio(
-      aspectRatio: 10 / 11,
-      child: LayoutBuilder(
-        builder: (_, cs) {
-          final boardSize = cs.maxWidth * 0.9;
-          final labelSize = cs.maxWidth * 0.05;
-          final cellSize = boardSize / 9;
-          return Column(
+    return LayoutBuilder(
+      builder: (_, cs) {
+        // 幅・高さ両方の制約から盤面サイズを決め、はみ出しを防ぐ
+        // レイアウト全体 = labelSize(段/筋ラベル分) + boardSize（縦横とも）
+        const k = 0.5 / 9;
+        final boardSizeFromWidth = cs.maxWidth / (1 + k);
+        final boardSizeFromHeight =
+            cs.maxHeight.isFinite ? cs.maxHeight / (1 + k) : boardSizeFromWidth;
+        final boardSize = math.min(boardSizeFromWidth, boardSizeFromHeight);
+        final labelSize = boardSize * k;
+        final cellSize = boardSize / 9;
+        return SizedBox(
+          width: boardSize + labelSize,
+          height: boardSize + labelSize,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              Row(
-                children: [
-                  SizedBox(width: labelSize),
-                  ...List.generate(
-                    9,
-                    (i) => SizedBox(
-                      width: cellSize,
-                      child: Text(
-                        '${9 - i}',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: labelSize * 0.7,
+              SizedBox(
+                height: labelSize,
+                child: Row(
+                  children: [
+                    SizedBox(width: labelSize),
+                    ...List.generate(
+                      9,
+                      (i) => SizedBox(
+                        width: cellSize,
+                        child: Text(
+                          '${9 - i}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: labelSize * 0.7,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -509,9 +521,9 @@ class _EditorScreenState extends State<EditorScreen> {
                 ],
               ),
             ],
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 
