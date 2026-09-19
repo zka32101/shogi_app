@@ -404,8 +404,10 @@ class _EditorScreenState extends State<EditorScreen> {
   }
 
   Widget _buildBoard() {
-    return LayoutBuilder(
-      builder: (_, cs) {
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: LayoutBuilder(
+        builder: (_, cs) {
         // 幅・高さ両方の制約から盤面サイズを決め、はみ出しを防ぐ
         // レイアウト全体 = labelSize(段/筋ラベル分) + boardSize（縦横とも）
         const k = 0.5 / 9;
@@ -523,7 +525,8 @@ class _EditorScreenState extends State<EditorScreen> {
             ],
           ),
         );
-      },
+        },
+      ),
     );
   }
 

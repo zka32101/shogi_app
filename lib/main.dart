@@ -1224,7 +1224,9 @@ class _LearnTile extends StatelessWidget {
       onTap: locked
           ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => const PremiumScreen()))
           : item.onTap,
-      child: Stack(
+      child: MediaQuery(
+        data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+        child: Stack(
         children: [
           Opacity(
             opacity: locked ? 0.55 : 1.0,
@@ -1271,6 +1273,7 @@ class _LearnTile extends StatelessWidget {
               child: Icon(Icons.lock, color: AppTheme.accent, size: 14),
             ),
         ],
+        ),
       ),
     );
   }
