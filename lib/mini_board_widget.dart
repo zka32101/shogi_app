@@ -50,6 +50,13 @@ class MiniBoardWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return MediaQuery(
+      data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+      child: _buildContent(context),
+    );
+  }
+
+  Widget _buildContent(BuildContext context) {
     return LayoutBuilder(builder: (context, constraints) {
       final totalSize = size ?? constraints.maxWidth;
       final labelSize = showLabels ? totalSize * 0.05 : 0.0;
