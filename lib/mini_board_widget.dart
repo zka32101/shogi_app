@@ -220,15 +220,18 @@ class MiniBoardWidget extends StatelessWidget {
         children: [
           // 後手持ち駒（盤の上）
           if (p2Hand.isNotEmpty) handRow(p2Hand, '後手', Colors.red.shade700),
-          Row(children: [
-            SizedBox(width: labelSize),
-            ...List.generate(9, (i) => SizedBox(
-              width: cellSize,
-              child: Text('${9 - i}',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white54, fontSize: labelSize * 0.7)),
-            )),
-          ]),
+          SizedBox(
+            height: labelSize,
+            child: Row(children: [
+              SizedBox(width: labelSize),
+              ...List.generate(9, (i) => SizedBox(
+                width: cellSize,
+                child: Text('${9 - i}',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white54, fontSize: labelSize * 0.7)),
+              )),
+            ]),
+          ),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

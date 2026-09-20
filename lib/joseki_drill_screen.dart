@@ -721,10 +721,10 @@ class _DrillPlayScreenState extends State<_DrillPlayScreen>
                 },
                 child: GestureDetector(
                   onTapDown: (details) {
-                    // ラベル領域（左side）を除いたボード座標に変換
+                    // ラベル領域（左側・上側）を除いたボード座標に変換
                     final labelSize = size * labelFrac;
                     final dx = details.localPosition.dx - labelSize;
-                    final dy = details.localPosition.dy;
+                    final dy = details.localPosition.dy - labelSize;
                     final c = (dx / cellSize).floor();
                     final r = (dy / cellSize).floor();
                     if (r >= 0 && r <= 8 && c >= 0 && c <= 8) {
