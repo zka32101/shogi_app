@@ -11,7 +11,6 @@ import 'piece.dart';
 import 'theme/app_theme.dart';
 import 'logic.dart';
 import 'mini_board_widget.dart';
-import 'tsume_engine.dart';
 import 'tsume_builtin_problems.dart' show TsumeProb, buildTsumeProblems;
 import 'study_calendar_screen.dart';
 
@@ -1931,8 +1930,6 @@ class _SolvePageState extends State<_SolvePage> {
   int _elapsedSec = 0;
   int? _bestTimeSec;
 
-  // ── 詰み探索エンジン ──
-  final _engine = TsumeEngine();
   bool _verifying = false; // 検証中フラグ
 
   bool get _p1Turn => _solutionIdx % 2 == 0; // 偶数=先手番
@@ -2192,7 +2189,9 @@ class _SolvePageState extends State<_SolvePage> {
     await Future.delayed(const Duration(milliseconds: 200));
     if (!mounted) return;
 
-    // ── 5. 残り手数内に詰みが存在するか確認 ─────────────────────
+    // ── 5. 残り手数チェック ─────────────────────────────────────
+    // 「この局面からもう詰まない」という先読みエラーは出さず、
+    // 手数を使い切るまで自由に手を試せるようにする。
     final remaining = widget.prob.moves - _solutionIdx;
 
     if (remaining <= 0) {
@@ -2201,22 +2200,7 @@ class _SolvePageState extends State<_SolvePage> {
       return;
     }
 
-    final mateResult = await _engine.findMate(
-      board: _board,
-      p1Hand: _p1Hand,
-      p2Hand: _p2Hand,
-      attackerIsP1: true,
-      depth: remaining,
-    );
-    if (!mounted) return;
-
-    if (!mateResult.isMate) {
-      // 残り手数内に詰み経路なし → 最初の局面に戻す
-      await _handleWrongAttempt(delayMs: 700);
-      return;
-    }
-
-    // ── 6. まだ詰み経路あり → 継続 ─────────────────────────────
+    // ── 6. まだ手数が残っている → 継続 ───────────────────────────
     setState(() => _verifying = false);
   }
 
