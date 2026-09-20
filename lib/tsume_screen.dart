@@ -1935,6 +1935,10 @@ class _SolvePageState extends State<_SolvePage> {
   final _engine = TsumeEngine();
   bool _verifying = false; // 検証中フラグ
 
+  // 効き（利き）可視化。感想戦画面の設定と同じキーを共有する
+  static const _kShowAttackMapPref = 'review_show_attack_map';
+  bool _showAttackMap = false;
+
   bool get _p1Turn => _solutionIdx % 2 == 0; // 偶数=先手番
 
   // 残り手数（この手番から詰みまで）
@@ -1945,6 +1949,7 @@ class _SolvePageState extends State<_SolvePage> {
     super.initState();
     _resetState();
     _loadBestTime();
+    _loadAttackMapPref();
     // 1秒ごとに画面更新
     _ticker?.cancel();
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -1952,6 +1957,19 @@ class _SolvePageState extends State<_SolvePage> {
         setState(() => _elapsedSec = _stopwatch.elapsed.inSeconds);
       }
     });
+  }
+
+  Future<void> _loadAttackMapPref() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() => _showAttackMap = prefs.getBool(_kShowAttackMapPref) ?? false);
+  }
+
+  Future<void> _toggleAttackMap() async {
+    final next = !_showAttackMap;
+    setState(() => _showAttackMap = next);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kShowAttackMapPref, next);
   }
 
   @override
@@ -2467,6 +2485,15 @@ class _SolvePageState extends State<_SolvePage> {
             style: const TextStyle(color: Colors.white, fontSize: 16)),
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          // 効き可視化
+          IconButton(
+            icon: Icon(
+              Icons.visibility,
+              color: _showAttackMap ? Colors.orangeAccent : Colors.white54,
+            ),
+            tooltip: _showAttackMap ? '効き非表示' : '効きを表示',
+            onPressed: _toggleAttackMap,
+          ),
           // タイマー表示
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
@@ -2612,6 +2639,8 @@ class _SolvePageState extends State<_SolvePage> {
                         size: boardSize,
                         boardFlipped: false,
                         currentIsP1: _p1Turn,
+                        p1AttackMap: _showAttackMap ? GL.attackMap(_board, true) : null,
+                        p2AttackMap: _showAttackMap ? GL.attackMap(_board, false) : null,
                       ),
                     ),
                   ),
