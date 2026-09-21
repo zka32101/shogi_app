@@ -51,7 +51,7 @@
         -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-xxxxxxxxxxxxxxxx~xxxxxxxxxx"/>
+            android:value="ca-app-pub-5058227312086483~9218434876"/>
         <!-- 一部端末のImpeller(Vulkan)バックエンドで盤面駒に薄い残像が出る
              不具合が確認されたため、安定版のSkiaレンダラーへ切り替え -->
         <meta-data
