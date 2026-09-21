@@ -14,8 +14,12 @@ class AdService {
   // 以前はGoogle公式のテスト広告IDがkDebugModeガードなしでハードコードされて
   // おり、本番リリースでもテスト広告のみが配信され続ける状態だった
   // （AdMobプログラムポリシー違反でアカウント停止リスクがあり、広告収益も出ない）。
-  static const _androidBannerReleaseId =
-      String.fromEnvironment('ADMOB_ANDROID_BANNER_ID');
+  // Android は本番バナーIDを既定値に持つ（--dart-define の指定漏れで広告が無音で
+  // 出なくなるのを防ぐ）。上書きしたい場合は --dart-define で指定する。
+  static const _androidBannerReleaseId = String.fromEnvironment(
+    'ADMOB_ANDROID_BANNER_ID',
+    defaultValue: 'ca-app-pub-5058227312086483/1808602734',
+  );
   static const _iosBannerReleaseId =
       String.fromEnvironment('ADMOB_IOS_BANNER_ID');
 
