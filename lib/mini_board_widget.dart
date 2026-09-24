@@ -139,6 +139,7 @@ class MiniBoardWidget extends StatelessWidget {
                           child: Text(
                             piece.label,
                             style: TextStyle(
+                              fontFamily: 'KomaFont',
                               fontSize: cellSize * 0.62,
                               fontWeight: FontWeight.bold,
                               color: _pieceColor(piece),
@@ -181,6 +182,7 @@ class MiniBoardWidget extends StatelessWidget {
           return Text(
             e.value > 1 ? '$pLabel×${e.value}' : pLabel,
             style: TextStyle(
+              fontFamily: 'KomaFont',
               fontSize: cellSize * 0.52,
               fontWeight: FontWeight.bold,
               color: const Color(0xFF2C1A0A),
