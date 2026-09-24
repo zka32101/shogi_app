@@ -9,6 +9,7 @@ TextStyle komaLabelStyle({
   required double fontSize,
 }) {
   return TextStyle(
+    fontFamily: 'KomaFont',
     fontSize: fontSize,
     fontWeight: FontWeight.w900,
     color: isPromoted ? const Color(0xFFB3261E) : const Color(0xFF2C1A0A),

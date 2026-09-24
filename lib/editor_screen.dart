@@ -505,6 +505,7 @@ class _EditorScreenState extends State<EditorScreen> {
                                           child: Text(
                                             piece.label,
                                             style: TextStyle(
+                                              fontFamily: 'KomaFont',
                                               fontSize: cellSize * .62,
                                               fontWeight: FontWeight.bold,
                                               color: _pieceColor(piece),

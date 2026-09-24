@@ -5,6 +5,89 @@ import 'piece.dart';
 import 'mini_board_widget.dart';
 import 'game_screen.dart' show initShogiBoard;
 import 'theme/app_theme.dart';
+import 'logic.dart';
+
+// ── 棋譜表記(例: '▲7六歩','▲2二飛成','▲6八歩打')から着手を特定するパーサー ──
+// 本譜（対局画面）・詰将棋と同じ GL.legal / GL.dropSquares を用いて合法手の中から
+// 一意に着手を割り出す（表記だけでは移動元が省略されているため）。
+const _nmFwFiles = '１２３４５６７８９';
+const _nmHwFiles = '123456789';
+const _nmKanjiRanks = '一二三四五六七八九';
+const _nmCharToPt = <String, PieceType>{
+  '歩': PieceType.pawn, '香': PieceType.lance, '桂': PieceType.knight,
+  '銀': PieceType.silver, '金': PieceType.gold, '角': PieceType.bishop,
+  '飛': PieceType.rook, '王': PieceType.king, '玉': PieceType.king,
+  'と': PieceType.promotedPawn, '全': PieceType.promotedSilver,
+  '圭': PieceType.promotedKnight, '杏': PieceType.promotedLance,
+  '馬': PieceType.promotedBishop, '龍': PieceType.promotedRook,
+  '竜': PieceType.promotedRook,
+};
+
+/// 解析結果: 移動手は origins に着手元の候補(通常1つ、対称局面で稀に複数)、
+/// 打つ手は drop に駒種を持つ。
+class NMAnswer {
+  final List<(int, int)> origins;
+  final int tr;
+  final int tc;
+  final bool promote;
+  final PieceType? drop;
+  const NMAnswer({this.origins = const [], required this.tr, required this.tc, this.promote = false, this.drop});
+
+  bool matches(int mtr, int mtc, {int? mfr, int? mfc, bool mPromote = false, PieceType? mDrop}) {
+    if (tr != mtr || tc != mtc) return false;
+    if (drop != null) return drop == mDrop;
+    if (mfr == null || mfc == null) return false;
+    return origins.contains((mfr, mfc)) && promote == mPromote;
+  }
+}
+
+/// prob.options[prob.correctIndex] を、盤面上で一意な着手に解決する。
+/// 該当する合法手が一意に定まらない場合は例外を投げる（デバッグ時に検出するため）。
+NMAnswer resolveNmAnswer(_NMProb prob) {
+  final notation = prob.options[prob.correctIndex];
+  var mv = notation.replaceFirst('▲', '').replaceFirst('△', '');
+  final fileChar = mv[0];
+  final toFile = _nmFwFiles.contains(fileChar)
+      ? _nmFwFiles.indexOf(fileChar) + 1
+      : _nmHwFiles.indexOf(fileChar) + 1;
+  final toRank = _nmKanjiRanks.indexOf(mv[1]) + 1;
+  final tc = 9 - toFile;
+  final tr = toRank - 1;
+  var rest = mv.substring(2);
+  final drop = rest.endsWith('打');
+  final promote = rest.endsWith('成');
+  if (drop || promote) rest = rest.substring(0, rest.length - 1);
+  final pt = _nmCharToPt[rest];
+  if (pt == null) {
+    throw StateError('next_move: 駒種を解決できません: $notation');
+  }
+
+  if (drop) {
+    return NMAnswer(tr: tr, tc: tc, drop: pt);
+  }
+
+  // 盤上のその駒種・先手の駒のうち、(tr,tc) へ合法に到達できるものを探す。
+  final candidates = <(int, int)>[];
+  for (int r = 0; r < 9; r++) {
+    for (int c = 0; c < 9; c++) {
+      final p = prob.board[r][c];
+      if (p == null || !p.isPlayer1 || p.type != pt) continue;
+      if (GL.legal(prob.board, r, c).contains((tr, tc))) {
+        candidates.add((r, c));
+      }
+    }
+  }
+  if (candidates.isEmpty) {
+    // 盤上に候補がなければ、持ち駒からの打ち（表記の「打」省略）とみなす。
+    if ((prob.p1Hand[pt] ?? 0) > 0) {
+      return NMAnswer(tr: tr, tc: tc, drop: pt);
+    }
+    throw StateError('next_move: 合法手が見つかりません: $notation');
+  }
+  // 対称局面などで着手元が複数ありうる場合は、どれを動かしても結果は
+  // 同じ意図を満たすとみなし、すべて正解として受け入れる。
+  return NMAnswer(origins: candidates, tr: tr, tc: tc, promote: promote);
+}
 
 class NextMoveScreen extends StatefulWidget {
   const NextMoveScreen({Key? key}) : super(key: key);
@@ -872,14 +955,37 @@ final List<_NMProb> _problems = [
   ),
 ];
 
+/// デバッグ/テスト用: 全問題の正解手が一意に解決できるか検証する。
+/// エラーがあれば説明文字列のリストを返す（空なら全問OK）。
+List<String> debugValidateNextMoveAnswers() {
+  final errors = <String>[];
+  for (final p in _problems) {
+    try {
+      resolveNmAnswer(p);
+    } catch (e) {
+      errors.add('${p.title}: $e');
+    }
+  }
+  return errors;
+}
+
 class _NextMoveScreenState extends State<NextMoveScreen> {
   int _current = 0;
-  int? _selectedIdx;
+  bool? _isCorrect; // null=未回答、true/false=回答結果
+  (int, int)? _pickedFrom; // 誤答時に表示用: 実際に指した着手元
+  (int, int)? _pickedTo;
   late List<bool> _cleared;
   int _score = 0;
   bool _showResult = false;
   String _selectedDifficulty = 'すべて'; // Filter by difficulty
   late List<_NMProb> _filteredProblems; // Filtered problems list
+
+  // ── 盤面操作用 ──
+  late List<List<Piece?>> _board;
+  Map<PieceType, int> _p1Hand = {};
+  (int, int)? _selected;
+  Set<(int, int)> _legalDots = {};
+  PieceType? _selectedHandPiece;
 
   @override
   void initState() {
@@ -887,6 +993,19 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
     _cleared = List.filled(_problems.length, false);
     _filteredProblems = List.from(_problems);
     _loadCleared();
+    _resetBoardForCurrent();
+  }
+
+  void _resetBoardForCurrent() {
+    if (_filteredProblems.isEmpty || _current >= _filteredProblems.length) return;
+    final prob = _filteredProblems[_current];
+    _board = List.generate(9, (r) => List<Piece?>.from(prob.board[r]));
+    _p1Hand = Map<PieceType, int>.from(prob.p1Hand);
+    _selected = null;
+    _legalDots = {};
+    _selectedHandPiece = null;
+    _pickedFrom = null;
+    _pickedTo = null;
   }
 
   Future<void> _loadCleared() async {
@@ -913,20 +1032,152 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
             _problems.where((p) => p.difficulty == difficulty).toList();
       }
       _current = 0;
-      _selectedIdx = null;
+      _isCorrect = null;
       _score = 0;
       _showResult = false;
+      _resetBoardForCurrent();
     });
   }
 
-  void _selectOption(int idx) {
-    if (_selectedIdx != null) return;
-    final prob = _filteredProblems[_current];
-    // Find the index in original _problems to save correctly
-    final originalIdx = _problems.indexOf(prob);
+  // ── 盤面タップ: 駒を選択→移動先を選択、で着手する ──
+  void _onBoardTap(int row, int col) {
+    if (_isCorrect != null) return; // 回答済みなら操作しない
+
+    if (_selectedHandPiece != null) {
+      _tryDrop(row, col);
+      return;
+    }
+
+    final tapped = _board[row][col];
+
+    if (_selected == null) {
+      if (tapped != null && tapped.isPlayer1) {
+        setState(() {
+          _selected = (row, col);
+          _legalDots = GL.legal(_board, row, col).toSet();
+        });
+      }
+      return;
+    }
+
+    final sel = _selected!;
+    if (sel == (row, col)) {
+      setState(() {
+        _selected = null;
+        _legalDots = {};
+      });
+      return;
+    }
+    if (tapped != null && tapped.isPlayer1) {
+      setState(() {
+        _selected = (row, col);
+        _legalDots = GL.legal(_board, row, col).toSet();
+      });
+      return;
+    }
+    if (_legalDots.contains((row, col))) {
+      _tryMove(sel.$1, sel.$2, row, col);
+    } else {
+      setState(() {
+        _selected = null;
+        _legalDots = {};
+      });
+    }
+  }
+
+  void _onHandTap(PieceType type) {
+    if (_isCorrect != null) return;
     setState(() {
-      _selectedIdx = idx;
-      if (idx == prob.correctIndex) {
+      if (_selectedHandPiece == type) {
+        _selectedHandPiece = null;
+        _legalDots = {};
+      } else {
+        _selectedHandPiece = type;
+        _selected = null;
+        _legalDots = GL.dropSquares(_board, type, true, _p1Hand, {}).toSet();
+      }
+    });
+  }
+
+  Future<bool?> _askPromote() => showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text('成りますか？'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('成らない'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('成る'),
+            ),
+          ],
+        ),
+      );
+
+  Future<void> _tryMove(int fr, int fc, int tr, int tc) async {
+    final piece = _board[fr][fc];
+    if (piece == null) return;
+    setState(() {
+      _selected = null;
+      _legalDots = {};
+    });
+
+    bool promote = false;
+    if (piece.canPromote) {
+      if (piece.mustPromote(tr)) {
+        promote = true;
+      } else {
+        bool inZ(int row) => row <= 2; // 先手視点の敵陣
+        if (inZ(fr) || inZ(tr)) {
+          promote = (await _askPromote()) ?? false;
+        }
+      }
+    }
+    if (!mounted) return;
+    _judge(tr: tr, tc: tc, fr: fr, fc: fc, promote: promote);
+  }
+
+  void _tryDrop(int tr, int tc) {
+    final type = _selectedHandPiece;
+    if (type == null) return;
+    if (!_legalDots.contains((tr, tc))) {
+      setState(() {
+        _selectedHandPiece = null;
+        _legalDots = {};
+      });
+      return;
+    }
+    setState(() {
+      _selectedHandPiece = null;
+      _legalDots = {};
+    });
+    _judge(tr: tr, tc: tc, drop: type);
+  }
+
+  void _judge({required int tr, required int tc, int? fr, int? fc, bool promote = false, PieceType? drop}) {
+    final prob = _filteredProblems[_current];
+    final originalIdx = _problems.indexOf(prob);
+    final answer = resolveNmAnswer(prob);
+    final correct = answer.matches(tr, tc, mfr: fr, mfc: fc, mPromote: promote, mDrop: drop);
+    setState(() {
+      _isCorrect = correct;
+      _pickedFrom = fr != null && fc != null ? (fr, fc) : null;
+      _pickedTo = (tr, tc);
+      // 着手を盤面に反映して見た目で分かるようにする（打つ手も含む）
+      if (drop != null) {
+        _board[tr][tc] = Piece(drop, true);
+        _p1Hand[drop] = (_p1Hand[drop] ?? 1) - 1;
+        if (_p1Hand[drop]! <= 0) _p1Hand.remove(drop);
+      } else if (fr != null && fc != null) {
+        final moved = _board[fr][fc]!;
+        _board[fr][fc] = null;
+        _board[tr][tc] =
+            promote ? Piece(moved.promotedType, moved.isPlayer1) : moved;
+      }
+      if (correct) {
         _score++;
         _cleared[originalIdx] = true;
         _saveCleared(originalIdx);
@@ -938,7 +1189,8 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
     if (_current < _filteredProblems.length - 1) {
       setState(() {
         _current++;
-        _selectedIdx = null;
+        _isCorrect = null;
+        _resetBoardForCurrent();
       });
     } else {
       setState(() {
@@ -950,9 +1202,10 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
   void _restart() {
     setState(() {
       _current = 0;
-      _selectedIdx = null;
+      _isCorrect = null;
       _score = 0;
       _showResult = false;
+      _resetBoardForCurrent();
     });
   }
 
@@ -1055,6 +1308,39 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
     );
   }
 
+  Widget _buildHandRow() {
+    if (_p1Hand.isEmpty) {
+      return const Text('なし',
+          style: TextStyle(color: Colors.white38, fontSize: 12));
+    }
+    return Wrap(
+      spacing: 8,
+      runSpacing: 4,
+      children: _p1Hand.entries.map((e) {
+        final selected = _selectedHandPiece == e.key;
+        return GestureDetector(
+          onTap: _isCorrect == null ? () => _onHandTap(e.key) : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: selected ? Colors.amber.shade700 : Colors.blueGrey.shade800,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: selected ? Colors.amber.shade300 : Colors.transparent,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              '${pieceLabel(e.key)}×${e.value}',
+              style: const TextStyle(
+                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildDifficultyFilter() {
     final difficulties = ['すべて', '初級', '中級', '上級'];
     return Container(
@@ -1129,7 +1415,7 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
     }
 
     final prob = _filteredProblems[_current];
-    final answered = _selectedIdx != null;
+    final answered = _isCorrect != null;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -1231,82 +1517,52 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 16),
-                Center(
-                  child: MiniBoardWidget(
-                    board: prob.board,
-                    showLabels: true,
-                    size: 280,
-                    p1Hand: prob.p1Hand,
-                    p2Hand: prob.p2Hand,
-                  ),
+                const SizedBox(height: 12),
+                const Text(
+                  '駒をタップして選択し、移動先をタップしてください。',
+                  style: TextStyle(color: Colors.white54, fontSize: 12),
                 ),
-                const SizedBox(height: 20),
-                Column(
-                  children: List.generate(prob.options.length, (i) {
-                    Color btnColor = const Color(0xFF0F3460);
-                    Color textColor = const Color(0xDEFFFFFF);
-                    IconData? icon;
-
-                    if (answered) {
-                      if (i == prob.correctIndex) {
-                        btnColor = Colors.green.shade800;
-                        textColor = Colors.white;
-                        icon = Icons.check_circle_outline;
-                      } else if (i == _selectedIdx) {
-                        btnColor = Colors.red.shade800;
-                        textColor = Colors.white;
-                        icon = Icons.cancel_outlined;
-                      } else {
-                        btnColor = const Color(0xFF0A2744);
-                        textColor = Colors.grey;
-                      }
-                    }
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                const SizedBox(height: 8),
+                if (_p1Hand.isNotEmpty) ...[
+                  const Text('先手持ち駒:',
+                      style: TextStyle(color: Colors.white38, fontSize: 11)),
+                  const SizedBox(height: 4),
+                  _buildHandRow(),
+                  const SizedBox(height: 8),
+                ],
+                Center(
+                  child: LayoutBuilder(builder: (context, constraints) {
+                    const boardSize = 280.0;
+                    return GestureDetector(
+                      onTapUp: (details) {
+                        final labelSize = boardSize * 0.05;
+                        final cellSize = (boardSize - labelSize) / 9;
+                        final x = details.localPosition.dx - labelSize;
+                        final y = details.localPosition.dy - labelSize;
+                        final col = (x / cellSize).floor();
+                        final row = (y / cellSize).floor();
+                        if (row >= 0 && row < 9 && col >= 0 && col < 9) {
+                          _onBoardTap(row, col);
+                        }
+                      },
                       child: SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: answered ? null : () => _selectOption(i),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: btnColor,
-                            foregroundColor: textColor,
-                            disabledBackgroundColor: btnColor,
-                            disabledForegroundColor: textColor,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            alignment: Alignment.centerLeft,
-                          ),
-                          child: Row(
-                            children: [
-                              if (icon != null) ...[
-                                Icon(icon, size: 20, color: textColor),
-                                const SizedBox(width: 8),
-                              ],
-                              Expanded(
-                                child: Text(
-                                  '${String.fromCharCode(65 + i)}. ${prob.options[i]}',
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    color: textColor,
-                                    fontWeight:
-                                        i == prob.correctIndex && answered
-                                            ? FontWeight.bold
-                                            : FontWeight.normal,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
+                        width: boardSize,
+                        child: MiniBoardWidget(
+                          board: _board,
+                          moveDots: _legalDots,
+                          highlightSquares: _selected != null ? {_selected!} : {},
+                          lastMoveFrom: _pickedFrom,
+                          lastMoveTo: _pickedTo,
+                          showLabels: true,
+                          size: boardSize,
+                          p1Hand: const {},
+                          p2Hand: prob.p2Hand,
                         ),
                       ),
                     );
                   }),
                 ),
+                const SizedBox(height: 20),
                 if (answered) ...[
                   const SizedBox(height: 12),
                   Container(
@@ -1316,7 +1572,7 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
                       color: const Color(0xFF0A1628),
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
-                        color: _selectedIdx == prob.correctIndex
+                        color: (_isCorrect ?? false)
                             ? Colors.green.shade700
                             : Colors.red.shade700,
                         width: 1,
@@ -1328,21 +1584,21 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
                         Row(
                           children: [
                             Icon(
-                              _selectedIdx == prob.correctIndex
+                              (_isCorrect ?? false)
                                   ? Icons.lightbulb_outline
                                   : Icons.info_outline,
-                              color: _selectedIdx == prob.correctIndex
+                              color: (_isCorrect ?? false)
                                   ? Colors.green
                                   : Colors.red,
                               size: 18,
                             ),
                             const SizedBox(width: 6),
                             Text(
-                              _selectedIdx == prob.correctIndex
+                              (_isCorrect ?? false)
                                   ? '正解！'
                                   : '不正解',
                               style: TextStyle(
-                                color: _selectedIdx == prob.correctIndex
+                                color: (_isCorrect ?? false)
                                     ? Colors.green
                                     : Colors.red,
                                 fontWeight: FontWeight.bold,
@@ -1364,6 +1620,30 @@ class _NextMoveScreenState extends State<NextMoveScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (!(_isCorrect ?? true))
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () => setState(() {
+                            _isCorrect = null;
+                            _resetBoardForCurrent();
+                          }),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          child: const Text(
+                            'もう一度挑戦する',
+                            style: TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ),
+                    ),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(

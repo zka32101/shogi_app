@@ -1096,7 +1096,6 @@ class _StudyTab extends StatelessWidget {
       _StudySection('問題で鍛える', Icons.fitness_center, const Color(0xFF42A5F5), [
         _StudyItem('詰将棋', Icons.extension, () => _go(context, const TsumeScreen())),
         _StudyItem('デイリー詰将棋', Icons.today, () => _go(context, const DailyTsumeScreen())),
-        _StudyItem('ローグライト', Icons.casino, () => _go(context, const TsumeRogueliteScreen())),
         _StudyItem('タイムアタック', Icons.timer, () => _go(context, const TsumeTimeAttackScreen())),
         _StudyItem('次の一手', Icons.lightbulb, () => _go(context, const NextMoveScreen())),
         _StudyItem('手筋トレーニング', Icons.psychology, () => _go(context, const TesujiScreen())),

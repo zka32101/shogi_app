@@ -13,6 +13,10 @@ class CastlePatternsScreen extends StatefulWidget {
   State<CastlePatternsScreen> createState() => _CastlePatternsScreenState();
 }
 
+/// デバッグ/テスト用: 全囲いパターンの盤面を名前付きで返す。
+Map<String, List<List<Piece?>>> debugAllCastleBoards() =>
+    _CastlePatternsScreenState.debugAllBoards();
+
 class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
   String? _selectedDifficulty;
 
@@ -93,6 +97,99 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
   static List<List<Piece?>> _empty() =>
       List.generate(9, (_) => List<Piece?>.filled(9, null, growable: true));
 
+  // ── 自陣フル陣形の補完 ──────────────────────────────────
+  // 囲いの核となる駒（玉・金・銀など）だけを個別関数で明示し、それ以外の
+  // 自陣の駒（未動の歩・香・桂・角・飛）は標準初期配置のまま盤面に載せる。
+  // これにより「囲いパターンは自陣のすべての駒を載せる」表示になる。
+  //
+  // 判定ルール:
+  // - 歩: 既にその筋（列）に自駒の歩があれば(不動でも突いた後でも)その筋は
+  //   埋まっているとみなし、無ければ七段目（row6）の初期位置に補う。
+  // - 香・桂・銀・金（各2枚）: 盤面上の既存枚数が2枚未満なら、標準初期位置の
+  //   うち空いているマスに補う。
+  // - 角・飛・玉（各1枚）: 既に盤面にあれば何もしない。無ければ標準初期位置
+  //   が空いていれば補う（角換わり等で意図的に不在の場合は空欄のまま）。
+  static List<List<Piece?>> _fillFullCamp(List<List<Piece?>> partial,
+      {bool includeBishop = true, bool includeRook = true}) {
+    final b = List.generate(9, (r) => List<Piece?>.from(partial[r]));
+
+    bool empty(int r, int c) => b[r][c] == null;
+    int countType(PieceType t) {
+      var n = 0;
+      for (final row in b) {
+        for (final p in row) {
+          if (p != null && p.isPlayer1 && p.type == t) n++;
+        }
+      }
+      return n;
+    }
+
+    // 標準初期位置が別の駒でふさがっている場合、近傍の妥当なマス
+    // （実戦でその駒が実際に動くことが多いマス）を候補として順に試す。
+    void fillPair(PieceType t, List<(int, int)> defaults, List<(int, int)> fallback) {
+      var need = 2 - countType(t);
+      if (need <= 0) return;
+      for (final (r, c) in [...defaults, ...fallback]) {
+        if (need <= 0) break;
+        if (empty(r, c)) {
+          b[r][c] = Piece(t, true);
+          need--;
+        }
+      }
+    }
+
+    void fillSingle(PieceType t, List<(int, int)> candidates) {
+      if (countType(t) >= 1) return;
+      for (final (r, c) in candidates) {
+        if (empty(r, c)) {
+          b[r][c] = Piece(t, true);
+          return;
+        }
+      }
+    }
+
+    // 歩: 筋ごとに自駒の歩が既にあるか確認し、無ければ七段目（無理なら
+    // その筋を敵陣側へカスケードして最初に空いているマス）に補う。
+    // 元の七段目が別の駒（成長した銀など）にふさがっている場合は、実戦で
+    // その歩がさらに前進していたと解釈して一段先のマスを使う。
+    for (int c = 0; c < 9; c++) {
+      var hasPawnInFile = false;
+      for (int r = 0; r < 9; r++) {
+        final p = b[r][c];
+        if (p != null && p.isPlayer1 && p.type == PieceType.pawn) {
+          hasPawnInFile = true;
+          break;
+        }
+      }
+      if (hasPawnInFile) continue;
+      for (int r = 6; r >= 0; r--) {
+        if (empty(r, c)) {
+          b[r][c] = const Piece(PieceType.pawn, true);
+          break;
+        }
+      }
+    }
+
+    fillPair(PieceType.lance, [(8, 0), (8, 8)], [(7, 0), (7, 8)]);
+    fillPair(PieceType.knight, [(8, 1), (8, 7)],
+        [(7, 1), (7, 7), (6, 1), (6, 7)]);
+    fillPair(PieceType.silver, [(8, 2), (8, 6)],
+        [(7, 2), (7, 6), (6, 2), (6, 6)]);
+    fillPair(PieceType.gold, [(8, 3), (8, 5)],
+        [(7, 3), (7, 5), (6, 3), (6, 5)]);
+    fillSingle(PieceType.king, [(8, 4)]);
+    if (includeBishop) {
+      fillSingle(PieceType.bishop,
+          [(7, 1), (6, 2), (7, 3), (6, 6), (7, 7), (6, 0), (6, 8)]);
+    }
+    if (includeRook) {
+      fillSingle(PieceType.rook,
+          [(7, 7), (7, 6), (7, 5), (7, 4), (7, 3), (7, 2), (7, 1), (7, 0)]);
+    }
+
+    return b;
+  }
+
   // 居玉（きょぎょく）— 玉が初期位置のまま
   static List<List<Piece?>> _kyogyoku() {
     final b = _empty();
@@ -102,7 +199,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[8][0] = const Piece(PieceType.lance, true);  // 9九香
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
     b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 矢倉（やぐら）— 8八玉、7八金、7七銀、6七金
@@ -118,7 +215,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
     b[5][3] = const Piece(PieceType.pawn, true);   // 6六歩
     b[5][4] = const Piece(PieceType.pawn, true);   // 5六歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 銀矢倉（ぎんやぐら）— 8八玉、7八金、7七銀、6七銀（矢倉の6七金を銀に変えた形）
@@ -133,7 +230,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[8][1] = const Piece(PieceType.knight, true); // 8九桂
     b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 片矢倉（かたやぐら）— 7八玉、6八金、7七銀、6七金（矢倉より一路控えた形）
@@ -148,7 +245,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[8][1] = const Piece(PieceType.knight, true); // 8九桂
     b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 串カツ囲い（くしかつがこい）— 9八玉、8八銀、7八金、7九金、7七角
@@ -162,7 +259,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][2] = const Piece(PieceType.bishop, true); // 7七角
     b[8][1] = const Piece(PieceType.knight, true); // 8九桂
     b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 美濃囲い（みのがこい）— 2八玉、3八銀、5八金（振り飛車）
@@ -179,7 +276,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
     b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
     b[5][6] = const Piece(PieceType.pawn, true);   // 3六歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 舟囲い（ふねがこい）— 5八玉、4八金、6八金
@@ -192,7 +289,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
     b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
     b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 金無双（きんむそう）— 3八玉、2八銀、4八金、5八金（相振り飛車の囲い）
@@ -207,7 +304,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][6] = const Piece(PieceType.pawn, true);   // 3七歩
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 銀冠（ぎんかん）— 2八玉、3八金、4七金、2七銀（銀が玉の真上で冠の形）
@@ -223,7 +320,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[5][8] = const Piece(PieceType.pawn, true);   // 1六歩
     b[5][7] = const Piece(PieceType.pawn, true);   // 2六歩
     b[5][6] = const Piece(PieceType.pawn, true);   // 3六歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 左美濃（ひだりみの）— 8八玉、7八銀、6八金、5八金、7七角（居飛車）
@@ -239,7 +336,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[8][0] = const Piece(PieceType.lance, true);  // 9九香
     b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 雁木（がんぎ）— 5九玉、7八金、5八金、6七銀、4八銀（銀2枚のジグザグ形）
@@ -256,7 +353,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
     b[8][0] = const Piece(PieceType.lance, true);  // 9九香
     b[8][8] = const Piece(PieceType.lance, true);  // 1九香
-    return b;
+    return _fillFullCamp(b);
   }
 
   // カニ囲い（かにがこい）— 5九玉、6九金、4九金、5八銀
@@ -269,7 +366,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
     b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
     b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 高美濃（たかみの）— 美濃の金が4七に上がった形
@@ -285,7 +382,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[7][5] = const Piece(PieceType.rook, true);   // 4八飛（振り飛車）
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
     b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 穴熊（あなぐま）— 9九玉、8九金、7九金、9八銀、8八銀
@@ -299,7 +396,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
     b[6][2] = const Piece(PieceType.pawn, true);   // 7七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 矢倉角換わり — 矢倉形から角を交換した局面
@@ -315,7 +412,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
     b[5][3] = const Piece(PieceType.pawn, true);   // 6六歩
     // 角なし（交換済み）
-    return b;
+    return _fillFullCamp(b, includeBishop: false);
   }
 
   // ビッグ4 — 9九玉＋金2枚・銀2枚で固める四枚穴熊の最強形
@@ -331,7 +428,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][1] = const Piece(PieceType.silver, true); // 8七銀
     b[6][2] = const Piece(PieceType.silver, true); // 7七銀
     b[8][1] = const Piece(PieceType.knight, true); // 8九桂（未移動）
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 中住まい（なかずまい）— 玉を中央5八に置き、左右の金銀で守る
@@ -347,7 +444,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][3] = const Piece(PieceType.pawn, true);   // 6七歩
     b[6][4] = const Piece(PieceType.pawn, true);   // 5七歩
     b[6][5] = const Piece(PieceType.pawn, true);   // 4七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 木村美濃（きむらみの）— 美濃に金を4七へ足した発展形
@@ -363,7 +460,7 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[5][5] = const Piece(PieceType.pawn, true);   // 4六歩
     b[6][7] = const Piece(PieceType.pawn, true);   // 2七歩
     b[6][8] = const Piece(PieceType.pawn, true);   // 1七歩
-    return b;
+    return _fillFullCamp(b);
   }
 
   // 居飛車穴熊（いびしゃあなぐま）— 居飛車側が9九へ玉を潜らせる対振り最堅陣
@@ -379,8 +476,31 @@ class _CastlePatternsScreenState extends State<CastlePatternsScreen> {
     b[6][0] = const Piece(PieceType.pawn, true);   // 9七歩
     b[6][1] = const Piece(PieceType.pawn, true);   // 8七歩
     b[6][2] = const Piece(PieceType.pawn, true);   // 7七歩
-    return b;
+    return _fillFullCamp(b);
   }
+
+  /// デバッグ/テスト用: 全囲いパターンの盤面を名前付きで返す。
+  static Map<String, List<List<Piece?>>> debugAllBoards() => {
+        '居玉': _kyogyoku(),
+        '矢倉': _yagura(),
+        '銀矢倉': _ginYagura(),
+        '片矢倉': _kataYagura(),
+        '串カツ囲い': _kushikatsu(),
+        '美濃囲い': _mino(),
+        '舟囲い': _funegakoi(),
+        '金無双': _kinmusou(),
+        '銀冠': _ginkan(),
+        '左美濃': _hidarimino(),
+        '雁木': _gangi(),
+        'カニ囲い': _kanigakoi(),
+        '高美濃': _takamiino(),
+        '穴熊': _anaguma(),
+        '矢倉角換わり': _yaguraKakuKawari(),
+        'ビッグ4': _bigFour(),
+        '中住まい': _nakazumai(),
+        '木村美濃': _kimuraMino(),
+        '居飛車穴熊': _ibishaAnaguma(),
+      };
 
   @override
   Widget build(BuildContext context) {
