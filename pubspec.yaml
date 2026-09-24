@@ -65,9 +65,23 @@ dev_dependencies:
   flutter_lints: ^6.0.0
   riverpod_generator: ^2.3.9
   build_runner: ^2.4.6
+  flutter_launcher_icons: ^0.14.3
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon/app_icon.png"
+  min_sdk_android: 21
+  # 画像に角丸枠がすでに焼き込まれているため、Adaptive Icon（前景/背景分離）は
+  # 使わず、従来型アイコン（mipmap-*/ic_launcher.png）のみ生成する。
+  # Adaptive Icon にすると、ランチャー側の追加マスクで二重の縁取りになる。
 
 flutter:
   uses-material-design: true
   assets:
     - assets/tsume_extra.json
     - assets/character_icons/
+  fonts:
+    - family: KomaFont
+      fonts:
+        - asset: assets/fonts/YujiSyuku-Regular.ttf
