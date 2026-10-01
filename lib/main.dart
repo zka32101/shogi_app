@@ -1891,7 +1891,7 @@ Widget _buildPremiumCard(BuildContext context) => Container(
       const SizedBox(height: 8),
       if (!PurchaseService.isPremium) ...[
         const Text(
-          '300円・500円のプランから選択',
+          '月額300円・500円のプランから選択',
           style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
         const SizedBox(height: 8),

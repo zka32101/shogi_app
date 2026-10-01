@@ -20,12 +20,20 @@ enum PurchaseOutcome {
   failed,
 }
 
+/// 月額プランの権利を、ストアが返した有効な購入IDで検証した結果を返す。
+/// 有効な購入に含まれていれば付与、含まれなければ（解約・期限切れ）取り消す。
+bool entitlementAfterVerification({
+  required String productId,
+  required Set<String> activeProductIds,
+}) =>
+    activeProductIds.contains(productId);
+
 class PurchaseService {
-  // 300円プラン (買い切り)
+  // 300円プラン (月額・自動更新)
   static const String _plan300Id = 'liki_shogi_plan_300';
   static const String _plan300PrefKey = 'plan_300_purchased';
 
-  // 500円プラン (買い切り)
+  // 500円プラン (月額・自動更新)
   static const String _plan500Id = 'liki_shogi_plan_500';
   static const String _plan500PrefKey = 'plan_500_purchased';
 
@@ -69,14 +77,33 @@ class PurchaseService {
         onError: (_) {},
       );
 
-      // 未完了の購入を復元
+      // 有効な購入を復元しつつ、どの商品が有効かを集める（月額は解約・期限切れ
+      // で権利が外れるため、起動のたびに再検証する）
+      final restoredIds = <String>{};
+      final restoreSub = _iap.purchaseStream.listen((purchases) {
+        for (final p in purchases) {
+          if (p.status == PurchaseStatus.purchased ||
+              p.status == PurchaseStatus.restored) {
+            restoredIds.add(p.productID);
+          }
+        }
+      });
       await _iap.restorePurchases();
+      // 復元イベントは非同期で届く。対象が無ければ何も届かないため短く待つ
+      await Future.delayed(const Duration(seconds: 3));
+      await restoreSub.cancel();
 
       // 商品情報を取得（300円 + 500円）
       final response = await _iap.queryProductDetails({_plan300Id, _plan500Id});
       for (final p in response.productDetails) {
         if (p.id == _plan300Id) _plan300Product = p;
         if (p.id == _plan500Id) _plan500Product = p;
+      }
+      // ストアに接続できた（商品情報が取れた）場合のみ、有効な購入が無い
+      // プランの権利を外す。オフラインや取得失敗時に、誤って権利を
+      // 取り消さないための安全策。
+      if (response.error == null && response.productDetails.isNotEmpty) {
+        await applyEntitlementCheck(restoredIds);
       }
       notFoundProductIds = List.unmodifiable(response.notFoundIDs);
       if (response.error != null || notFoundProductIds.isNotEmpty) {
@@ -86,6 +113,22 @@ class PurchaseService {
     } catch (e, st) {
       debugPrint('[Purchase] 初期化に失敗: $e\n$st');
     }
+  }
+
+  /// 有効な購入に含まれないプランの権利を外す（月額の解約・期限切れ対応）。
+  /// 権利の判定そのものは [entitlementAfterVerification] に切り出してある。
+  @visibleForTesting
+  static Future<void> applyEntitlementCheck(Set<String> activeProductIds) async {
+    final next300 = entitlementAfterVerification(
+      productId: _plan300Id,
+      activeProductIds: activeProductIds,
+    );
+    final next500 = entitlementAfterVerification(
+      productId: _plan500Id,
+      activeProductIds: activeProductIds,
+    );
+    if (next300 != _hasPlan300) await _setPlan300(next300);
+    if (next500 != _hasPlan500) await _setPlan500(next500);
   }
 
   static void dispose() {
