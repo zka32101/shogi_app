@@ -1720,6 +1720,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   // AI実行判定・ターン切替
   void _decideAIMove() {
     p1Turn = !p1Turn;
+    // 手番表示（AppBarのタイトル等）はp1Turnから作られる。CPUが指した直後は
+    // この後に再描画が無く、「後手の番」のまま古い表示が残っていた。
+    if (mounted) setState(() {});
     _updateAtkMap();
     if (_analysisMode && result == null && !isAITurn) _computeHint();
     if (result == null && isAITurn) {

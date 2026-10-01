@@ -4,6 +4,22 @@ import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 購入結果。以前は成功/失敗のboolだけで、商品情報が取れなかった場合も
+/// 画面に「購入をキャンセルしました」と出ていた。
+enum PurchaseOutcome {
+  /// 購入完了（または復元）
+  purchased,
+
+  /// ユーザーが購入画面を閉じた
+  canceled,
+
+  /// ストア自体、または商品情報がGoogle Playから取得できない
+  unavailable,
+
+  /// 決済エラーやタイムアウトなど
+  failed,
+}
+
 class PurchaseService {
   // 300円プラン (買い切り)
   static const String _plan300Id = 'liki_shogi_plan_300';
@@ -21,6 +37,9 @@ class PurchaseService {
   static bool _hasPlan500 = false;
   static ProductDetails? _plan300Product;
   static ProductDetails? _plan500Product;
+
+  /// 直近の商品情報取得でストアに見つからなかった商品ID（診断用）
+  static List<String> notFoundProductIds = const [];
 
   static bool get isAvailable => _isAvailable && !kIsWeb;
   static bool get hasPlan300 => _hasPlan300;
@@ -59,7 +78,14 @@ class PurchaseService {
         if (p.id == _plan300Id) _plan300Product = p;
         if (p.id == _plan500Id) _plan500Product = p;
       }
-    } catch (_) {}
+      notFoundProductIds = List.unmodifiable(response.notFoundIDs);
+      if (response.error != null || notFoundProductIds.isNotEmpty) {
+        debugPrint('[Purchase] 商品情報を取得できません: '
+            'notFound=$notFoundProductIds error=${response.error}');
+      }
+    } catch (e, st) {
+      debugPrint('[Purchase] 初期化に失敗: $e\n$st');
+    }
   }
 
   static void dispose() {
@@ -67,14 +93,18 @@ class PurchaseService {
   }
 
   /// 300円プラン購入
-  static Future<bool> purchasePlan300() async {
-    if (!_isAvailable || _plan300Product == null) return false;
+  static Future<PurchaseOutcome> purchasePlan300() async {
+    if (!_isAvailable || _plan300Product == null) {
+      return PurchaseOutcome.unavailable;
+    }
     return _purchaseAndAwaitResult(_plan300Product!, _plan300Id);
   }
 
   /// 500円プラン購入
-  static Future<bool> purchasePlan500() async {
-    if (!_isAvailable || _plan500Product == null) return false;
+  static Future<PurchaseOutcome> purchasePlan500() async {
+    if (!_isAvailable || _plan500Product == null) {
+      return PurchaseOutcome.unavailable;
+    }
     return _purchaseAndAwaitResult(_plan500Product!, _plan500Id);
   }
 
@@ -84,20 +114,22 @@ class PurchaseService {
   /// 見て呼び出し元が即座に「購入しました」と表示すると、後でユーザーが
   /// キャンセルしたり決済が失敗した場合でも購入成功したように見えてしまう
   /// ため、実際の結果イベントを待ってから返す
-  static Future<bool> _purchaseAndAwaitResult(
+  static Future<PurchaseOutcome> _purchaseAndAwaitResult(
     ProductDetails product,
     String productId,
   ) async {
-    final completer = Completer<bool>();
+    final completer = Completer<PurchaseOutcome>();
     final sub = _iap.purchaseStream.listen((purchases) {
       for (final p in purchases) {
         if (p.productID != productId) continue;
         if (p.status == PurchaseStatus.purchased ||
             p.status == PurchaseStatus.restored) {
-          if (!completer.isCompleted) completer.complete(true);
-        } else if (p.status == PurchaseStatus.error ||
-            p.status == PurchaseStatus.canceled) {
-          if (!completer.isCompleted) completer.complete(false);
+          if (!completer.isCompleted) completer.complete(PurchaseOutcome.purchased);
+        } else if (p.status == PurchaseStatus.canceled) {
+          if (!completer.isCompleted) completer.complete(PurchaseOutcome.canceled);
+        } else if (p.status == PurchaseStatus.error) {
+          debugPrint('[Purchase] 決済エラー: ${p.error}');
+          if (!completer.isCompleted) completer.complete(PurchaseOutcome.failed);
         }
         // pending は最終結果ではないため待ち続ける
       }
@@ -106,14 +138,15 @@ class PurchaseService {
     try {
       final param = PurchaseParam(productDetails: product);
       final submitted = await _iap.buyNonConsumable(purchaseParam: param);
-      if (!submitted) return false;
+      if (!submitted) return PurchaseOutcome.failed;
 
       return await completer.future.timeout(
         const Duration(seconds: 30),
-        onTimeout: () => false,
+        onTimeout: () => PurchaseOutcome.failed,
       );
-    } catch (_) {
-      return false;
+    } catch (e, st) {
+      debugPrint('[Purchase] 購入処理で例外: $e\n$st');
+      return PurchaseOutcome.failed;
     } finally {
       await sub.cancel();
     }

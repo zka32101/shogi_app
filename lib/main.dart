@@ -92,8 +92,24 @@ void main() {
 }
 
 Future<void> _initializeBackgroundServices() async {
-  await AdService.initialize();
-  await PurchaseService.initialize();
+  // Firebase は広告・課金の初期化完了を待たずに並行して始める。
+  // 以前は広告・課金の後ろで初期化していたため、起動直後に対局を始めると
+  // FirebaseAuth.instance が [core/no-app] の未処理例外になっていた。
+  final firebaseInit = _initializeFirebaseServices();
+  try {
+    await AdService.initialize();
+  } catch (e, st) {
+    debugPrint('[Init] AdService 初期化に失敗: $e\n$st');
+  }
+  try {
+    await PurchaseService.initialize();
+  } catch (e, st) {
+    debugPrint('[Init] PurchaseService 初期化に失敗: $e\n$st');
+  }
+  await firebaseInit;
+}
+
+Future<void> _initializeFirebaseServices() async {
   // Firebase 初期化（設定済みの場合のみ有効）
   try {
     await Firebase.initializeApp(
@@ -125,8 +141,10 @@ Future<void> _initializeBackgroundServices() async {
     // アプリが完全終了状態から通知タップで起動された場合（cold start）の
     // 遷移も処理する（onMessageOpenedAppだけではこのケースを捕捉できない）
     FcmService().checkInitialMessage();
-  } catch (_) {
-    // Firebase 未設定の場合はスキップ（ネットワーク対局機能は無効）
+  } catch (e, st) {
+    // Firebase が使えない場合はネットワーク対局機能などが無効になる。
+    // 以前は原因を握りつぶしていたため、失敗してもログから分からなかった。
+    debugPrint('[Firebase] 初期化に失敗（ネットワーク機能は無効）: $e\n$st');
   }
 }
 

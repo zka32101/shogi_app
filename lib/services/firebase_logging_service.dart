@@ -1,14 +1,19 @@
 // lib/services/firebase_logging_service.dart — Firebase ロギング
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 /// Firebase にゲーム進行ログを記録するサービス
 class FirebaseLoggingService {
-  static final _firestore = FirebaseFirestore.instance;
-  static final _auth = FirebaseAuth.instance;
+  // static final で保持すると、Firebase 初期化前にクラスが初めて使われた
+  // 時点で [core/no-app] の未処理例外になる。使う時点で評価し、未初期化
+  // なら何もしない（ロギング失敗でゲーム進行を止めない）。
+  static FirebaseFirestore get _firestore => FirebaseFirestore.instance;
+  static FirebaseAuth get _auth => FirebaseAuth.instance;
 
-  static String? get _userId => _auth.currentUser?.uid;
+  static String? get _userId =>
+      Firebase.apps.isEmpty ? null : _auth.currentUser?.uid;
 
   /// ゲーム開始ログ
   static Future<void> logGameStart({
