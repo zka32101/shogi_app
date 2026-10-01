@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 import '../purchase_service.dart';
+import '../purchase_messages.dart';
 import '../theme/app_theme.dart';
 
 class PremiumScreen extends StatefulWidget {
@@ -37,37 +38,25 @@ class _PremiumScreenState extends State<PremiumScreen> {
 
   Future<void> _buyPlan300() async {
     setState(() => _loading = true);
-    final ok = await PurchaseService.purchasePlan300();
+    final outcome = await PurchaseService.purchasePlan300();
     if (mounted) {
       setState(() => _loading = false);
-      if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('300円プランを購入しました！')),
-        );
-        _checkStatus();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('購入をキャンセルしました')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(purchaseOutcomeMessage(outcome, '300円'))),
+      );
+      if (outcome == PurchaseOutcome.purchased) _checkStatus();
     }
   }
 
   Future<void> _buyPlan500() async {
     setState(() => _loading = true);
-    final ok = await PurchaseService.purchasePlan500();
+    final outcome = await PurchaseService.purchasePlan500();
     if (mounted) {
       setState(() => _loading = false);
-      if (ok) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('500円プランを購入しました！')),
-        );
-        _checkStatus();
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('購入をキャンセルしました')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(purchaseOutcomeMessage(outcome, '500円'))),
+      );
+      if (outcome == PurchaseOutcome.purchased) _checkStatus();
     }
   }
 
