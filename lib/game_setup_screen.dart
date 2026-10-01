@@ -725,7 +725,7 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
             ),
             const SizedBox(height: 12),
             const Text(
-              '300円または500円のプランをご購入ください。',
+              '月額300円または500円のプランをご利用ください。',
               style: TextStyle(color: Colors.white54, fontSize: 12),
             ),
           ],

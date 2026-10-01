@@ -144,7 +144,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
 
                   // 注意事項
                   const Text(
-                    '・全てのプランは買い切りです\n'
+                    '・全てのプランは月額（毎月自動更新）です\n'
+                    '・解約は Google Play の「定期購入」からいつでもできます\n'
                     '・購入の復元は「復元」ボタンから',
                     style: TextStyle(color: AppTheme.textLow, fontSize: 11),
                     textAlign: TextAlign.center,
@@ -223,8 +224,8 @@ class _PremiumScreenState extends State<PremiumScreen> {
             children: [
               header('機能'),
               header('無料'),
-              header('300円', bg: Colors.blue.shade800),
-              header('500円', bg: Colors.amber.shade800),
+              header('300円/月', bg: Colors.blue.shade800),
+              header('500円/月', bg: Colors.amber.shade800),
             ],
           ),
           for (final r in rows)
@@ -286,7 +287,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             Icon(Icons.diamond, color: Colors.blue.shade400, size: 18),
             const SizedBox(width: 6),
             const Text(
-              '300円プラン',
+              '300円プラン（月額）',
               style: TextStyle(color: AppTheme.textHigh, fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const Spacer(),
@@ -313,7 +314,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
               child: ElevatedButton.icon(
                 onPressed: _buyPlan300,
                 icon: const Icon(Icons.shopping_bag),
-                label: const Text('300円で購入'),
+                label: const Text('300円/月で購入'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.catConfig,
                   foregroundColor: Colors.white,
@@ -343,7 +344,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
             Icon(Icons.diamond, color: Colors.amber.shade400, size: 18),
             const SizedBox(width: 6),
             const Text(
-              '500円プラン',
+              '500円プラン（月額）',
               style: TextStyle(color: AppTheme.textHigh, fontWeight: FontWeight.bold, fontSize: 15),
             ),
             const Spacer(),
@@ -371,7 +372,7 @@ class _PremiumScreenState extends State<PremiumScreen> {
               child: ElevatedButton.icon(
                 onPressed: _buyPlan500,
                 icon: const Icon(Icons.shopping_bag),
-                label: const Text('500円で購入'),
+                label: const Text('500円/月で購入'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.catConfig,
                   foregroundColor: Colors.white,
