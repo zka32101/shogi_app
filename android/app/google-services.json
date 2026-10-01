@@ -1,21 +1,21 @@
-{
+﻿{
   "project_info": {
-    "project_number": "250444577503",
-    "project_id": "petit-works-games",
-    "storage_bucket": "petit-works-games.firebasestorage.app"
+    "project_number": "419772713997",
+    "project_id": "koki-shogi-app",
+    "storage_bucket": "koki-shogi-app.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:250444577503:android:38cb968cde213222c1476a",
+        "mobilesdk_app_id": "1:419772713997:android:68e31401620af449d0d944",
         "android_client_info": {
-          "package_name": "com.petitworksapps.kouki"
+          "package_name": "com.yourwish.koki"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCdIuk0UifwgliMGDdU-06TwUsvkJESPc0"
+          "current_key": "AIzaSyAQNwFP4O9i7bWtE8Xj-uUNDCj74TqJD3o"
         }
       ],
       "services": {
