@@ -4,6 +4,12 @@
       ".read": "auth != null",
       ".write": "auth != null"
     },
+    "rankings": {
+      ".read": "auth != null",
+      "$userId": {
+        ".write": "auth != null"
+      }
+    },
     "rooms": {
       ".read": "auth != null",
       ".write": "auth != null"

@@ -90,8 +90,16 @@ service cloud.firestore {
       // 対局者のみ読み取り可能
       allow read: if isAuthenticated();
 
-      // システムのみ（Cloud Functions経由で）書き込み可能
-      allow write: if false;
+      // マッチングはクライアント主導（matching_service.dart）。対局者本人のみ作成・更新できる
+      // （Cloud Functionsはデプロイしない運用のため、以前の write:false では対戦が成立しなかった）
+      allow create: if isAuthenticated() &&
+          (request.resource.data.player1_id == request.auth.uid ||
+           request.resource.data.player2_id == request.auth.uid);
+      allow update: if isAuthenticated() &&
+          (resource.data.player1_id == request.auth.uid ||
+           resource.data.player2_id == request.auth.uid ||
+           request.resource.data.player2_id == request.auth.uid);
+      allow delete: if false;
 
       // ── 遅延行為トラッキング（対局相手が観測して記録・cheat_detection_service.dart） ──
       // 以前は isAuthenticated() のみで、対局と無関係な第三者でも任意の対局の証跡を
@@ -226,8 +234,22 @@ service cloud.firestore {
       // 認証ユーザーのみ読み取り可能
       allow read: if isAuthenticated();
 
-      // システムのみ（Cloud Functions経由で）書き込み可能
-      allow write: if false;
+      // 自分の待機エントリのみ作成できる
+      allow create: if isAuthenticated() &&
+          request.resource.data.user_id == request.auth.uid &&
+          request.resource.data.status == 'waiting';
+
+      // 本人は status の変更（キャンセル・期限切れ）のみ。
+      // 他人の待機中エントリは、マッチ成立の記録（matched/matched_with/match_id）のみ更新できる
+      allow update: if isAuthenticated() && (
+          (resource.data.user_id == request.auth.uid &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])) ||
+          (resource.data.status == 'waiting' &&
+           request.resource.data.status == 'matched' &&
+           request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['status', 'matched_with', 'match_id']))
+        );
+      allow delete: if false;
     }
 
     // ===== レポート（管理者のみ） =====
