@@ -10,6 +10,7 @@ import 'purchase_service.dart';
 import 'piece.dart';
 import 'theme/app_theme.dart';
 import 'logic.dart';
+import 'tsume_judge.dart';
 import 'mini_board_widget.dart';
 import 'tsume_builtin_problems.dart' show TsumeProb, buildTsumeProblems;
 import 'study_calendar_screen.dart';
@@ -2014,6 +2015,27 @@ class _SolvePageState extends State<_SolvePage> {
     _startInCheck = GL.inCheck(_board, false);
   }
 
+  /// 現在の局面（先手番）での詰み手。解答手順の手が詰み手ならそれを優先する。
+  AMove? _hintMoveNow() {
+    final remaining = widget.prob.moves - _solutionIdx;
+    if (remaining < 1) return null;
+    final pos = tsumePos(_board, _p1Hand, _p2Hand);
+    final mates = tsumeChecks(pos)
+        .where((m) => tsumeFirstMoveMates(pos, m, remaining))
+        .toList();
+    if (mates.isEmpty) return null;
+    final sol = _currentSol;
+    if (sol != null) {
+      for (final m in mates) {
+        if (m.fr == sol.fr && m.fc == sol.fc && m.tr == sol.tr && m.tc == sol.tc &&
+            m.drop == sol.drop && m.promote == sol.promote) {
+          return m;
+        }
+      }
+    }
+    return mates.first;
+  }
+
   AMove? get _currentSol {
     final sol = widget.prob.solution;
     return _solutionIdx < sol.length ? sol[_solutionIdx] : null;
@@ -2185,9 +2207,15 @@ class _SolvePageState extends State<_SolvePage> {
     await Future.delayed(const Duration(milliseconds: 450));
     if (!mounted) return;
 
-    final defMove = await Future(
-      () => AI.bestMove(_board, _p1Hand, _p2Hand, false, 2),
-    );
+    // 受け方は「詰みまでが最も長くなる受け」を選ぶ。残り手数内に詰ませられない受けが
+    // あれば（＝今の手は詰み手ではない）その受けを選ぶので、詰み手でない手は正解にならない。
+    final attackerLeft = widget.prob.moves - _solutionIdx - 1;
+    final defMove = await Future(() {
+      if (attackerLeft >= 1) {
+        return tsumeBestDefense(tsumePos(_board, _p1Hand, _p2Hand), attackerLeft);
+      }
+      return AI.bestMove(_board, _p1Hand, _p2Hand, false, 2);
+    });
     if (!mounted) return;
 
     if (defMove == null) {
@@ -2322,6 +2350,16 @@ class _SolvePageState extends State<_SolvePage> {
                 ),
               ],
             ]),
+            if (widget.prob.solution.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                tsumeKifuText(
+                  tsumePos(widget.prob.board, Map.of(widget.prob.p1Hand), Map.of(widget.prob.p2Hand)),
+                  widget.prob.solution,
+                ),
+                style: const TextStyle(color: Colors.amber, fontSize: 13, height: 1.5),
+              ),
+            ],
             if (widget.prob.explanation.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -2675,9 +2713,9 @@ class _SolvePageState extends State<_SolvePage> {
                   ],
                 ),
                 if (_hintLevel > 0 && !_solved) Builder(builder: (ctx) {
-                  final sol = widget.prob.solution;
-                  if (sol.isEmpty) return const SizedBox.shrink();
-                  final firstMove = sol[0];
+                  // 現在の局面から詰み手を探す（2手目以降も正しい手を案内する）
+                  final firstMove = _hintMoveNow();
+                  if (firstMove == null) return const SizedBox.shrink();
 
                   if (_hintLevel == 1) {
                     // Level 1: 駒の種類のみ
