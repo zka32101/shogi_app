@@ -805,14 +805,25 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
   String _buildShareText() {
     final now = DateTime.now();
     final dateStr = '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    final emojis = _attempts.map((a) => a == 'solved' ? '🟩' : a == 'failed' ? '🟥' : '⬜').join('');
+    // 回数無制限（999枠）なので、実際に挑戦した分だけを共有する
+    final emojis = _attempts
+        .where((a) => a != 'pending')
+        .map((a) => a == 'solved' ? '🟩' : '🟥')
+        .join('');
     return '効棋 デイリー詰将棋 $dateStr\n$emojis ${_prob.moves}手詰め';
   }
+
+  int get _lastVisibleAttempt =>
+      _currentAttempt < _maxAttempts ? _currentAttempt : _maxAttempts - 1;
+  int get _firstVisibleAttempt => _lastVisibleAttempt >= 5 ? _lastVisibleAttempt - 5 : 0;
+  int get _visibleAttemptCount => _lastVisibleAttempt - _firstVisibleAttempt + 1;
 
   Widget _buildAttemptBar() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_maxAttempts, (i) {
+      // 回数は無制限（枠は999）なので、現在までの直近6回分だけ並べる
+      children: List.generate(_visibleAttemptCount, (k) {
+        final i = _firstVisibleAttempt + k;
         final status = _attempts[i];
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -881,7 +892,7 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
               _buildAttemptBar(),
               const SizedBox(height: 8),
               Text(
-                '残り ${_maxAttempts - _currentAttempt} 回',
+                '挑戦 ${_currentAttempt + 1} 回目（何度でも挑戦できます）',
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ],
@@ -1326,7 +1337,8 @@ class _TsumeScreenState extends State<TsumeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    // 7手詰めは問題が無いのでタブを出さない（追加するときは length と下の case/tab を戻す）
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() {
@@ -1335,7 +1347,6 @@ class _TsumeScreenState extends State<TsumeScreen>
           case 1: _filterMoves = 1; break;
           case 2: _filterMoves = 3; break;
           case 3: _filterMoves = 5; break;
-          case 4: _filterMoves = 7; break;
         }
       });
     });
@@ -1783,7 +1794,6 @@ class _TsumeScreenState extends State<TsumeScreen>
               _tabItem('1手詰め', _clearCountLabel(1)),
               _tabItem('3手詰め', _clearCountLabel(3)),
               _tabItem('5手詰め', _clearCountLabel(5)),
-              _tabItem('7手詰め', _clearCountLabel(7)),
             ],
           ),
         ),

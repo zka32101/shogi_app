@@ -466,12 +466,21 @@ class _NetworkLobbyScreenState extends State<NetworkLobbyScreen> {
         iconTheme: const IconThemeData(color: Colors.white),
       ),
       body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 400),
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: _buildBody(),
+        // 内容が画面より高いとき（ロビー初期画面など）にスクロールできるようにする。
+        // 高さが足りる画面では従来どおり中央に表示する。
+        child: LayoutBuilder(
+          builder: (context, cs) => SingleChildScrollView(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: cs.maxHeight),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 400),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: _buildBody(),
+                  ),
+                ),
+              ),
             ),
           ),
         ),

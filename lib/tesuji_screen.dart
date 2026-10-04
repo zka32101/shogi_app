@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'piece.dart';
 import 'mini_board_widget.dart';
+import 'services/ai_isolate.dart';
 import 'tesuji_problems.dart';
 import 'strategy_map_screen.dart';
 import 'study_calendar_screen.dart';
@@ -639,6 +640,8 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
   // セッション統計
   int _wrongInSession = 0;
   bool _solved = false;
+  bool _checking = false; // 別解判定中は操作をロック
+  bool _altAccepted = false; // 正解手以外の最善手が受け入れられた
 
   // アニメーション
   late AnimationController _moveController;
@@ -673,7 +676,7 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
   }
 
   void _onCellTap(int r, int c) {
-    if (_result != null || _animating) return;
+    if (_result != null || _animating || _checking) return;
     final piece = _board[r][c];
     if (_selectedFrom == null) {
       if (piece != null && piece.isPlayer1 == widget.prob.p1Turn) {
@@ -696,7 +699,7 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
   }
 
   void _onHandPieceTap(PieceType type) {
-    if (_result != null || _animating) return;
+    if (_result != null || _animating || _checking) return;
     setState(() {
       if (_selectedDropType == type) {
         _selectedFrom = null;
@@ -711,18 +714,75 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
   }
 
   void _onDropTarget(int r, int c, PieceType type) {
-    if (_result != null || _animating) return;
+    if (_result != null || _animating || _checking) return;
     if (_board[r][c] != null) return;
     _checkAnswer(-1, -1, r, c, type);
   }
 
-  void _checkAnswer(int fr, int fc, int tr, int tc, PieceType? drop) {
+  String _answerLabel(AMove m) {
+    const rows = ['一', '二', '三', '四', '五', '六', '七', '八', '九'];
+    final dest = '${9 - m.tc}${rows[m.tr]}';
+    if (m.drop != null) return '$dest${Piece(m.drop!, true).label}打';
+    final piece = _board[m.fr][m.fc] ?? _origPiece(m.fr, m.fc);
+    return '$dest${piece?.label ?? ''}${m.promote ? '成' : ''}';
+  }
+
+  Piece? _origPiece(int r, int c) => widget.prob.board[r][c];
+
+  /// 指した手が、データの正解手と同等以上に良いか（AI探索で判定）。
+  /// 問題データの正解が最善とは限らない（より強い手や詰みがある）ため、
+  /// 座標の一致だけで不正解にしない。
+  Future<bool> _isEquivalentAnswer(int fr, int fc, int tr, int tc, PieceType? drop) async {
+    try {
+      final prob = widget.prob;
+      final top = await AiIsolate.topMovesTimed(
+        _board,
+        Map.of(prob.p1Hand),
+        Map.of(prob.p2Hand),
+        prob.p1Turn,
+        n: 12,
+        budget: const Duration(milliseconds: 1500),
+      );
+      if (top.isEmpty) return false;
+      bool match(AMove m, int a, int b, int c, int d, PieceType? dr) =>
+          m.fr == a && m.fc == b && m.tr == c && m.tc == d && m.drop == dr;
+      int? best(bool Function(AMove) f) {
+        int? v;
+        for (final e in top) {
+          if (f(e.$1) && (v == null || e.$2 > v)) v = e.$2;
+        }
+        return v;
+      }
+      final mine = best((m) => match(m, fr, fc, tr, tc, drop));
+      if (mine == null) return false;
+      final ans = prob.answer;
+      final ansScore = best((m) => match(m, ans.fr, ans.fc, ans.tr, ans.tc, ans.drop));
+      final bestScore = top.first.$2;
+      final reference = ansScore ?? bestScore;
+      return mine >= reference - 40;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<void> _checkAnswer(int fr, int fc, int tr, int tc, PieceType? drop) async {
     final ans = widget.prob.answer;
-    final correct = ans.fr == fr &&
+    var correct = ans.fr == fr &&
         ans.fc == fc &&
         ans.tr == tr &&
         ans.tc == tc &&
         ans.drop == drop;
+
+    if (!correct && !_checking) {
+      setState(() => _checking = true);
+      final alt = await _isEquivalentAnswer(fr, fc, tr, tc, drop);
+      if (!mounted) return;
+      setState(() => _checking = false);
+      if (alt) {
+        correct = true;
+        _altAccepted = true;
+      }
+    }
 
     if (!correct) {
       // 不正解: 即時反映
@@ -1120,6 +1180,13 @@ class _TesujiDetailScreenState extends State<_TesujiDetailScreen>
                         ),
                       ),
                     ]),
+                    if (_result! && _altAccepted) ...[
+                      const SizedBox(height: 8),
+                      Text(
+                        '別解です。出題の手とは違いますが、探索で同等以上と確認できた手です。下の解説は出題の手（${_answerLabel(prob.answer)}）についてです。',
+                        style: const TextStyle(color: Colors.amber, fontSize: 12, height: 1.5),
+                      ),
+                    ],
                     if (_result!) ...[
                       const SizedBox(height: 12),
                       Text(prob.explanation,

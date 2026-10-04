@@ -59,6 +59,7 @@ import 'weakness_analysis_screen.dart';
 import 'screens/tournament_screen.dart';
 import 'puzzle_generator_screen.dart';
 import 'l10n.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'weakness_mining_screen.dart';
 import 'micro_training_screen.dart';
 import 'friend_challenge_screen.dart';
@@ -780,8 +781,17 @@ class _PlayTabState extends State<_PlayTab> {
                     'ローカル対局',
                     Icons.people,
                     Colors.brown.shade700,
-                    () =>
-                        _go(context, const GameSetupScreen(mode: GameMode.pvp)),
+                    () => _go(
+                      context,
+                      GameSetupScreen(
+                        mode: GameMode.pvp,
+                        initialTimeLimitSec: widget.timeLimitSec,
+                        initialByoyomiSec: widget.byoyomiSec,
+                        initialFischerIncrementSec: widget.fischerIncrementSec,
+                        initialTheme: widget.theme,
+                        initialLabelStyle: widget.labelStyle,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -792,7 +802,17 @@ class _PlayTabState extends State<_PlayTab> {
               'AI対局',
               Icons.computer,
               Colors.blueGrey.shade700,
-              () => _go(context, const GameSetupScreen(mode: GameMode.vsAI)),
+              () => _go(
+                context,
+                GameSetupScreen(
+                  mode: GameMode.vsAI,
+                  initialTimeLimitSec: widget.timeLimitSec,
+                  initialByoyomiSec: widget.byoyomiSec,
+                  initialFischerIncrementSec: widget.fischerIncrementSec,
+                  initialTheme: widget.theme,
+                  initialLabelStyle: widget.labelStyle,
+                ),
+              ),
             ),
             const SizedBox(height: 8),
             _bigButton(
@@ -1637,14 +1657,9 @@ class _SettingsTab extends StatelessWidget {
             const SizedBox(height: 20),
 
             // ── 言語設定 ──
-            _sectionLabel('言語 / Language'),
-            const SizedBox(height: 8),
-            _settingCard([
-              Builder(
-                builder: (ctx) => LanguageSettingsWidget(onChanged: () {}),
-              ),
-            ]),
-            const SizedBox(height: 20),
+            // 英語UIは画面の大半が未対応（L10nはネットワーク対局画面のみ）のため、
+            // 選んでも変わらない設定を出さないよう非表示。対応が進んだら戻す:
+            //   LanguageSettingsWidget(onChanged: () {}) を _settingCard に入れる。
 
             // ── フィードバック ──
             _sectionLabel('フィードバック'),
@@ -1675,6 +1690,23 @@ class _SettingsTab extends StatelessWidget {
                 title: 'その他のご意見',
                 subtitle: 'ご感想・お問い合わせ',
                 type: FeedbackType.other,
+              ),
+            ]),
+            const SizedBox(height: 20),
+
+            // ── アプリについて ──
+            _sectionLabel('アプリについて'),
+            const SizedBox(height: 8),
+            _settingCard([
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: const Icon(Icons.privacy_tip_outlined, color: Colors.white70),
+                title: const Text('プライバシーポリシー', style: TextStyle(color: Colors.white)),
+                trailing: const Icon(Icons.open_in_new, color: Colors.white38, size: 18),
+                onTap: () => launchUrl(
+                  Uri.parse('https://sites.google.com/view/yourwishapps/privacy-policy'),
+                  mode: LaunchMode.externalApplication,
+                ),
               ),
             ]),
           ],
