@@ -117,11 +117,13 @@ class SeasonService {
       final myRating = (myDoc.data()!['season_rating'] as int?) ??
           (myDoc.data()!['rating'] as int?) ?? 1500;
 
+      // 件数だけ取得（該当ドキュメントを全件ダウンロードしない）
       final higher = await _firestore
           .collection('users')
           .where('season_rating', isGreaterThan: myRating)
+          .count()
           .get();
-      return higher.docs.length + 1;
+      return (higher.count ?? 0) + 1;
     } catch (_) {
       return null;
     }

@@ -3432,7 +3432,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     try {
       final prefs = await SharedPreferences.getInstance();
       final now = DateTime.now();
-      final weekKey = '${now.year}-W${(now.day / 7).ceil()}';
+      // 年内の週番号（以前は「月内の第N週」で、別の月の同じ週とキーが衝突していた）
+      final dayOfYear = now.difference(DateTime(now.year)).inDays;
+      final weekKey = '${now.year}-W${dayOfYear ~/ 7 + 1}';
       final monthKey = '${now.year}-${now.month.toString().padLeft(2, '0')}';
 
       // vsAI では「プレイヤー自身」が勝った場合のみカウント（相手＝AIの勝ちで
@@ -3489,8 +3491,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final lastStreakDate = prefs.getString('practice_streak_date') ?? '';
 
       if (lastStreakDate != todayStr) {
-        // 新しい日付 → ストリークを +1
-        final streak = (prefs.getInt('practice_streak_days') ?? 0) + 1;
+        // 昨日から続いている場合だけ +1、日が空いたら 1 からやり直す
+        // （以前は日が空いてもリセットされず、「連続」日数が増え続けていた）
+        final y = today.subtract(const Duration(days: 1));
+        final yesterdayStr = '${y.year}-${y.month.toString().padLeft(2, '0')}-${y.day.toString().padLeft(2, '0')}';
+        final streak = lastStreakDate == yesterdayStr
+            ? (prefs.getInt('practice_streak_days') ?? 0) + 1
+            : 1;
         await prefs.setInt('practice_streak_days', streak);
         await prefs.setString('practice_streak_date', todayStr);
       }
