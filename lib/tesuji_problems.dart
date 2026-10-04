@@ -2666,5 +2666,17 @@ List<TesujiProb> buildTesujiProblems() {
     ));
   }
 
+  // tool/triage_tesuji.dart の判定で「正解手が3手読みで駒損」になる問題は、
+  // 手筋として成立していない（正解を指すと飛車や金を取られる、解説と座標が食い違う等）。
+  // 該当する問題を出題から外す。直して戻すときは
+  // tool/triage_tesuji.dart と tool/inspect_tesuji.dart で確認すること。
+  const excluded = {
+    'ryo_2', 'ryo_4', 'ryo_6', 'ryo_7', 'ryo_8', 'ryo_10',
+    'book_4', 'book_5', 'book_8', 'book_10', 'hisha_7', 'kintori_9',
+    // 上記以外で、捨て駒・守り以外なのに竜や飛車などを代償なく失う問題
+    'tech_4', 'tech_9', 'mamori_4', 'hashi_8', 'hashi_10',
+    'umaryuu_4', 'umaryuu_8', 'umaryuu_10',
+  };
+  list.removeWhere((p) => excluded.contains(p.id));
   return list;
 }
