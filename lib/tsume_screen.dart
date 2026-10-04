@@ -10,6 +10,7 @@ import 'purchase_service.dart';
 import 'piece.dart';
 import 'theme/app_theme.dart';
 import 'logic.dart';
+import 'tsume_judge.dart';
 import 'mini_board_widget.dart';
 import 'tsume_builtin_problems.dart' show TsumeProb, buildTsumeProblems;
 import 'study_calendar_screen.dart';
@@ -804,14 +805,25 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
   String _buildShareText() {
     final now = DateTime.now();
     final dateStr = '${now.year}/${now.month.toString().padLeft(2, '0')}/${now.day.toString().padLeft(2, '0')}';
-    final emojis = _attempts.map((a) => a == 'solved' ? '🟩' : a == 'failed' ? '🟥' : '⬜').join('');
+    // 回数無制限（999枠）なので、実際に挑戦した分だけを共有する
+    final emojis = _attempts
+        .where((a) => a != 'pending')
+        .map((a) => a == 'solved' ? '🟩' : '🟥')
+        .join('');
     return '効棋 デイリー詰将棋 $dateStr\n$emojis ${_prob.moves}手詰め';
   }
+
+  int get _lastVisibleAttempt =>
+      _currentAttempt < _maxAttempts ? _currentAttempt : _maxAttempts - 1;
+  int get _firstVisibleAttempt => _lastVisibleAttempt >= 5 ? _lastVisibleAttempt - 5 : 0;
+  int get _visibleAttemptCount => _lastVisibleAttempt - _firstVisibleAttempt + 1;
 
   Widget _buildAttemptBar() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
-      children: List.generate(_maxAttempts, (i) {
+      // 回数は無制限（枠は999）なので、現在までの直近6回分だけ並べる
+      children: List.generate(_visibleAttemptCount, (k) {
+        final i = _firstVisibleAttempt + k;
         final status = _attempts[i];
         return Container(
           margin: const EdgeInsets.symmetric(horizontal: 6),
@@ -880,7 +892,7 @@ class _DailyTsumeScreenState extends State<DailyTsumeScreen> {
               _buildAttemptBar(),
               const SizedBox(height: 8),
               Text(
-                '残り ${_maxAttempts - _currentAttempt} 回',
+                '挑戦 ${_currentAttempt + 1} 回目（何度でも挑戦できます）',
                 style: const TextStyle(color: Colors.white54, fontSize: 12),
               ),
             ],
@@ -1325,7 +1337,8 @@ class _TsumeScreenState extends State<TsumeScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
+    // 7手詰めは問題が無いのでタブを出さない（追加するときは length と下の case/tab を戻す）
+    _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (_tabController.indexIsChanging) return;
       setState(() {
@@ -1334,7 +1347,6 @@ class _TsumeScreenState extends State<TsumeScreen>
           case 1: _filterMoves = 1; break;
           case 2: _filterMoves = 3; break;
           case 3: _filterMoves = 5; break;
-          case 4: _filterMoves = 7; break;
         }
       });
     });
@@ -1782,7 +1794,6 @@ class _TsumeScreenState extends State<TsumeScreen>
               _tabItem('1手詰め', _clearCountLabel(1)),
               _tabItem('3手詰め', _clearCountLabel(3)),
               _tabItem('5手詰め', _clearCountLabel(5)),
-              _tabItem('7手詰め', _clearCountLabel(7)),
             ],
           ),
         ),
@@ -2001,6 +2012,7 @@ class _SolvePageState extends State<_SolvePage> {
     _p1Hand = Map<PieceType, int>.from(prob.p1Hand);
     _p2Hand = Map<PieceType, int>.from(prob.p2Hand);
     _solutionIdx = 0;
+    _hintLevel = 0; // 再挑戦で前回のヒントを残さない
     _solved = false;
     _selected = null;
     _legalDots = {};
@@ -2012,6 +2024,28 @@ class _SolvePageState extends State<_SolvePage> {
     _elapsedSec = 0;
     // 安全チェック: 開始局面で後手玉がすでに王手されていないか確認
     _startInCheck = GL.inCheck(_board, false);
+  }
+
+  /// 現在の局面（先手番）での詰み手。解答手順の手が詰み手ならそれを優先する。
+  AMove? _hintMoveNow() {
+    if (_verifying) return null; // 手の判定中・不正解の巻き戻し中は古い局面のヒントを出さない
+    final remaining = widget.prob.moves - _solutionIdx;
+    if (remaining < 1) return null;
+    final pos = tsumePos(_board, _p1Hand, _p2Hand);
+    final mates = tsumeChecks(pos)
+        .where((m) => tsumeFirstMoveMates(pos, m, remaining))
+        .toList();
+    if (mates.isEmpty) return null;
+    final sol = _currentSol;
+    if (sol != null) {
+      for (final m in mates) {
+        if (m.fr == sol.fr && m.fc == sol.fc && m.tr == sol.tr && m.tc == sol.tc &&
+            m.drop == sol.drop && m.promote == sol.promote) {
+          return m;
+        }
+      }
+    }
+    return mates.first;
   }
 
   AMove? get _currentSol {
@@ -2185,9 +2219,15 @@ class _SolvePageState extends State<_SolvePage> {
     await Future.delayed(const Duration(milliseconds: 450));
     if (!mounted) return;
 
-    final defMove = await Future(
-      () => AI.bestMove(_board, _p1Hand, _p2Hand, false, 2),
-    );
+    // 受け方は「詰みまでが最も長くなる受け」を選ぶ。残り手数内に詰ませられない受けが
+    // あれば（＝今の手は詰み手ではない）その受けを選ぶので、詰み手でない手は正解にならない。
+    final attackerLeft = widget.prob.moves - _solutionIdx - 1;
+    final defMove = await Future(() {
+      if (attackerLeft >= 1) {
+        return tsumeBestDefense(tsumePos(_board, _p1Hand, _p2Hand), attackerLeft);
+      }
+      return AI.bestMove(_board, _p1Hand, _p2Hand, false, 2);
+    });
     if (!mounted) return;
 
     if (defMove == null) {
@@ -2322,6 +2362,16 @@ class _SolvePageState extends State<_SolvePage> {
                 ),
               ],
             ]),
+            if (widget.prob.solution.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                tsumeKifuText(
+                  tsumePos(widget.prob.board, Map.of(widget.prob.p1Hand), Map.of(widget.prob.p2Hand)),
+                  widget.prob.solution,
+                ),
+                style: const TextStyle(color: Colors.amber, fontSize: 13, height: 1.5),
+              ),
+            ],
             if (widget.prob.explanation.isNotEmpty) ...[
               const SizedBox(height: 12),
               Container(
@@ -2675,9 +2725,9 @@ class _SolvePageState extends State<_SolvePage> {
                   ],
                 ),
                 if (_hintLevel > 0 && !_solved) Builder(builder: (ctx) {
-                  final sol = widget.prob.solution;
-                  if (sol.isEmpty) return const SizedBox.shrink();
-                  final firstMove = sol[0];
+                  // 現在の局面から詰み手を探す（2手目以降も正しい手を案内する）
+                  final firstMove = _hintMoveNow();
+                  if (firstMove == null) return const SizedBox.shrink();
 
                   if (_hintLevel == 1) {
                     // Level 1: 駒の種類のみ

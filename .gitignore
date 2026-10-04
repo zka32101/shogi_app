@@ -49,7 +49,7 @@ build_log.txt
 _review_result.json
 *.bak
 problems_sfen.txt
-/tool/
+# tool/ はデータ検証ツールを管理するので除外しない（tool/README.md 参照）
 /tools/*.py
 add_source_urls*.py
 

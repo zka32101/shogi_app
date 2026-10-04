@@ -16,7 +16,21 @@ import 'theme/app_theme.dart';
 
 class GameSetupScreen extends StatefulWidget {
   final GameMode mode; // pvp or vsAI
-  const GameSetupScreen({super.key, required this.mode});
+  // 設定タブで選んだ値を初期値にする（未指定なら従来の既定値）
+  final int? initialTimeLimitSec;
+  final int? initialByoyomiSec;
+  final int initialFischerIncrementSec;
+  final PieceTheme initialTheme;
+  final PieceLabelStyle initialLabelStyle;
+  const GameSetupScreen({
+    super.key,
+    required this.mode,
+    this.initialTimeLimitSec,
+    this.initialByoyomiSec,
+    this.initialFischerIncrementSec = 0,
+    this.initialTheme = PieceTheme.standard,
+    this.initialLabelStyle = PieceLabelStyle.kanji,
+  });
 
   @override
   State<GameSetupScreen> createState() => _GameSetupScreenState();
@@ -55,6 +69,11 @@ class _GameSetupScreenState extends State<GameSetupScreen> {
   @override
   void initState() {
     super.initState();
+    _timeLimitSec = widget.initialTimeLimitSec;
+    _byoyomiSec = widget.initialByoyomiSec;
+    _fischerIncrementSec = widget.initialFischerIncrementSec;
+    _theme = widget.initialTheme;
+    _labelStyle = widget.initialLabelStyle;
     if (widget.mode == GameMode.vsAI) {
       _loadAdaptiveLevel();
     }
