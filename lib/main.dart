@@ -60,6 +60,7 @@ import 'screens/tournament_screen.dart';
 import 'puzzle_generator_screen.dart';
 import 'l10n.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'weakness_mining_screen.dart';
 import 'micro_training_screen.dart';
 import 'friend_challenge_screen.dart';
@@ -1707,6 +1708,21 @@ class _SettingsTab extends StatelessWidget {
                   Uri.parse('https://sites.google.com/view/yourwishapps/privacy-policy'),
                   mode: LaunchMode.externalApplication,
                 ),
+              ),
+              FutureBuilder<PackageInfo>(
+                future: PackageInfo.fromPlatform(),
+                builder: (context, snap) {
+                  final info = snap.data;
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.info_outline, color: Colors.white70),
+                    title: const Text('バージョン', style: TextStyle(color: Colors.white)),
+                    trailing: Text(
+                      info == null ? '' : '${info.version} (${info.buildNumber})',
+                      style: const TextStyle(color: Colors.white54),
+                    ),
+                  );
+                },
               ),
             ]),
           ],
