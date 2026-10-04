@@ -3,6 +3,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
+import 'widgets/koma_painter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'game_screen.dart';
 import 'theme_config.dart';
@@ -1245,7 +1246,9 @@ class _LearnTile extends StatelessWidget {
         data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
         child: Stack(
         children: [
-          Opacity(
+          // Stack 内の非 Positioned 子は中身サイズに縮むため、タイル幅を揃えるには fill が必要
+          Positioned.fill(
+            child: Opacity(
             opacity: locked ? 0.55 : 1.0,
             child: Container(
               padding: const EdgeInsets.all(8),
@@ -1282,7 +1285,7 @@ class _LearnTile extends StatelessWidget {
                 ],
               ),
             ),
-          ),
+          )),
           if (locked)
             const Positioned(
               top: 4,
@@ -1481,7 +1484,8 @@ class _SettingsTab extends StatelessWidget {
                           Padding(
                             padding: const EdgeInsets.all(6),
                             child: Container(
-                              height: 52,
+                              width: double.infinity,
+                              height: 66,
                               decoration: BoxDecoration(
                                 color: cfg.cell,
                                 borderRadius: BorderRadius.circular(3),
@@ -1980,37 +1984,45 @@ class _ThemePreviewPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final cell = size.width / 3;
-    // 3×3 グリッド
+    final cw = size.width / 3;
+    final ch = size.height / 3;
+    // 3×3 グリッド（縦横それぞれの高さに合わせる）
     final gridP = Paint()
       ..color = cfg.cellBorder
-      ..strokeWidth = 0.5;
+      ..strokeWidth = 0.6;
     for (int i = 1; i < 3; i++) {
-      canvas.drawLine(
-        Offset(i * cell, 0),
-        Offset(i * cell, size.height),
-        gridP,
-      );
-      canvas.drawLine(Offset(0, i * cell), Offset(size.width, i * cell), gridP);
+      canvas.drawLine(Offset(i * cw, 0), Offset(i * cw, size.height), gridP);
+      canvas.drawLine(Offset(0, i * ch), Offset(size.width, i * ch), gridP);
     }
-    // 星目
-    final dotP = Paint()
-      ..color = cfg.starPoint
-      ..style = PaintingStyle.fill;
-    canvas.drawCircle(Offset(cell, cell), 3, dotP);
-    // 王
+    // 星目（中央マスの四隅）
+    final dotP = Paint()..color = cfg.starPoint;
+    for (final dx in [cw, cw * 2]) {
+      for (final dy in [ch, ch * 2]) {
+        canvas.drawCircle(Offset(dx, dy), 1.6, dotP);
+      }
+    }
+    // 中央マスに王（実際の盤と同じ五角形の駒）
+    final pw = cw * 0.92;
+    final ph = ch * 0.98;
+    canvas.save();
+    canvas.translate(cw + (cw - pw) / 2, ch + (ch - ph) / 2);
+    KomaPainter(
+      pointsUp: true,
+      fill: Color.lerp(cfg.cell, const Color(0xFFF4DDA6), 0.7)!,
+      border: cfg.boardBorder,
+    ).paint(canvas, Size(pw, ph));
+    canvas.restore();
     final tp = TextPainter(
       text: TextSpan(
         text: '王',
-        style: TextStyle(
-          color: cfg.pieceNormal,
-          fontSize: cell * 0.7,
-          fontWeight: FontWeight.bold,
-        ),
+        style: komaLabelStyle(isPromoted: false, fontSize: ph * 0.5),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
-    tp.paint(canvas, Offset(cell * 2 - tp.width / 2, cell * 2 - tp.height / 2));
+    tp.paint(
+      canvas,
+      Offset(cw * 1.5 - tp.width / 2, ch * 1.5 - tp.height / 2 + ph * 0.06),
+    );
   }
 
   @override
