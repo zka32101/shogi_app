@@ -2,6 +2,29 @@
 
 import 'package:flutter/material.dart';
 import 'theme/app_theme.dart';
+import 'piece.dart';
+import 'mini_board_widget.dart';
+
+/// 平手の初期配置（後手=上、先手=下）。
+List<List<Piece?>> _startingBoard() {
+  final b = List.generate(9, (_) => List<Piece?>.filled(9, null));
+  const back = [
+    PieceType.lance, PieceType.knight, PieceType.silver, PieceType.gold,
+    PieceType.king, PieceType.gold, PieceType.silver, PieceType.knight,
+    PieceType.lance,
+  ];
+  for (var c = 0; c < 9; c++) {
+    b[0][c] = Piece(back[c], false);
+    b[2][c] = Piece(PieceType.pawn, false);
+    b[6][c] = Piece(PieceType.pawn, true);
+    b[8][c] = Piece(back[c], true);
+  }
+  b[1][1] = Piece(PieceType.rook, false);
+  b[1][7] = Piece(PieceType.bishop, false);
+  b[7][1] = Piece(PieceType.bishop, true);
+  b[7][7] = Piece(PieceType.rook, true);
+  return b;
+}
 
 class TutorialScreen extends StatefulWidget {
   const TutorialScreen({super.key});
@@ -206,48 +229,11 @@ class _Page1WhatIsShogi extends StatelessWidget {
             style: TextStyle(color: Colors.white70, fontSize: 15, height: 1.6),
           ),
           const SizedBox(height: 20),
-          // 9x9 グリッド
+          // 平手の初期配置（実際の駒・盤と同じ描画）
           Center(
-            child: AspectRatio(
-              aspectRatio: 1,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 240),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.white30, width: 1.5),
-                ),
-                child: GridView.builder(
-                  physics: const NeverScrollableScrollPhysics(),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 9,
-                  ),
-                  itemCount: 81,
-                  itemBuilder: (_, i) {
-                    final row = i ~/ 9;
-                    final col = i % 9;
-                    // 初期配置の駒をハイライト
-                    Color cellColor = Colors.transparent;
-                    if (row == 0) {
-                      cellColor = Colors.red.shade900.withAlpha(120);
-                    } else if (row == 1 && (col == 1 || col == 7)) {
-                      cellColor = Colors.red.shade900.withAlpha(120);
-                    } else if (row == 2) {
-                      cellColor = Colors.red.shade900.withAlpha(80);
-                    } else if (row == 6) {
-                      cellColor = Colors.blue.shade900.withAlpha(80);
-                    } else if (row == 7 && (col == 1 || col == 7)) {
-                      cellColor = Colors.blue.shade900.withAlpha(120);
-                    } else if (row == 8) {
-                      cellColor = Colors.blue.shade900.withAlpha(120);
-                    }
-                    return Container(
-                      decoration: BoxDecoration(
-                        color: cellColor,
-                        border: Border.all(color: Colors.white12, width: 0.5),
-                      ),
-                    );
-                  },
-                ),
-              ),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 320),
+              child: MiniBoardWidget(board: _startingBoard(), showLabels: false),
             ),
           ),
           const SizedBox(height: 12),

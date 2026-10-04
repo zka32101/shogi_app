@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'piece.dart';
 import 'theme/app_theme.dart';
+import 'widgets/koma_painter.dart';
 
 class MiniBoardWidget extends StatelessWidget {
   final List<List<Piece?>> board;
@@ -43,11 +44,6 @@ class MiniBoardWidget extends StatelessWidget {
   static const _cellColor = Color(0xFFDEB887);
   static const _cellBorder = Color(0xFF7A4E2B);
 
-  // 成り駒=赤、非成り=濃茶。向きは RotatedBox が示すのでP1/P2で色は変えない
-  Color _pieceColor(Piece p) {
-    return p.isPromoted ? const Color(0xFFB3261E) : const Color(0xFF2C1A0A);
-  }
-
   @override
   Widget build(BuildContext context) {
     return MediaQuery(
@@ -61,7 +57,8 @@ class MiniBoardWidget extends StatelessWidget {
       final totalSize = size ?? constraints.maxWidth;
       final labelSize = showLabels ? totalSize * 0.05 : 0.0;
       final boardSize = totalSize - labelSize;
-      final cellSize = boardSize / 9;
+      // 外枠(2px×2)の内側に9マスを収める（枠込みの幅で割ると右/下が4px溢れる）
+      final cellSize = (boardSize - 4) / 9;
 
       Widget boardGrid = Container(
         width: boardSize,
@@ -134,23 +131,27 @@ class MiniBoardWidget extends StatelessWidget {
                   child: Stack(children: [
                     if (piece != null)
                       Center(
-                        child: RotatedBox(
-                          quarterTurns: (boardFlipped ? !piece.isPlayer1 : piece.isPlayer1) ? 0 : 2,
-                          child: Text(
-                            piece.label,
-                            style: TextStyle(
-                              fontFamily: 'KomaFont',
-                              fontSize: cellSize * 0.62,
-                              fontWeight: FontWeight.bold,
-                              color: _pieceColor(piece),
-                              height: 1.0,
-                              shadows: [
-                                Shadow(
-                                  color: Colors.black.withAlpha(50),
-                                  blurRadius: 2,
-                                  offset: const Offset(0.5, 1),
+                        child: SizedBox(
+                          // 対局盤と同じ五角形の駒（KomaPainter）で見た目を統一
+                          width: cellSize * 0.88,
+                          height: cellSize * 0.88,
+                          child: CustomPaint(
+                            painter: KomaPainter(
+                              pointsUp: boardFlipped ? !piece.isPlayer1 : piece.isPlayer1,
+                              fill: const Color(0xFFF4DDA6),
+                              border: const Color(0xFFC49A4E),
+                            ),
+                            child: Center(
+                              child: RotatedBox(
+                                quarterTurns: (boardFlipped ? !piece.isPlayer1 : piece.isPlayer1) ? 0 : 2,
+                                child: Text(
+                                  piece.label,
+                                  style: komaLabelStyle(
+                                    isPromoted: piece.isPromoted,
+                                    fontSize: cellSize * 0.5,
+                                  ),
                                 ),
-                              ],
+                              ),
                             ),
                           ),
                         ),

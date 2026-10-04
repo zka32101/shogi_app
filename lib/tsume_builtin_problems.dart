@@ -54,7 +54,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
       solution: [
         AMove(fr: 2, fc: 1, tr: 1, tc: 0),
       ],
-      explanation: '金を2一(row2,col1)から1九隅の後手玉前の1零(row1,col0)へ進めて王手。金は後手玉(0,0)に真上から迫り、(0,1)・(1,1)も金の利きで塞がれる。金自体は銀(0,1)の斜め後方の利きで守られているため、玉は金を取ることもできず詰み。',
+      explanation: '金を8三から9二へ進めて王手。玉は金を取ろうとしても、金は8一の銀に守られていて取れません。8一の銀も金に守られ、8二には金の利きがあるため、玉に逃げ場はなく詰みです。',
     ));
   }
 
@@ -74,7 +74,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
       solution: [
         AMove(fr: -1, fc: -1, tr: 1, tc: 7, drop: PieceType.gold),
       ],
-      explanation: '持ち駒の金を row1,col7 に打つ。玉（row0,col8）の逃げ場は row0,col7 / row1,col7 / row1,col8 の3マスのみで、いずれも打った金自身、または盤上の row2,col8 の金によって守られているため、詰み。',
+      explanation: '持ち駒の金を 2二 に打つ。玉の逃げ場は 2一 / 2二 / 1二 の3マスのみで、いずれも打った金自身、または盤上の 1三 の金によって守られているため、詰み。',
     ));
   }
 
@@ -122,7 +122,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
       solution: [
         AMove(fr: 5, fc: 3, tr: 5, tc: 0),
       ],
-      explanation: '龍(6六=row5,col3)を9筋の9六(row5,col0)へ移動。9筋が開通し9一(row0,col0)の後手玉に王手。玉の逃げ場を検証: 9二(row1,col0)は龍の乗る9筋上にあり依然王手放置になるため不可。8一(row0,col1)は6三(row2,col3)の角の利き(斜め二マス)が支配。8二(row1,col1)は7四(row3,col2)の桂の利きが支配。よって後手玉は合駒も抵抗もできず詰み。',
+      explanation: '龍(6六=6六)を9筋の9六へ移動。9筋が開通し9一の後手玉に王手。玉の逃げ場を検証: 9二は龍の乗る9筋上にあり依然王手放置になるため不可。8一は6三の角の利き(斜め二マス)が支配。8二は7四の桂の利きが支配。よって後手玉は合駒も抵抗もできず詰み。',
     ));
   }
 
@@ -229,7 +229,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 2, tr: 0, tc: 3),
         AMove(fr: -1, fc: -1, tr: 1, tc: 4, drop: PieceType.gold),
       ],
-      explanation: '飛で後手歩を取りながら王手（column2に沿った縦の利き）。後手玉(0,2)の逃げ場は、(0,1)は自身の歩、(1,1)は自身の香、(1,3)は自身の歩で塞がれており、(1,2)は飛の利きで塞がっているため、唯一の逃げ場である(0,3)へしか移動できない。最後に金を(1,4)に打つと、(0,3)への王手（金の斜め前）となり、逃げ場(0,2)/(1,2)は飛の縦利き、(0,4)は桂(2,5)の利き、(1,3)は自身の歩で塞がり、(1,4)の金自体も桂(3,5)に守られているため後手玉はどこにも動けず、合駒も利かない隣接王手のため詰み。',
+      explanation: '飛で後手歩を取りながら王手（column2に沿った縦の利き）。後手玉（7一）の逃げ場は、（8一）は自身の歩、（8二）は自身の香、（6二）は自身の歩で塞がれており、（7二）は飛の利きで塞がっているため、唯一の逃げ場である（6一）へしか移動できない。最後に金を（5二）に打つと、（6一）への王手（金の斜め前）となり、逃げ場（7一）/（7二）は飛の縦利き、（5一）は桂（4三）の利き、（6二）は自身の歩で塞がり、（5二）の金自体も桂（4四）に守られているため後手玉はどこにも動けず、合駒も利かない隣接王手のため詰み。',
     ));
   }
 
@@ -288,7 +288,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 8, tr: 0, tc: 7),
         AMove(fr: -1, fc: -1, tr: 1, tc: 6, drop: PieceType.gold),
       ],
-      explanation: '飛を横に9七(row2,col8)へ進めて王手（8一の縦筋を利かせる）。後手玉は8二には行けず（飛が縦に利く）、逃げ場は8一の隣の7一のみ。玉が7一へ逃げたところに、持ち駒の金を6二（row1,col6）に打って王手。金自身の利きで6一・7二を、飛の利きで8一を、桂馬の守りで6二の金自体が取られないようにして、全ての逃げ道が塞がり詰み。',
+      explanation: '飛を横に9七へ進めて王手（8一の縦筋を利かせる）。後手玉は8二には行けず（飛が縦に利く）、逃げ場は8一の隣の7一のみ。玉が7一へ逃げたところに、持ち駒の金を6二に打って王手。金自身の利きで6一・7二を、飛の利きで8一を、桂馬の守りで6二の金自体が取られないようにして、全ての逃げ道が塞がり詰み。',
     ));
   }
 
@@ -312,7 +312,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 8, tr: 0, tc: 7),
         AMove(fr: -1, fc: -1, tr: 0, tc: 6, drop: PieceType.gold),
       ],
-      explanation: 'Redesigned as a fresh but same-flavor board (checking-knight + gold-drop mate) using a corner king position instead of the original center-file setup, since every variant of the original geometry (rook checking from an adjacent-to-king square) is provably unfixable: promoting that rook into a Dragon King always seals both diagonal flight squares of the king simultaneously, and any defender added to make the rook capture-proof also makes the Dragon King\'s instant mate legal, producing a guaranteed 1-move cook. Center-file knight-check variants had the mirror problem: a stray Gold could be hand-dropped adjacent to the king and, riding its own wide 3-square forward arc plus whatever knight was defending it, complete an instant mate on its own regardless of the intended line.\\n\\nFinal design: Gote king is placed in the corner (0,8). Two Gote pawns wall off (1,7) and (1,8) by occupation (not by attack), so those squares can never be legal king escapes nor legal Gold-drop squares — this sidesteps the whole \'defended square + adjacent Gold drop = instant mate\' failure mode entirely, since occupation-based blocking carries no exploitable defended-square side effect. Move 1: Sente Knight (4,6)->(2,7) delivers check on (0,8); the king\'s only escapes, (1,7) and (1,8), are blocked by its own pawns, so it is forced to (0,7). Move 2: King (0,8)->(0,7). Move 3: Sente drops Gold at (0,6), checking (0,7); (0,8) is covered by the knight at (2,7), (1,6) is covered by the gold itself, and (1,7)/(1,8) remain blocked by the gote pawns — checkmate, and the gold at (0,6) is itself defended by the knight so it cannot be captured.\\n\\nVerified with the project\'s TsumeEngine: SOLUTION_OK (all sente moves are check, final position is checkmate) and NO_COOK_CONFIRMED (exhaustive depth-1 search over all legal sente moves, including every promotion option, found no mate shorter than 3 moves).',
+      explanation: 'Redesigned as a fresh but same-flavor board (checking-knight + gold-drop mate) using a corner king position instead of the original center-file setup, since every variant of the original geometry (rook checking from an adjacent-to-king square) is provably unfixable: promoting that rook into a Dragon King always seals both diagonal flight squares of the king simultaneously, and any defender added to make the rook capture-proof also makes the Dragon King\'s instant mate legal, producing a guaranteed 1-move cook. Center-file knight-check variants had the mirror problem: a stray Gold could be hand-dropped adjacent to the king and, riding its own wide 3-square forward arc plus whatever knight was defending it, complete an instant mate on its own regardless of the intended line.\\n\\nFinal design: Gote king is placed in the corner （1一）. Two Gote pawns wall off （2二） and （1二） by occupation (not by attack), so those squares can never be legal king escapes nor legal Gold-drop squares — this sidesteps the whole \'defended square + adjacent Gold drop = instant mate\' failure mode entirely, since occupation-based blocking carries no exploitable defended-square side effect. Move 1: Sente Knight （3五）->（2三） delivers check on （1一）; the king\'s only escapes, （2二） and （1二）, are blocked by its own pawns, so it is forced to （2一）. Move 2: King （1一）->（2一）. Move 3: Sente drops Gold at （3一）, checking （2一）; （1一） is covered by the knight at （2三）, （3二） is covered by the gold itself, and （2二）/（1二） remain blocked by the gote pawns — checkmate, and the gold at （3一） is itself defended by the knight so it cannot be captured.\\n\\nVerified with the project\'s TsumeEngine: SOLUTION_OK (all sente moves are check, final position is checkmate) and NO_COOK_CONFIRMED (exhaustive depth-1 search over all legal sente moves, including every promotion option, found no mate shorter than 3 moves).',
     ));
   }
 
@@ -337,7 +337,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 0, tr: 1, tc: 0),
         AMove(fr: 3, fc: 0, tr: 2, tc: 0),
       ],
-      explanation: '飛を5一（0,4）へ縦に進めて1段目全体に王手。玉は9二（1,0）にしか逃げられません（9二の隣接マスは銀と飛でふさがれています）。金を9三（2,0）へ進めて再度王手。金は桂馬（8五, (4,1)）に守られているため玉は取れず、金・飛・銀の利きで9二周囲の全ての逃げ場が塞がれ詰みとなります。',
+      explanation: '飛を5一（0,4）へ縦に進めて1段目全体に王手。玉は9二（1,0）にしか逃げられません（9二の隣接マスは銀と飛でふさがれています）。金を9三（2,0）へ進めて再度王手。金は桂馬（8五, （8五））に守られているため玉は取れず、金・飛・銀の利きで9二周囲の全ての逃げ場が塞がれ詰みとなります。',
     ));
   }
 
@@ -361,7 +361,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 8, tr: 1, tc: 8),
         AMove(fr: 3, fc: 6, tr: 2, tc: 7),
       ],
-      explanation: '馬を7三(row2,col6)に進めて斜めに9一(row0,col8)の後手玉へ遠見の王手。玉は9二(row0,col7)には桂馬の利きで、8二(row1,col7)には馬の利きでどちらも逃げられず、唯一合法な8一(row1,col8)へ逃げる。金が7二(row2,col7)に進んで斜めに王手し、玉に合法手がなくなり詰み。桂馬(row2,col8)が9二への逃げ道を封じる役割を担っている。',
+      explanation: '馬を7三に進めて斜めに9一の後手玉へ遠見の王手。玉は9二には桂馬の利きで、8二には馬の利きでどちらも逃げられず、唯一合法な8一へ逃げる。金が7二に進んで斜めに王手し、玉に合法手がなくなり詰み。桂馬が9二への逃げ道を封じる役割を担っている。',
     ));
   }
 
@@ -388,7 +388,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 4, tr: 0, tc: 5),
         AMove(fr: -1, fc: -1, tr: 1, tc: 5, drop: PieceType.silver),
       ],
-      explanation: '飛を4筋を上がって6二から2四へ、後手の歩を取りながら成り、龍にして王手（龍の斜め利きが3三・3五に届き、直前の1三・1五を押さえ、縦の利きで1四も押さえるため、玉は2五（コード上0,5）にしか逃げられません）。後手玉は5二（0,5）に逃げるほかなく、そこへ持ち駒の銀を1五（1,5）に打って王手。銀の直進の利きで2四（0,4）と隣接する1四(0,4への通し)は龍が、2六（0,6)は桂馬(2,7)が、1六(1,6)は桂馬(3,5)が塞ぎ、銀自身は桂馬(3,6)に守られているため銀を取ることもできず、詰みとなります。',
+      explanation: '飛を4筋を上がって6二から2四へ、後手の歩を取りながら成り、龍にして王手（龍の斜め利きが3三・3五に届き、直前の1三・1五を押さえ、縦の利きで1四も押さえるため、玉は2五（コード上0,5）にしか逃げられません）。後手玉は5二（0,5）に逃げるほかなく、そこへ持ち駒の銀を1五（1,5）に打って王手。銀の直進の利きで2四（0,4）と隣接する1四(0,4への通し)は龍が、2六（0,6)は桂馬（2三）が、1六（3二）は桂馬（4四）が塞ぎ、銀自身は桂馬（3四）に守られているため銀を取ることもできず、詰みとなります。',
     ));
   }
 
@@ -416,7 +416,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 1, fc: 0, tr: 2, tc: 1),
         AMove(fr: 0, fc: 3, tr: 2, tc: 3),
       ],
-      explanation: '後手玉は1一（0,0）、自分の歩が2二（1,1）にあり退路を1つ塞いでいる。①飛を1四(0,3)へ進めて1段目を制圧する横王手。玉は1一段の逃げ場を失い、2一(1,0)へ強制的に逃げる。②その2一の玉に対し、桂を(5,2)から(3,1)へ跳ねて王手（桂は敵陣の外なので成りの選択肢がなく、成り由来のクックが生じない）。玉の周囲は先に配置した3頭の桂（(4,1)(5,0)(5,1)）と自分の歩がすべての逃げ場（2二・2三・3一・3二・3三）を塞いでおり、唯一の合法手である3二(2,1)へ逃げるほかない。③最後に飛を(0,3)から(2,3)へ横に運び、2段目を通して3二の玉に王手。3二の周囲8マスはすでに歩・3頭の桂によってすべて塞がれており（桂で王手した桂自身も別の桂に守られていて取れない）、合法手が一切ないため詰み。',
+      explanation: '後手玉は1一（0,0）、自分の歩が2二（1,1）にあり退路を1つ塞いでいる。①飛を1四（6一）へ進めて1段目を制圧する横王手。玉は1一段の逃げ場を失い、2一（9二）へ強制的に逃げる。②その2一の玉に対し、桂を（7六）から（8四）へ跳ねて王手（桂は敵陣の外なので成りの選択肢がなく、成り由来のクックが生じない）。玉の周囲は先に配置した3頭の桂（（8五）（9六）（8六））と自分の歩がすべての逃げ場（2二・2三・3一・3二・3三）を塞いでおり、唯一の合法手である3二（8三）へ逃げるほかない。③最後に飛を（6一）から（6三）へ横に運び、2段目を通して3二の玉に王手。3二の周囲8マスはすでに歩・3頭の桂によってすべて塞がれており（桂で王手した桂自身も別の桂に守られていて取れない）、合法手が一切ないため詰み。',
     ));
   }
 
@@ -476,7 +476,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 7, tr: 0, tc: 8),
         AMove(fr: -1, fc: -1, tr: 0, tc: 7, drop: PieceType.gold),
       ],
-      explanation: 'Completely redesigned from scratch (new board, new pieces, new solution) per the prior round\'s recommendation, rather than patching the old corner-king geometry.\n\nSetup: Gote king starts at (0,6) — not a corner, and given two of its own pawns at (1,5) and (1,7) that wall off its own escape squares (plus a third pawn at (1,8) that walls off the eventual corner). Sente has Rook (4,3), a blocking Pawn (2,3) directly above the rook\'s own start square (this is essential — an empty file under the rook lets it slide all the way to the back rank and promote into a Dragon King for an accidental mate-in-1, so the blocker pawn is load-bearing), a static Knight (2,4), a second Knight (4,7), and one Gold in hand.\n\n1. Rook (4,3)->(4,6): check along the file. King\'s neighbors (0,5)/(1,5) are blocked by the static Knight and the gote pawn; (1,6) is on the rook\'s file; (1,7) is blocked by a gote pawn. Only (0,7) is legal.\n2. King (0,6)->(0,7) (forced).\n3. Knight (4,7)->(2,8): check on (0,7) (a knight attacks two squares two rows back diagonally). Landing on (2,8) rather than (2,6) is important — landing on (2,6) would sit on the rook\'s own file and block its own check, and the alternate landing (2,8) had to be checked against the gote pawn at (1,8) being able to capture it, which is why the pawn stays at (1,8) rather than a square that could capture the knight. King\'s neighbors (0,6)/(1,6) are covered by the rook\'s file, (1,7)/(1,8) are blocked by gote pawns, leaving only (0,8).\n4. King (0,7)->(0,8) (forced).\n5. Gold drop at (0,7): checks the king directly. (0,7) is defended by the Knight sitting at (2,8) (so the king cannot capture it), while (1,7) and (1,8) remain blocked by gote\'s own pawns. No legal reply — checkmate.\n\nVerified with the project\'s TsumeEngine (tool script run against [REDACTED_LOCAL_PATH]\\apps\\shogi_app\\lib\\logic.dart / tsume_engine.dart): START_OK (gote not in check and has a legal move at the start), NO_DEAD_PIECES, SOLUTION_OK (every sente move is check and gote has no legal move after move 5), and NO_COOK_CONFIRMED (exhaustive engine search at depth 1 and depth 3 found no shorter forced mate).',
+      explanation: 'Completely redesigned from scratch (new board, new pieces, new solution) per the prior round\'s recommendation, rather than patching the old corner-king geometry.\n\nSetup: Gote king starts at （3一） — not a corner, and given two of its own pawns at （4二） and （2二） that wall off its own escape squares (plus a third pawn at （1二） that walls off the eventual corner). Sente has Rook （6五）, a blocking Pawn （6三） directly above the rook\'s own start square (this is essential — an empty file under the rook lets it slide all the way to the back rank and promote into a Dragon King for an accidental mate-in-1, so the blocker pawn is load-bearing), a static Knight （5三）, a second Knight （2五）, and one Gold in hand.\n\n1. Rook （6五）->（3五）: check along the file. King\'s neighbors （4一）/（4二） are blocked by the static Knight and the gote pawn; （3二） is on the rook\'s file; （2二） is blocked by a gote pawn. Only （2一） is legal.\n2. King （3一）->（2一） (forced).\n3. Knight （2五）->（1三）: check on （2一） (a knight attacks two squares two rows back diagonally). Landing on （1三） rather than （3三） is important — landing on （3三） would sit on the rook\'s own file and block its own check, and the alternate landing （1三） had to be checked against the gote pawn at （1二） being able to capture it, which is why the pawn stays at （1二） rather than a square that could capture the knight. King\'s neighbors （3一）/（3二） are covered by the rook\'s file, （2二）/（1二） are blocked by gote pawns, leaving only （1一）.\n4. King （2一）->（1一） (forced).\n5. Gold drop at （2一）: checks the king directly. （2一） is defended by the Knight sitting at （1三） (so the king cannot capture it), while （2二） and （1二） remain blocked by gote\'s own pawns. No legal reply — checkmate.\n\nVerified with the project\'s TsumeEngine (tool script run against [REDACTED_LOCAL_PATH]\\apps\\shogi_app\\lib\\logic.dart / tsume_engine.dart): START_OK (gote not in check and has a legal move at the start), NO_DEAD_PIECES, SOLUTION_OK (every sente move is check and gote has no legal move after move 5), and NO_COOK_CONFIRMED (exhaustive engine search at depth 1 and depth 3 found no shorter forced mate).',
     ));
   }
 
@@ -499,7 +499,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 1, tr: 0, tc: 0),
         AMove(fr: -1, fc: -1, tr: 0, tc: 1, drop: PieceType.gold),
       ],
-      explanation: '後手玉は9一（盤面(0,0)）の一隅。1手目、飛車を9三(2,0)へ打って王手（縦の利きで9一を睨む）。2手目、玉は8一(0,1)へ逃げるほかない（9二・9一への復帰はいずれも次の飛車の利きに入るため不可）。3手目、飛車が9二(2,1)へ寄って成り、竜王とする（王手）。4手目、玉は9一(0,0)へ戻るしかない（8二・8一は竜の利き）。5手目、持ち駒の金を8一(0,1)に打って詰み——玉のどの逃げ場（8一・8二・9二）も竜と金の利きで塞がれており、金は竜に守られているため取ることもできない。盤上の駒は両玉のみとし、飛車と金2枚をすべて持ち駒からの補充とすることで、原題にあった「桂馬などの余剰駒」を排除しつつ、王手の連続性のみで詰みを強制する構成にした。',
+      explanation: '後手玉は9一（盤面（9一））の一隅。1手目、飛車を9三（9三）へ打って王手（縦の利きで9一を睨む）。2手目、玉は8一（8一）へ逃げるほかない（9二・9一への復帰はいずれも次の飛車の利きに入るため不可）。3手目、飛車が9二（8三）へ寄って成り、竜王とする（王手）。4手目、玉は9一（9一）へ戻るしかない（8二・8一は竜の利き）。5手目、持ち駒の金を8一（8一）に打って詰み——玉のどの逃げ場（8一・8二・9二）も竜と金の利きで塞がれており、金は竜に守られているため取ることもできない。盤上の駒は両玉のみとし、飛車と金2枚をすべて持ち駒からの補充とすることで、原題にあった「桂馬などの余剰駒」を排除しつつ、王手の連続性のみで詰みを強制する構成にした。',
     ));
   }
 
@@ -527,7 +527,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 1, tr: 0, tc: 2),
         AMove(fr: 4, fc: 4, tr: 2, tc: 3),
       ],
-      explanation: '飛(5三)を9筋(5一…盤面表記では列0)へ寄せて王手。玉は8一(0,1)へ逃げるほかない。次に桂(4三)が7三(2,2)へ跳んで王手し、玉は7一(0,2)へ追われる。最後にもう一枚の桂(4四)が7四(2,3)へ跳んで王手し、周囲がすべて味方の桂(8四・8五相当の(3,1)(3,2))で塞がれているため詰み。',
+      explanation: '飛(5三)を9筋(5一…盤面表記では列0)へ寄せて王手。玉は8一（8一）へ逃げるほかない。次に桂(4三)が7三（7三）へ跳んで王手し、玉は7一（7一）へ追われる。最後にもう一枚の桂(4四)が7四（6三）へ跳んで王手し、周囲がすべて味方の桂(8四・8五相当の（8四）（7四）)で塞がれているため詰み。',
     ));
   }
 
@@ -553,7 +553,7 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
         AMove(fr: 0, fc: 7, tr: 0, tc: 6),
         AMove(fr: 2, fc: 7, tr: 1, tc: 6),
       ],
-      explanation: '龍で横に連続王手して後手玉を端から追い出し、最後に龍が7二（内部座標で行1列6）に入って詰めます。金が9四（内部座標で行4列8）から逃げ道を塞いでいます。修正版では元図にあった先手の銀（3一、内部座標row0,col6）を削除しました。この銀は正解手順では一度も動かず、実は龍の1回目の王手（2,4→2,8）で後手玉が2,7に逃げた直後、銀が1,7へ動くだけで即詰み（3手詰め）になってしまう「余詰め」の原因でした。銀を除去してもその他の駒（龍・桂・金・王）だけで元の5手の攻め筋・詰み形はそのまま成立します。',
+      explanation: '龍で横に連続王手して後手玉を端から追い出し、最後に龍が7二（内部座標で行1列6）に入って詰めます。金が9四（内部座標で行4列8）から逃げ道を塞いでいます。修正版では元図にあった先手の銀（3一、内部座標3一）を削除しました。この銀は正解手順では一度も動かず、実は龍の1回目の王手（2,4→2,8）で後手玉が2,7に逃げた直後、銀が1,7へ動くだけで即詰み（3手詰め）になってしまう「余詰め」の原因でした。銀を除去してもその他の駒（龍・桂・金・王）だけで元の5手の攻め筋・詰み形はそのまま成立します。',
     ));
   }
 
@@ -629,7 +629,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
       solution: [
         AMove(fr: -1, fc: -1, tr: 2, tc: 2, drop: PieceType.bishop),
       ],
-      explanation: '角を3三(row2,col2)に打って斜めに1一(row0,col0)へ王手。逃げ場所は(0,1)が既存の角(2,3)の利き、(1,1)が金(2,1)の利きで塞がれ、(1,0)は後手自身の歩で移動不可のため、詰み。',
+      explanation: '角を3三に打って斜めに1一へ王手。逃げ場所は（8一）が既存の角（6三）の利き、（8二）が金（8三）の利きで塞がれ、（9二）は後手自身の歩で移動不可のため、詰み。',
     ));
   }
 
@@ -675,7 +675,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 0, tr: 1, tc: 0),
         AMove(fr: 3, fc: 0, tr: 2, tc: 0),
       ],
-      explanation: '後手玉は9一(row0,col0)の隅。1手目、角を9二相当の(1,1)に打って斜めから王手（2二・8八方向）。玉は9一のまま角を取ることはできない（(1,1)は桂馬(3,2)が利かせて守っているため）。唯一の逃げ場は(1,0)（8一相当）のみ：(0,1)は桂馬(2,2)が跳び利かせて塞ぎ、(1,1)は角を取ると桂馬に取り返されるので実質逃げられない。2手目、玉は(1,0)へ移動。3手目、金を(3,0)から(2,0)へ進めて王手。金は(1,0)（王手）に加え(1,1)・(2,1)を制し、金自体も桂馬(4,1)に守られているため玉は取れず、(0,0)は角、(0,1)は桂馬(2,2)、(1,1)は角＋桂馬(3,2)により全て塞がれており詰み。',
+      explanation: '後手玉は9一の隅。1手目、角を9二相当の（8二）に打って斜めから王手（2二・8八方向）。玉は9一のまま角を取ることはできない（（8二）は桂馬（7四）が利かせて守っているため）。唯一の逃げ場は（9二）（8一相当）のみ：（8一）は桂馬（7三）が跳び利かせて塞ぎ、（8二）は角を取ると桂馬に取り返されるので実質逃げられない。2手目、玉は（9二）へ移動。3手目、金を（9四）から（9三）へ進めて王手。金は（9二）（王手）に加え（8二）・（8三）を制し、金自体も桂馬（8五）に守られているため玉は取れず、（9一）は角、（8一）は桂馬（7三）、（8二）は角＋桂馬（7四）により全て塞がれており詰み。',
     ));
   }
 
@@ -760,7 +760,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 0, tr: 1, tc: 0),
         AMove(fr: -1, fc: -1, tr: 2, tc: 1, drop: PieceType.gold),
       ],
-      explanation: '金を(0,1)（1一の隣の2一相当）に打って王手。玉の逃げ場は(1,0)の一マスのみなので、玉はそこへ逃げる。続けてもう一枚の金を(2,1)に打つと、1一の銀の利きでこの金は取られず、玉の全ての逃げ場((0,0)は最初の金、(1,1)と(2,0)は今打った金、(0,1)と(2,1)自体は銀の利きで防御)が塞がれ詰み。',
+      explanation: '金を（8一）（1一の隣の2一相当）に打って王手。玉の逃げ場は（9二）の一マスのみなので、玉はそこへ逃げる。続けてもう一枚の金を（8三）に打つと、1一の銀の利きでこの金は取られず、玉の全ての逃げ場(（9一）は最初の金、（8二）と（9三）は今打った金、（8一）と（8三）自体は銀の利きで防御)が塞がれ詰み。',
     ));
   }
 
@@ -785,7 +785,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 8, tr: 1, tc: 8),
         AMove(fr: 3, fc: 8, tr: 2, tc: 8),
       ],
-      explanation: 'Redesigned as a fresh 3-move mate (kept the theme: knight drop forces the cornered king out, then a piece delivers mate) since patching the original piece set could not avoid the cook.\n\nOriginal cook: with the given pieces, sente\'s gold at (row1,col6) could move directly to (row1,col7), checking the still-cornered king and, by itself (defended by the dragon), covering all three of the corner king\'s flight squares — mate in 1, without needing the knight drop at all (or via the promotedRook/gold combo more generally). This is a structural property of a defended gold delivering a diagonal check to a corner king (it always covers all 3 corner flight squares), so no small patch of the original board reliably fixes it — a fresh layout was built instead.\n\nNew board: Gote king at (0,8) [1一]. Sente: Lance at (1,7) [2二] (attacks only vertically along its own file, so it sits diagonally adjacent to the king without itself giving check, and covers square (0,7)); Silver at (2,6) [3三] (defends the lance at (1,7) so the king cannot safely capture it); two Golds at (3,7) and (3,8) [4二, 4一] (one moves to (2,8) for the final mate, the other stays put purely to defend that landing square). Sente hand: knight ×1.\n\nSolution:\n1. Sente drops knight at (2,7) [3二] — check (knight attacks (0,6) and (0,8)); king\'s only safe square is (1,8) [2一] since (0,7) is covered by the lance and (1,7) is occupied by the (defended) lance.\n2. Gote king moves (0,8)→(1,8) (forced).\n3. Sente\'s gold at (3,8) moves to (2,8) [3一] — check via straight-forward move. All of king\'s neighbor squares are now covered: (0,7) by the lance, (0,8) by the knight, (1,7) by the lance (defended by silver and by the moved gold), (2,7) by the knight itself (defended by both golds), (2,8) by the moved gold itself (defended by the stationary gold at (3,7), whose line only fully "arrives" there but the key point is it directly attacks (2,8)). Checkmate.\n\nVerified with the project\'s TsumeEngine ([REDACTED_LOCAL_PATH]\\apps\\shogi_app\\lib\\tsume_engine.dart): the claimed 3-move solution is confirmed as a valid checkmate (SOLUTION_OK), every sente move is check, and no shorter mate exists at depth 1 (NO_COOK_CONFIRMED). All 5 board pieces plus the hand knight are load-bearing (no dead/removable pieces): lance blocks/covers (0,7), silver defends the lance, the moving gold delivers the final check and defends the knight\'s square, the stationary gold defends the final gold\'s landing square, and the knight delivers the forcing first check.',
+      explanation: 'Redesigned as a fresh 3-move mate (kept the theme: knight drop forces the cornered king out, then a piece delivers mate) since patching the original piece set could not avoid the cook.\n\nOriginal cook: with the given pieces, sente\'s gold at  could move directly to , checking the still-cornered king and, by itself (defended by the dragon), covering all three of the corner king\'s flight squares — mate in 1, without needing the knight drop at all (or via the promotedRook/gold combo more generally). This is a structural property of a defended gold delivering a diagonal check to a corner king (it always covers all 3 corner flight squares), so no small patch of the original board reliably fixes it — a fresh layout was built instead.\n\nNew board: Gote king at （1一） [1一]. Sente: Lance at （2二） [2二] (attacks only vertically along its own file, so it sits diagonally adjacent to the king without itself giving check, and covers square （2一）); Silver at （3三） [3三] (defends the lance at （2二） so the king cannot safely capture it); two Golds at （2四） and （1四） [4二, 4一] (one moves to （1三） for the final mate, the other stays put purely to defend that landing square). Sente hand: knight ×1.\n\nSolution:\n1. Sente drops knight at （2三） [3二] — check (knight attacks （3一） and （1一）); king\'s only safe square is （1二） [2一] since （2一） is covered by the lance and （2二） is occupied by the (defended) lance.\n2. Gote king moves （1一）→（1二） (forced).\n3. Sente\'s gold at （1四） moves to （1三） [3一] — check via straight-forward move. All of king\'s neighbor squares are now covered: （2一） by the lance, （1一） by the knight, （2二） by the lance (defended by silver and by the moved gold), （2三） by the knight itself (defended by both golds), （1三） by the moved gold itself (defended by the stationary gold at （2四）, whose line only fully "arrives" there but the key point is it directly attacks （1三）). Checkmate.\n\nVerified with the project\'s TsumeEngine ([REDACTED_LOCAL_PATH]\\apps\\shogi_app\\lib\\tsume_engine.dart): the claimed 3-move solution is confirmed as a valid checkmate (SOLUTION_OK), every sente move is check, and no shorter mate exists at depth 1 (NO_COOK_CONFIRMED). All 5 board pieces plus the hand knight are load-bearing (no dead/removable pieces): lance blocks/covers （2一）, silver defends the lance, the moving gold delivers the final check and defends the knight\'s square, the stationary gold defends the final gold\'s landing square, and the knight delivers the forcing first check.',
     ));
   }
 
@@ -809,7 +809,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 1, tr: 0, tc: 0),
         AMove(fr: -1, fc: -1, tr: 0, tc: 1, drop: PieceType.gold),
       ],
-      explanation: '飛を2一(row2,col0)に打って王手。後手玉は1二(0,1)へ逃げるほかない（1一へ行くと飛の効きの列で取れず、王手放置になる分岐は後述）。次に飛を2二(row2,col1)へ成って竜にしながら王手（列2の利きと竜の斜め一マスの利きで1一・2一・2二周辺を制圧）。玉は1一(0,0)に戻るしかない。最後に金を1二(0,1)に打つ。金は1一・1二(自マス)・2二を制圧し、竜が1二・2二・2一を後方支援しているため、玉はどこにも逃げられず、金も竜に守られていて取れない。詰み。',
+      explanation: '飛を2一に打って王手。後手玉は1二（8一）へ逃げるほかない（1一へ行くと飛の効きの列で取れず、王手放置になる分岐は後述）。次に飛を2二へ成って竜にしながら王手（列2の利きと竜の斜め一マスの利きで1一・2一・2二周辺を制圧）。玉は1一（9一）に戻るしかない。最後に金を1二（8一）に打つ。金は1一・1二(自マス)・2二を制圧し、竜が1二・2二・2一を後方支援しているため、玉はどこにも逃げられず、金も竜に守られていて取れない。詰み。',
     ));
   }
 
@@ -882,7 +882,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 4, tr: 0, tc: 5),
         AMove(fr: -1, fc: -1, tr: 0, tc: 4, drop: PieceType.gold),
       ],
-      explanation: '角(row5,col5)を(row3,col7)へ進めて後手玉(row0,col4)に長い斜め王手（途中(4,6)(2,6)(1,5)は全て空きで通る）。玉の逃げ場5マスのうち4マスが封鎖されている：(0,3)/(1,3)は香(row3,col3)が利かせて塞ぎ、(1,4)は元々あった行き所のない桂（row1は先手桂にとって禁忌のため後手歩に置き換え済み）が自分の駒として居座って玉自身の移動先になれず塞ぎ、(1,5)は動いた角が斜めに利かせて塞ぐ。唯一空いているrow0,col5へ逃げるしかない。そこで手放していた金を、玉が去って空いた元の玉の位置(row0,col4)に打つ。この金は移動後の角の斜め筋(row3,col7方向、(row0,col4)を貫く)に守られており玉は取れず、周囲の(0,6)はもう一つの桂(row2,col7)、(1,4)は後手自身の歩、(1,5)は角、(1,6)は桂(row3,col5)がそれぞれ利いており、後手玉は完全に詰む。',
+      explanation: '角を4六から2四へ進めて王手。玉が4一へ逃げたところに、持ち駒の金を5一に打って詰みです。',
     ));
   }
 
@@ -907,7 +907,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 1, tr: 0, tc: 2),
         AMove(fr: -1, fc: -1, tr: 1, tc: 2, drop: PieceType.gold),
       ],
-      explanation: '歩を9二(1,0)に打って王手し後手玉を9一→8一(0,1)へ追い、8三(3,3)にいた桂が6五(2,2)へ跳んで王手、玉は7一(0,2)へ。最後に金を7二(1,2)に打って詰み。手順自体は原案と同一。',
+      explanation: '歩を9二（9二）に打って王手し後手玉を9一→8一（8一）へ追い、8三（6四）にいた桂が6五（7三）へ跳んで王手、玉は7一（7一）へ。最後に金を7二（7二）に打って詰み。手順自体は原案と同一。',
     ));
   }
 
@@ -952,7 +952,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
         AMove(fr: 0, fc: 4, tr: 0, tc: 5),
         AMove(fr: -1, fc: -1, tr: 1, tc: 5, drop: PieceType.gold),
       ],
-      explanation: 'と金を6二(1,3)へ進めて斜めに5一(0,4)の後手玉へ王手。玉は6一(0,5)に逃げるが、6二(1,5)に金を打つと金自身の利きと桂の守りで全逃げ道が塞がり詰み。と金と金の連携。',
+      explanation: 'と金を6二（6二）へ進めて斜めに5一（5一）の後手玉へ王手。玉は6一（4一）に逃げるが、6二（4二）に金を打つと金自身の利きと桂の守りで全逃げ道が塞がり詰み。と金と金の連携。',
     ));
   }
 }
