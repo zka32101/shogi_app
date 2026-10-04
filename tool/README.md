@@ -14,3 +14,12 @@
 - 余詰（初手の別解）は警告のみ。アプリは「詰み手ならどれでも正解」と判定するので遊びには影響しない。
 - `verify_tesuji` の WARN は「疑い」。AIの最善手が詰みや大きな駒得で、データの正解より強い手がある場合に出る。
   画面側は別解も受け入れる（`tesuji_screen.dart`）。
+
+## 手筋問題の仕分け（tool/triage_tesuji.dart / tool/inspect_tesuji.dart）
+
+- `dart run tool/triage_tesuji.dart` — 全問を「正解手の3手読み損得」で OK / WEAK / BAD に仕分ける（約5分）。
+  捨て駒・守りは最初に駒損になるのが正しいことがあるため BAD でも即不正解とは限らない。
+  飛車取り・王手金取り・両取りで BAD は成立していない問題。
+- `dart run tool/inspect_tesuji.dart <id>...` — 盤面・正解手・相手の最善応手・AI上位手を表示する。
+- 成立していない問題は `lib/tesuji_problems.dart` 末尾の `excluded` で出題から外している（直したら外す）。
+  2026-10 時点: 102問 → 82問（20問を除外）。
