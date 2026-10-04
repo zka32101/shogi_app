@@ -2012,6 +2012,7 @@ class _SolvePageState extends State<_SolvePage> {
     _p1Hand = Map<PieceType, int>.from(prob.p1Hand);
     _p2Hand = Map<PieceType, int>.from(prob.p2Hand);
     _solutionIdx = 0;
+    _hintLevel = 0; // 再挑戦で前回のヒントを残さない
     _solved = false;
     _selected = null;
     _legalDots = {};
@@ -2027,6 +2028,7 @@ class _SolvePageState extends State<_SolvePage> {
 
   /// 現在の局面（先手番）での詰み手。解答手順の手が詰み手ならそれを優先する。
   AMove? _hintMoveNow() {
+    if (_verifying) return null; // 手の判定中・不正解の巻き戻し中は古い局面のヒントを出さない
     final remaining = widget.prob.moves - _solutionIdx;
     if (remaining < 1) return null;
     final pos = tsumePos(_board, _p1Hand, _p2Hand);
