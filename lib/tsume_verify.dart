@@ -11,6 +11,7 @@ import 'logic.dart';
 import 'piece.dart';
 import 'tsume_builtin_problems.dart';
 import 'tsume_judge.dart';
+import 'tsume_rules.dart';
 
 const _limit = {
   PieceType.pawn: 18,
@@ -90,8 +91,11 @@ List<Prob> loadTsumeJson(String jsonText) {
         promote: m['promote'] as bool? ?? false,
       );
     }).toList();
-    out.add(Prob(j['title'] as String, j['moves'] as int, b,
-        hand(j['p1Hand'] as Map<String, dynamic>?), hand(j['p2Hand'] as Map<String, dynamic>?), sol));
+    // 詰将棋ルール: 攻め方の玉は取り除き、残り駒を受け方の持ち駒にする
+    final p1h = hand(j['p1Hand'] as Map<String, dynamic>?);
+    final nb = tsumeWithoutAttackerKing(b);
+    out.add(Prob(j['title'] as String, j['moves'] as int, nb, p1h,
+        tsumeDefenderHand(nb, p1h), sol));
   }
   return out;
 }
@@ -138,7 +142,7 @@ TsumeReport verifyTsumeProblems(List<Prob> problems) {
       if (lim != null && n > lim) err('駒数超過: ${t.name} $n枚（上限$lim）');
     });
     if (kingsP2 != 1) err('後手玉が$kingsP2枚');
-    if (kingsP1 > 1) err('先手玉が$kingsP1枚');
+    if (kingsP1 > 0) err('攻め方（先手）の玉が盤上にある（詰将棋では置かない）');
     for (final isP1 in [true, false]) {
       for (int c = 0; c < 9; c++) {
         int n = 0;

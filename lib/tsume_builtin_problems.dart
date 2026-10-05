@@ -6,6 +6,7 @@
 
 import 'piece.dart';
 import 'logic.dart';
+import 'tsume_rules.dart';
 
 class TsumeProb {
   final String title;
@@ -31,6 +32,36 @@ class TsumeProb {
   });
 }
 
+const _notMateWithInterposition = <String>{
+  '1手詰め ④',
+  '3手詰め ①',
+  '3手詰め ②',
+  '3手詰め ⑤',
+  '3手詰め ⑥',
+  '5手詰め ①',
+  '5手詰め ④',
+  '5手詰め ⑤',
+  '3手詰め ⑩',
+  '5手詰め ⑦',
+  '5手詰め ⑧',
+  '3手詰め ⑬',
+};
+
+/// 詰将棋ルールに合わせた問題へ正規化する（攻め方の玉を除去・受け方の持ち駒=残り駒）。
+TsumeProb normalizeTsumeProb(TsumeProb p) {
+  final board = tsumeWithoutAttackerKing(p.board);
+  return TsumeProb(
+    title: p.title,
+    moves: p.moves,
+    board: board,
+    p1Hand: p.p1Hand,
+    p2Hand: tsumeDefenderHand(board, p.p1Hand),
+    p1Turn: p.p1Turn,
+    solution: p.solution,
+    explanation: p.explanation,
+  );
+}
+
 List<List<Piece?>> _empty() =>
     List.generate(9, (_) => List<Piece?>.filled(9, null));
 
@@ -44,7 +75,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[0][0] = Piece(PieceType.king, false);
     b[0][1] = Piece(PieceType.silver, true);
     b[2][1] = Piece(PieceType.gold, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '1手詰め ①',
       moves: 1,
@@ -64,7 +94,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     final b = _empty();
     b[0][8] = Piece(PieceType.king, false);
     b[2][8] = Piece(PieceType.gold, true);
-    b[4][4] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '1手詰め ②',
       moves: 1,
@@ -88,7 +117,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   {
     final b = _empty();
     b[0][4] = Piece(PieceType.king, false);          // 後手玉 5一(0,4)
-    b[8][4] = Piece(PieceType.king, true);            // 先手玉 5九(8,4)
     b[2][3] = Piece(PieceType.promotedRook, true);   // 先手龍 4三(2,3)
     b[3][3] = Piece(PieceType.knight, true);          // 先手桂 4四(3,3) ← 5二を守る
     list.add(TsumeProb(
@@ -112,7 +140,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[2][3] = Piece(PieceType.bishop, true);
     b[3][2] = Piece(PieceType.knight, true);
     b[5][3] = Piece(PieceType.promotedRook, true);
-    b[8][4] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '1手詰め ④',
       moves: 1,
@@ -138,7 +165,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   {
     final b = _empty();
     b[0][8] = Piece(PieceType.king, false);   // 後手玉 9一(0,8)
-    b[8][8] = Piece(PieceType.king, true);    // 先手玉 9九(8,8)
     b[2][7] = Piece(PieceType.gold, true);    // 先手金 7三(2,7) ← 8二・9二を守る
     b[1][6] = Piece(PieceType.silver, true);  // 先手銀 8三(1,6) ← 8一を守る
     b[4][4] = Piece(PieceType.pawn, false);   // 後手歩（開始局面が終端状態になるのを防ぐ）
@@ -164,7 +190,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   {
     final b = _empty();
     b[0][4] = Piece(PieceType.king, false);           // 後手玉 5一(0,4)
-    b[8][4] = Piece(PieceType.king, true);             // 先手玉 5九(8,4)
     b[2][4] = Piece(PieceType.promotedBishop, true);   // 先手馬 5三(2,4)
     b[1][2] = Piece(PieceType.gold, true);             // 先手金 7二(1,2) ← 4一・4二を守る
     b[3][6] = Piece(PieceType.knight, true);           // 先手桂 3四(3,6) ← 6二を守る
@@ -190,7 +215,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);   // 後手玉 1一(0,0)
-    b[8][8] = Piece(PieceType.king, true);    // 先手玉 9九(8,8)
     b[3][1] = Piece(PieceType.knight, true);  // 先手桂 2四(3,1) ← 1二を守る
     list.add(TsumeProb(
       title: '1手詰め ⑦',
@@ -217,7 +241,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[2][5] = Piece(PieceType.knight, true);
     b[3][5] = Piece(PieceType.knight, true);
     b[4][2] = Piece(PieceType.rook, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ①',
       moves: 3,
@@ -249,7 +272,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);          // 後手玉 1一(0,0)
-    b[8][8] = Piece(PieceType.king, true);            // 先手玉 9九(8,8)
     b[5][0] = Piece(PieceType.promotedRook, true);   // 先手龍 1六(5,0)
     b[2][2] = Piece(PieceType.gold, true);            // 先手金 3三(2,2)
     b[2][1] = Piece(PieceType.bishop, true);          // 先手角 2三(2,1)
@@ -276,7 +298,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[0][8] = Piece(PieceType.king, false);
     b[2][3] = Piece(PieceType.rook, true);
     b[3][5] = Piece(PieceType.knight, true);
-    b[8][0] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ③',
       moves: 3,
@@ -302,7 +323,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[3][0] = Piece(PieceType.gold, true);
     b[3][4] = Piece(PieceType.rook, true);
     b[4][1] = Piece(PieceType.knight, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑤',
       moves: 3,
@@ -326,7 +346,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[1][5] = Piece(PieceType.promotedBishop, true);
     b[2][8] = Piece(PieceType.knight, true);
     b[3][6] = Piece(PieceType.gold, true);
-    b[8][0] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑥',
       moves: 3,
@@ -353,7 +372,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[3][5] = Piece(PieceType.knight, true);
     b[3][6] = Piece(PieceType.knight, true);
     b[6][4] = Piece(PieceType.rook, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑦',
       moves: 3,
@@ -404,7 +422,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
   {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '5手詰め ④',
       moves: 5,
@@ -432,7 +449,6 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
     b[4][3] = Piece(PieceType.knight, true);
     b[4][4] = Piece(PieceType.knight, true);
     b[5][3] = Piece(PieceType.rook, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '5手詰め ⑤',
       moves: 5,
@@ -454,6 +470,13 @@ List<TsumeProb> buildTsumeProblems({bool skipStartPositionFilter = false}) {
 
   // ===== 追加問題 (⑧以降) =====
   _buildExtraProblems(list);
+
+  // 詰将棋のルール: 攻め方の玉は置かず、残り駒はすべて受け方の持ち駒（合駒用）
+  for (int i = 0; i < list.length; i++) {
+    list[i] = normalizeTsumeProb(list[i]);
+  }
+  // 合駒を考慮すると詰みにならない問題は出題しない（tool/repair_tsume.dart の診断結果）
+  list.removeWhere((p) => _notMateWithInterposition.contains(p.title));
 
   if (skipStartPositionFilter) return list;
 
@@ -513,7 +536,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     b[1][0] = Piece(PieceType.pawn, false);
     b[2][1] = Piece(PieceType.gold, true);
     b[2][3] = Piece(PieceType.bishop, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '1手詰め ⑩',
       moves: 1,
@@ -521,7 +543,7 @@ void _buildExtraProblems(List<TsumeProb> list) {
       p1Hand: {PieceType.bishop: 1},
       p2Hand: {},
       solution: [
-        AMove(fr: -1, fc: -1, tr: 2, tc: 2, drop: PieceType.bishop),
+        AMove(fr: -1, fc: -1, tr: 1, tc: 1, drop: PieceType.bishop),
       ],
       explanation: '',
     ));
@@ -537,7 +559,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     b[3][0] = Piece(PieceType.gold, true);
     b[3][2] = Piece(PieceType.knight, true);
     b[4][1] = Piece(PieceType.knight, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑨',
       moves: 3,
@@ -586,7 +607,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
   {
     final b = _empty();
     b[0][8] = Piece(PieceType.king, false);  // 後手玉 9一
-    b[8][0] = Piece(PieceType.king, true);   // 先手玉 1九
     b[1][3] = Piece(PieceType.rook, true);   // 先手飛 6二
     b[2][7] = Piece(PieceType.gold, true);   // 先手金 7三 ← 9二を守る
     list.add(TsumeProb(
@@ -605,7 +625,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
   {
     final b = _empty();
     b[0][4] = Piece(PieceType.king, false);           // 後手玉 5一
-    b[8][4] = Piece(PieceType.king, true);            // 先手玉 5九
     b[2][3] = Piece(PieceType.promotedBishop, true);  // 先手馬 4三
     b[3][5] = Piece(PieceType.knight, true);          // 先手桂 3六 ← 5二を守る
     list.add(TsumeProb(
@@ -622,7 +641,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);
     b[1][2] = Piece(PieceType.silver, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑪',
       moves: 3,
@@ -647,7 +665,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     b[2][6] = Piece(PieceType.silver, true);
     b[3][7] = Piece(PieceType.gold, true);
     b[3][8] = Piece(PieceType.gold, true);
-    b[8][0] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑫',
       moves: 3,
@@ -669,7 +686,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);
     b[4][3] = Piece(PieceType.knight, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '5手詰め ⑦',
       moves: 5,
@@ -692,7 +708,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
   {
     final b = _empty();
     b[0][0] = Piece(PieceType.king, false);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '5手詰め ⑧',
       moves: 5,
@@ -744,7 +759,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     b[3][3] = Piece(PieceType.lance, true);
     b[3][5] = Piece(PieceType.knight, true);
     b[5][5] = Piece(PieceType.bishop, true);
-    b[8][0] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑬',
       moves: 3,
@@ -790,7 +804,6 @@ void _buildExtraProblems(List<TsumeProb> list) {
     b[2][7] = Piece(PieceType.knight, true);
     b[3][4] = Piece(PieceType.knight, true);
     b[3][7] = Piece(PieceType.knight, true);
-    b[8][8] = Piece(PieceType.king, true);
     list.add(TsumeProb(
       title: '3手詰め ⑭',
       moves: 3,

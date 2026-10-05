@@ -12,7 +12,7 @@ import 'theme/app_theme.dart';
 import 'logic.dart';
 import 'tsume_judge.dart';
 import 'mini_board_widget.dart';
-import 'tsume_builtin_problems.dart' show TsumeProb, buildTsumeProblems;
+import 'tsume_builtin_problems.dart' show TsumeProb, buildTsumeProblems, normalizeTsumeProb;
 import 'study_calendar_screen.dart';
 
 // ===== 問題データ =====
@@ -86,7 +86,7 @@ _TsumeProb? _tsumeFromJson(Map<String, dynamic> j) {
         }
       }
     }
-    if (p1Kings != 1 || p2Kings != 1) return null;
+    if (p1Kings > 1 || p2Kings != 1) return null;
 
     final sol = (j['solution'] as List<dynamic>).map((e) {
       final m = e as Map<String, dynamic>;
@@ -2637,10 +2637,11 @@ class _SolvePageState extends State<_SolvePage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('後手持ち駒:',
+                      // 詰将棋のルール: 盤上・攻め方の持ち駒以外の駒はすべて受け方の持ち駒
+                      // （合駒に使える）。枚数が多いので一覧は出さず、注記だけ表示する。
+                      const Text('受け方の持ち駒: 残りの駒すべて（合駒に使えます）',
                           style:
                               TextStyle(color: Colors.white38, fontSize: 11)),
-                      _handWidget(_p2Hand, isP1: false),
                     ],
                   ),
                 ),
