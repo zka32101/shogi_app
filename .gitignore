@@ -110,3 +110,4 @@ SETUP.md
 *.jks
 *.keystore
 appstore_api_key.p8
+tool/out/

@@ -7,9 +7,9 @@
 //
 // 各局面には実戦感を出すため「玉の守り駒・歩・他の駒」を配置し、持ち駒も持たせている。
 // 追加した駒は正解手の利き・経路・手筋成立を壊さない位置にあること（検証スクリプトで担保）。
-import 'dart:convert';
 import 'piece.dart';
 import 'sfen_parser.dart';
+import 'tesuji_fill.dart';
 
 class TesujiProb {
   final String id;
@@ -293,7 +293,8 @@ void _p2(List<List<Piece?>> b, int r, int c, PieceType t) {
   if (b[r][c] == null) b[r][c] = Piece(t, false);
 }
 
-List<TesujiProb> buildTesujiProblems() {
+/// [applyFill]=false で全駒配置前の「素の」問題を返す（tool/densify_tesuji.dart 用）。
+List<TesujiProb> buildTesujiProblems({bool applyFill = true}) {
   final list = <TesujiProb>[];
 
   // ============================================================
@@ -2676,7 +2677,39 @@ List<TesujiProb> buildTesujiProblems() {
     // 上記以外で、捨て駒・守り以外なのに竜や飛車などを代償なく失う問題
     'tech_4', 'tech_9', 'mamori_4', 'hashi_8', 'hashi_10',
     'umaryuu_4', 'umaryuu_8', 'umaryuu_10',
+    // 全駒配置化（tool/densify_tesuji.dart）で成立しない問題:
+    // mamori_6 は解説(6六)と正解座標(3七)が食い違い正解が最善でない。
+    // mamori_7 / tech_5 は駒を足すと3手読みで正解より強い別手が必ず生じる（駒損得で測れない守り・位取り）。
+    'mamori_6', 'mamori_7', 'tech_5',
   };
   list.removeWhere((p) => excluded.contains(p.id));
-  return list;
+  if (!applyFill) return list;
+  return [for (final p in list) _withFill(p)];
+}
+
+/// lib/tesuji_fill.dart（tool/densify_tesuji.dart が生成）の追加駒を盤面へ反映する。
+/// 形式: "行 列 SFEN文字;..."（大文字=先手）。既存の駒は動かさない。
+TesujiProb _withFill(TesujiProb p) {
+  final spec = tesujiFill[p.id];
+  if (spec == null || spec.isEmpty) return p;
+  final b = [for (final row in p.board) List<Piece?>.of(row)];
+  const types = {
+    'K': PieceType.king, 'R': PieceType.rook, 'B': PieceType.bishop,
+    'G': PieceType.gold, 'S': PieceType.silver, 'N': PieceType.knight,
+    'L': PieceType.lance, 'P': PieceType.pawn,
+  };
+  for (final item in spec.split(';')) {
+    final f = item.trim().split(' ');
+    if (f.length != 3) continue;
+    final r = int.parse(f[0]), c = int.parse(f[1]);
+    final ch = f[2];
+    if (b[r][c] != null) continue;
+    b[r][c] = Piece(types[ch.toUpperCase()]!, ch == ch.toUpperCase());
+  }
+  return TesujiProb(
+    id: p.id, title: p.title, category: p.category, explanation: p.explanation,
+    board: b, p1Hand: p.p1Hand, p2Hand: p.p2Hand, p1Turn: p.p1Turn,
+    answer: p.answer, sourceUrl: p.sourceUrl, sourceTitle: p.sourceTitle,
+    difficulty: p.difficulty,
+  );
 }
