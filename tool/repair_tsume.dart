@@ -17,6 +17,7 @@ import 'package:shogi_app/logic.dart';
 import 'package:shogi_app/piece.dart';
 import 'package:shogi_app/tsume_builtin_problems.dart';
 import 'package:shogi_app/tsume_judge.dart';
+import 'package:shogi_app/tsume_rules.dart';
 
 const _toCsa = {
   PieceType.king: 'OU',
@@ -186,7 +187,7 @@ void main(List<String> args) {
               if (_fromCsa[x.key] != null) _fromCsa[x.key]!: x.value as int
         };
     final p1h = hand(j['p1Hand'] as Map<String, dynamic>?);
-    final p2h = hand(j['p2Hand'] as Map<String, dynamic>?);
+    final p2h = tsumeDefenderHand(b, p1h); // 詰将棋ルール: 残り駒=受け方の持ち駒
     final moves = j['moves'] as int;
     final title = '${j['title']}(${j['id']})';
     final sol = (j['solution'] as List<dynamic>).map((x) {
@@ -200,7 +201,7 @@ void main(List<String> args) {
         promote: m['promote'] as bool? ?? false,
       );
     }).toList();
-    final start = tsumePos(b, p1h, p2h);
+    final start = tsumePos(b, Map.of(p1h), Map.of(p2h));
     final pp = positionProblem(b, p1h, p2h);
     if (pp != null) {
       stdout.writeln('DROP   $title: 局面不成立（$pp）');
